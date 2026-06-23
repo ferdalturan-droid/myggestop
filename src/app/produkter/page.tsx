@@ -26,6 +26,7 @@ export default async function ProdukterPage() {
             title="Specialfremstillede myggenet til vinduer og dore"
             text="Alle vores produkter laves efter dine egne mal. Vaelg produkt, indtast mal i bestillingen, og fa en estimeret pris med det samme."
           />
+          <img src="/produkter-banner.png" alt="Myggestop produkter - plissedor og myggenet til vinduer og dore" className="reveal mt-10 w-full rounded-xl2 border border-brand-line shadow-card" />
           <div className="mt-12 grid gap-6 lg:grid-cols-2">
             {products.map((p) => (
               <ProductCard key={p.id} product={p} />
