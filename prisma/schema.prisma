@@ -1,0 +1,153 @@
+// Myggestop – Prisma schema (PostgreSQL)
+generator client {
+  provider = "prisma-client-js"
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+model AdminUser {
+  id           String   @id @default(cuid())
+  email        String   @unique
+  passwordHash String
+  name         String   @default("Administrator")
+  createdAt    DateTime @default(now())
+  updatedAt    DateTime @updatedAt
+}
+
+// Et produkt (produkttype) som kan bestilles. Redigeres fra admin.
+model Product {
+  id              String   @id @default(cuid())
+  slug            String   @unique
+  name            String
+  shortText       String   @default("")
+  description     String   @default("")
+  pricePerSqm     Float    @default(500)   // DKK pr. m2
+  maxWidthMm      Int      @default(2500)  // max bredde i mm
+  maxHeightMm     Int      @default(2500)
+  minWidthMm      Int      @default(150)
+  minHeightMm     Int      @default(150)
+  // Hvis bredde overstiger denne vaerdi -> klassificeres som Dobbeltdor
+  doubleDoorThresholdMm Int? // null = ingen dobbeltdor-logik
+  isActive        Boolean  @default(true)
+  sortOrder       Int      @default(0)
+  imageUrl        String   @default("")
+  features        Json     @default("[]")
+  createdAt       DateTime @default(now())
+  updatedAt       DateTime @updatedAt
+
+  orderItems OrderItem[]
+}
+
+// Farver der kan vaelges + evt. tillaeg
+model Color {
+  id          String  @id @default(cuid())
+  name        String
+  hex         String  @default("#ffffff")
+  surchargePerSqm Float @default(0) // DKK pr. m2 tillaeg
+  isStandard  Boolean @default(false) // standardfarve = intet tillaeg
+  isActive    Boolean @default(true)
+  sortOrder   Int     @default(0)
+}
+
+enum OrderStatus {
+  NY            // Ny ordre
+  UNDER_BEHANDLING // Under behandling
+  TILBUD_SENDT  // Tilbud sendt
+  AFVENTER_KUNDE // Afventer kunde
+  AFSLUTTET     // Afsluttet
+  ANNULLERET    // Annulleret
+}
+
+model Order {
+  id            String   @id @default(cuid())
+  orderNumber   String   @unique // MYG-2026-0001
+  status        OrderStatus @default(NY)
+
+  // Kundeoplysninger
+  firstName     String
+  lastName      String
+  phone         String
+  email         String
+  address       String
+  postalCode    String
+  city          String
+
+  wantsInstallation Boolean @default(false) // true = montering, false = kun levering
+  note          String   @default("")
+
+  // Prissammendrag (oprettet ud fra indstillinger paa bestillingstidspunktet)
+  productsTotal     Float @default(0)
+  installationTotal Float @default(0)
+  estimatedTotal    Float @default(0)
+  currency          String @default("DKK")
+
+  items         OrderItem[]
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+
+  @@index([status])
+  @@index([createdAt])
+}
+
+model OrderItem {
+  id          String  @id @default(cuid())
+  orderId     String
+  order       Order   @relation(fields: [orderId], references: [id], onDelete: Cascade)
+
+  productId   String?
+  product     Product? @relation(fields: [productId], references: [id])
+
+  roomName    String  // Rum navn (Kokken, Stue ...)
+  productName String  // snapshot af produktnavn
+  widthMm     Int
+  heightMm    Int
+  colorName   String  @default("")
+  comment     String  @default("")
+
+  isDoubleDoor Boolean @default(false)
+  areaSqm      Float   @default(0) // afrundet m2 (op til naermeste 0,5)
+  lineTotal    Float   @default(0) // pris for denne linje (ekskl. montering)
+
+  createdAt   DateTime @default(now())
+}
+
+// Galleri (billeder og videoer). type = "image" | "video"
+model GalleryItem {
+  id        String  @id @default(cuid())
+  type      String  @default("image")
+  category  String  @default("vinduer") // vinduer | dore | dobbeltdore | plisse | videoer
+  url       String
+  thumbUrl  String  @default("")
+  title     String  @default("")
+  alt       String  @default("")
+  sortOrder Int     @default(0)
+  isActive  Boolean @default(true)
+  createdAt DateTime @default(now())
+}
+
+// Fleksibel key/value store til indstillinger, priser, indhold og SEO.
+model Setting {
+  key       String   @id
+  value     Json
+  updatedAt DateTime @updatedAt
+}
+
+// Beskeder fra kontaktformularen
+model ContactMessage {
+  id        String   @id @default(cuid())
+  name      String
+  email     String
+  phone     String   @default("")
+  message   String
+  isRead    Boolean  @default(false)
+  createdAt DateTime @default(now())
+}
+
+// Til generering af fortlobende ordrenumre pr. aar
+model OrderCounter {
+  year  Int @id
+  count Int @default(0)
+}
