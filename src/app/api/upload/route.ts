@@ -4,6 +4,7 @@ import path from "path";
 import { requireAdmin } from "@/lib/requireAdmin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 const ALLOWED = ["image/jpeg", "image/png", "image/webp", "image/gif", "image/svg+xml", "video/mp4", "video/webm", "video/quicktime"];
 

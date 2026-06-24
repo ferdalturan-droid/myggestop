@@ -4,6 +4,7 @@ import { getSetting } from "@/lib/settings";
 import { sendMail } from "@/lib/email";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function POST(req: NextRequest) {
   const b = await req.json();

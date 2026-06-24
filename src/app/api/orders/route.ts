@@ -9,6 +9,7 @@ import { customerEmailHtml, adminEmailHtml } from "@/lib/emailTemplates";
 import { requireAdmin } from "@/lib/requireAdmin";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 interface ItemPayload {
   productId: string;

@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { AppSettings } from "@/data/defaults";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET() {
   const s = await getAllSettings();

@@ -4,6 +4,7 @@ import { requireAdmin } from "@/lib/requireAdmin";
 import { ORDER_STATUS_ORDER } from "@/lib/types";
 
 export const runtime = "nodejs";
+export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireAdmin();
