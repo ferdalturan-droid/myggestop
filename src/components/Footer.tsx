@@ -18,8 +18,7 @@ export default function Footer({ contact, logoUrl }: { contact: any; logoUrl: st
               ["/produkter", "Produkter"],
               ["/bestil", "Bestil nu"],
               ["/galleri", "Galleri"],
-              ["/videoer", "Videoer"],
-              ["/hvorfor-myggestop", "Hvorfor vaelge os"]
+              ["/videoer", "Videoer"]
             ].map(([h, l]) => (
               <li key={h}>
                 <Link href={h} className="text-slate-400 transition hover:text-brand-green">

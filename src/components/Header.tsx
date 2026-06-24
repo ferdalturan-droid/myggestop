@@ -8,7 +8,6 @@ const NAV = [
   { href: "/produkter", label: "Produkter" },
   { href: "/galleri", label: "Galleri" },
   { href: "/videoer", label: "Videoer" },
-  { href: "/hvorfor-myggestop", label: "Hvorfor os" },
   { href: "/om-os", label: "Om os" },
   { href: "/kontakt", label: "Kontakt" }
 ];
