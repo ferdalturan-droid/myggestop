@@ -59,6 +59,7 @@ export default async function HomePage() {
             <SectionHeading eyebrow="Produkter" title="Vaelg din losning" text="To gennemprovede produkter — begge i frit specialmal." />
             <a href="/produkter" className="btn-ghost">Se alle produkter</a>
           </div>
+          <img src="/produkter-banner.png" alt="Myggestop produkter - plissedor og myggenet" className="mt-10 w-full rounded-xl2 border border-brand-line shadow-card" />
           <div className="mt-12 grid gap-6 sm:grid-cols-2">
             {products.map((p) => (
               <ProductCard key={p.id} product={p} />
