@@ -68,21 +68,6 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Why choose Myggestop */}
-      <section className="section">
-        <div className="container-page">
-          <SectionHeading
-            center
-            eyebrow="Hvorfor vaelge Myggestop?"
-            title="Kvalitet, der goer en forskel"
-            text="Vi forener handvaerk, holdbare materialer og personlig service — sa du far en losning, der holder."
-          />
-          <div className="mt-12">
-            <WhyUs />
-          </div>
-        </div>
-      </section>
-
       <CTASection home={home} />
     </>
   );
