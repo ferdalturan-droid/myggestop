@@ -59,7 +59,7 @@ export default function Footer({ contact, logoUrl }: { contact: any; logoUrl: st
         <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-slate-500 sm:flex-row">
           <p>© {new Date().getFullYear()} {contact.companyName}. Alle rettigheder forbeholdes.{contact.cvr && contact.cvr !== "00000000" ? ` · CVR ${contact.cvr}` : ""}</p>
           <p>
-            Myggenet · Insektnet · Fluenet · Myggedore · Plissegardin
+            Myggenet · Insektnet · Fluenet · Myggedøre · Plise gardin
           </p>
         </div>
       </div>

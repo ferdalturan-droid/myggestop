@@ -20,6 +20,6 @@ export const GALLERY_CATEGORIES = [
   { key: "vinduer", label: "Vinduer" },
   { key: "dore", label: "Dore" },
   { key: "dobbeltdore", label: "Dobbeltdore" },
-  { key: "plisse", label: "Plissegardin" },
+  { key: "plisse", label: "Plise gardin" },
   { key: "videoer", label: "Videoer" }
 ] as const;
