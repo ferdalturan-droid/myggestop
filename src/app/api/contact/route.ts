@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     data: { name: b.name, email: b.email, phone: b.phone || "", message: b.message }
   });
   const contact = await getSetting("contact");
-  sendMail({
+  await sendMail({
     to: contact.adminEmail,
     subject: `Ny kontaktbesked fra ${b.name}`,
     html: `<p><strong>${b.name}</strong> (${b.email}${b.phone ? ", " + b.phone : ""}) skriver:</p><p>${String(b.message).replace(/</g, "&lt;")}</p>`

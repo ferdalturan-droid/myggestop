@@ -123,20 +123,21 @@ export async function POST(req: NextRequest) {
       ? [{ filename: `Myggestop-${orderNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
       : undefined;
 
-    // Kunde
-    sendMail({
-      to: order.email,
-      subject: `Tak for din bestilling – ${orderNumber} | Myggestop`,
-      html: customerEmailHtml(pdfOrder, branding),
-      attachments
-    }).catch(() => {});
-    // Admin
-    sendMail({
-      to: settings.contact.adminEmail,
-      subject: `Ny ordre ${orderNumber} – ${order.firstName} ${order.lastName}`,
-      html: adminEmailHtml(pdfOrder),
-      attachments
-    }).catch(() => {});
+    // Send e-mails (await, saa serverless-funktionen naar at sende foer den afsluttes)
+    await Promise.allSettled([
+      sendMail({
+        to: order.email,
+        subject: `Tak for din bestilling – ${orderNumber} | Myggestop`,
+        html: customerEmailHtml(pdfOrder, branding),
+        attachments
+      }),
+      sendMail({
+        to: settings.contact.adminEmail,
+        subject: `Ny ordre ${orderNumber} – ${order.firstName} ${order.lastName}`,
+        html: adminEmailHtml(pdfOrder),
+        attachments
+      })
+    ]);
 
     return NextResponse.json({ ok: true, orderNumber, orderId: order.id, totals });
   } catch (e: any) {
