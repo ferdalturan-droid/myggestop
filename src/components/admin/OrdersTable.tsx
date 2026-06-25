@@ -108,7 +108,7 @@ export default function OrdersTable() {
                     <td className="px-4 py-3">{o.items.length}</td>
                     <td className="px-4 py-3 font-semibold">{formatDKK(o.estimatedTotal)}</td>
                     <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABELS[o.status]}</span></td>
-                    <td className="px-4 py-3 text-right"><Link href={`/admin/ordrer/${o.id}`} className="text-sm font-semibold text-brand-blue hover:underline">Abn</Link></td>
+                    <td className="px-4 py-3 text-right"><Link href={`/admin/ordrer/${o.id}`} className="text-sm font-semibold text-brand-blue hover:underline">Åbn</Link></td>
                   </tr>
                 ))
               )}

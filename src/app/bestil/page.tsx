@@ -8,10 +8,10 @@ import { PricingConfig } from "@/lib/pricing";
 export const dynamic = "force-dynamic";
 export const generateMetadata = () =>
   buildMetadata({
-    title: "Bestil nu — Myggenet efter mal",
-    description: "Bestil dine specialfremstillede myggenet online. Indtast mal, fa estimeret pris, og vi kontakter dig med endelig pris og levering.",
+    title: "Bestil nu — Myggenet efter mål",
+    description: "Bestil dine specialfremstillede myggenet online. Indtast mål, få estimeret pris, og vi kontakter dig med endelig pris og levering.",
     path: "/bestil",
-    keywords: ["bestil myggenet", "myggenet specialmal", "myggenet pris", "plissedor bestil"]
+    keywords: ["bestil myggenet", "myggenet specialmål", "myggenet pris", "plissédør bestil"]
   });
 
 export default async function BestilPage() {
@@ -33,9 +33,9 @@ export default async function BestilPage() {
       <div className="container-page">
         <div className="reveal max-w-2xl">
           <span className="eyebrow">Bestil nu</span>
-          <h1 className="h-title mt-4 text-4xl sm:text-5xl">Bestil dine myggenet efter mal</h1>
+          <h1 className="h-title mt-4 text-4xl sm:text-5xl">Bestil dine myggenet efter mål</h1>
           <p className="mt-4 text-lg text-brand-ink2/80">
-            Tilfoj sa mange produkter du onsker — et for hvert rum. Du ser en estimeret pris med det samme. Vi kontakter dig
+            Tilføj så mange produkter du ønsker — et for hvert rum. Du ser en estimeret pris med det samme. Vi kontakter dig
             efterfolgende med endelig pris, levering og evt. montering.
           </p>
         </div>
@@ -48,8 +48,8 @@ export default async function BestilPage() {
               <h3 className="font-bold text-brand-ink">Sa nemt er det</h3>
               <ol className="mt-3 space-y-2 text-sm text-brand-ink2/80">
                 <li>1. Udfyld dine oplysninger.</li>
-                <li>2. Tilfoj produkter med mal pr. rum.</li>
-                <li>3. Vaelg montering eller levering.</li>
+                <li>2. Tilføj produkter med mål pr. rum.</li>
+                <li>3. Vælg montering eller levering.</li>
                 <li>4. Send — du far en PDF-bekraeftelse pa mail.</li>
               </ol>
             </div>

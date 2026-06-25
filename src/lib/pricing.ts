@@ -27,22 +27,22 @@ export interface LineInput {
 }
 
 export interface LineResult {
-  exactAreaSqm: number; // praecist areal (kun til visning/reference)
-  areaSqm: number; // afrundet op til naermeste 0,5 m2 - bruges til pris
+  exactAreaSqm: number; // præcist areal (kun til visning/reference)
+  areaSqm: number; // afrundet op til nærmeste 0,5 m2 - bruges til pris
   isDoubleDoor: boolean;
   baseTotal: number; // areal * pris pr. m2
-  colorSurcharge: number; // farvetillaeg (pr. m2 * areal)
-  doubleDoorSurcharge: number; // fast tillaeg
+  colorSurcharge: number; // farvetillæg (pr. m2 * areal)
+  doubleDoorSurcharge: number; // fast tillæg
   lineTotal: number; // samlet for linjen (ekskl. montering)
 }
 
 /**
- * Kommerciel oprunding: rund ALTID OP til naermeste 0,5 m2.
+ * Kommerciel oprunding: rund ALTID OP til nærmeste 0,5 m2.
  * Eksempler: 1,25 -> 1,5 | 1,80 -> 2,0 | 2,08 -> 2,5 | 2,88 -> 3,0
  */
 export function roundUpToHalf(value: number): number {
   if (value <= 0) return 0;
-  // Brug et lille epsilon sa f.eks. praecis 2,0 ikke ryger op til 2,5 pga. flydetal.
+  // Brug et lille epsilon så f.eks. præcis 2,0 ikke ryger op til 2,5 pga. flydetal.
   const eps = 1e-9;
   return Math.ceil((value - eps) * 2) / 2;
 }
@@ -66,7 +66,7 @@ export function calcLine(input: LineInput, config: PricingConfig): LineResult {
 
   const baseTotal = round2(area * product.pricePerSqm);
 
-  // Farvetillaeg: brug farvens egen sats hvis sat, ellers globalt tillaeg for ikke-standardfarve.
+  // Farvetillæg: brug farvens egen sats hvis sat, ellers globalt tillæg for ikke-standardfarve.
   let colorPerSqm = 0;
   if (color && !color.isStandard) {
     colorPerSqm = color.surchargePerSqm > 0 ? color.surchargePerSqm : config.coloredFrameSurchargePerSqm;

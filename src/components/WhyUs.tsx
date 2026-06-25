@@ -1,12 +1,12 @@
 import { IconRuler, IconShield, IconChat, IconTruck, IconMap, IconStar, IconLeaf } from "./Icons";
 
 export const WHY_ITEMS = [
-  { icon: IconRuler, title: "Specialmal", text: "Hvert net produceres praecist efter dine mal — perfekt pasform til netop dine vinduer og dore." },
-  { icon: IconStar, title: "Hoj kvalitet", text: "Solide aluminiumsrammer og finmasket net, der holder ar efter ar." },
-  { icon: IconChat, title: "Professionel radgivning", text: "Vi hjaelper dig med at vaelge den rette losning — venlig dansk kundeservice." },
-  { icon: IconTruck, title: "Levering i hele Danmark", text: "Vi sender dine specialfremstillede net direkte til doren, uanset hvor du bor." },
-  { icon: IconMap, title: "Montering i Kobenhavn og omegn", text: "Onsker du montering, klarer vores montorer det hele i hovedstadsomradet." },
-  { icon: IconShield, title: "Lang levetid", text: "Vejrbestandige materialer designet til mange ars brug — ude som inde." },
+  { icon: IconRuler, title: "Specialmål", text: "Hvert net produceres præcist efter dine mål — perfekt pasform til netop dine vinduer og døre." },
+  { icon: IconStar, title: "Høj kvalitet", text: "Solide aluminiumsrammer og finmasket net, der holder år efter år." },
+  { icon: IconChat, title: "Professionel rådgivning", text: "Vi hjælper dig med at vælge den rette løsning — venlig dansk kundeservice." },
+  { icon: IconTruck, title: "Levering i hele Danmark", text: "Vi sender dine specialfremstillede net direkte til døren, uanset hvor du bor." },
+  { icon: IconMap, title: "Montering i København og omegn", text: "Onsker du montering, klarer vores montører det hele i hovedstadsområdet." },
+  { icon: IconShield, title: "Lang levetid", text: "Vejrbestandige materialer designet til mange års brug — ude som inde." },
   { icon: IconLeaf, title: "Elegant design", text: "Diskrete, stilrene rammer der passer til dansk arkitektur og indretning." }
 ];
 

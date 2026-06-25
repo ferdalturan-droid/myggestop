@@ -7,7 +7,7 @@ function rows(order: PdfOrder): string {
       (it) => `
     <tr>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;font-weight:600;color:#0d1b2a">${esc(it.roomName)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${esc(it.productName)}${it.isDoubleDoor ? " <span style='color:#1b8de0'>(Dobbeltdor)</span>" : ""}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${esc(it.productName)}${it.isDoubleDoor ? " <span style='color:#1b8de0'>(Dobbeltdør)</span>" : ""}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${it.widthMm} × ${it.heightMm} mm</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${esc(it.colorName || "-")}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${String(it.areaSqm).replace(".", ",")} m²</td>

@@ -4,8 +4,8 @@ import GalleryGrid from "@/components/GalleryGrid";
 
 export const generateMetadata = () =>
   buildMetadata({
-    title: "Galleri — Myggenet, dore og plissegardin",
-    description: "Se eksempler pa vores specialfremstillede myggenet til vinduer, dore, dobbeltdore og plissegardiner.",
+    title: "Galleri — Myggenet, døre og plisségardin",
+    description: "Se eksempler pa vores specialfremstillede myggenet til vinduer, døre, dobbeltdøre og plisségardiner.",
     path: "/galleri"
   });
 
@@ -13,7 +13,7 @@ export default function GalleriPage() {
   return (
     <section className="section">
       <div className="container-page">
-        <SectionHeading eyebrow="Galleri" title="Inspiration fra virkelige losninger" text="Filtrer efter type og se vores arbejde med myggenet til vinduer, dore og dobbeltdore samt plissegardiner." />
+        <SectionHeading eyebrow="Galleri" title="Inspiration fra virkelige løsninger" text="Filtrer efter type og se vores arbejde med myggenet til vinduer, døre og dobbeltdøre samt plisségardiner." />
         <div className="mt-10">
           <GalleryGrid />
         </div>

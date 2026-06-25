@@ -32,7 +32,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               {order.items.map((it) => (
                 <div key={it.id} className="rounded-xl border border-brand-line p-4">
                   <div className="flex items-center justify-between">
-                    <span className="font-semibold text-brand-ink">{it.roomName || "—"} · {it.productName}{it.isDoubleDoor ? " (Dobbeltdor)" : ""}</span>
+                    <span className="font-semibold text-brand-ink">{it.roomName || "—"} · {it.productName}{it.isDoubleDoor ? " (Dobbeltdør)" : ""}</span>
                     <span className="font-bold text-brand-bluedark">{formatDKK(it.lineTotal)}</span>
                   </div>
                   <div className="mt-1 text-sm text-brand-ink2/70">
@@ -51,7 +51,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
           </div>
           {order.note && (
             <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
-              <h2 className="mb-2 font-bold text-brand-ink">Bemaerkning fra kunde</h2>
+              <h2 className="mb-2 font-bold text-brand-ink">Bemærkning fra kunde</h2>
               <p className="text-sm text-brand-ink2/80">{order.note}</p>
             </div>
           )}
@@ -65,7 +65,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               <div><dt className="text-brand-ink2/50">Telefon</dt><dd><a className="text-brand-blue hover:underline" href={`tel:${order.phone}`}>{order.phone}</a></dd></div>
               <div><dt className="text-brand-ink2/50">E-mail</dt><dd><a className="text-brand-blue hover:underline" href={`mailto:${order.email}`}>{order.email}</a></dd></div>
               <div><dt className="text-brand-ink2/50">Adresse</dt><dd className="text-brand-ink">{order.address}, {order.postalCode} {order.city}</dd></div>
-              <div><dt className="text-brand-ink2/50">Montering</dt><dd className="text-brand-ink">{order.wantsInstallation ? "Ja — onsker montering" : "Nej — kun levering"}</dd></div>
+              <div><dt className="text-brand-ink2/50">Montering</dt><dd className="text-brand-ink">{order.wantsInstallation ? "Ja — ønsker montering" : "Nej — kun levering"}</dd></div>
             </dl>
           </div>
           <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">

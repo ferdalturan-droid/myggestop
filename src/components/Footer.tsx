@@ -8,7 +8,7 @@ export default function Footer({ contact, logoUrl }: { contact: any; logoUrl: st
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src={logoUrl} alt="Myggestop" className="h-10 w-auto brightness-0 invert" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">
-            Specialfremstillede myggenet til vinduer og dore. Levering i hele Danmark — montering i Kobenhavn og omegn.
+            Specialfremstillede myggenet til vinduer og døre. Levering i hele Danmark — montering i København og omegn.
           </p>
         </div>
         <div>
@@ -48,7 +48,7 @@ export default function Footer({ contact, logoUrl }: { contact: any; logoUrl: st
           </ul>
         </div>
         <div>
-          <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Serviceomrade</h4>
+          <h4 className="mb-4 text-sm font-semibold uppercase tracking-wider text-white">Serviceområde</h4>
           <p className="text-sm leading-relaxed text-slate-400">{contact.serviceAreaText}</p>
           <Link href="/bestil" className="btn-green mt-4">
             Anmod om tilbud
@@ -59,7 +59,7 @@ export default function Footer({ contact, logoUrl }: { contact: any; logoUrl: st
         <div className="container-page flex flex-col items-center justify-between gap-2 py-5 text-xs text-slate-500 sm:flex-row">
           <p>© {new Date().getFullYear()} {contact.companyName}. Alle rettigheder forbeholdes.{contact.cvr && contact.cvr !== "00000000" ? ` · CVR ${contact.cvr}` : ""}</p>
           <p>
-            Myggenet · Insektnet · Fluenet · Myggedøre · Plise gardin
+            Myggenet · Insektnet · Fluenet · Myggedøre · Plisségardin
           </p>
         </div>
       </div>

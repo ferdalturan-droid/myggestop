@@ -72,7 +72,7 @@ export default function SettingsManager() {
             {C("city", "By")}
           </div>
           {C("openingHours", "Abningstider")}
-          <div className="sm:col-span-2">{C("serviceAreaText", "Serviceomrade-tekst", true)}</div>
+          <div className="sm:col-span-2">{C("serviceAreaText", "Serviceområde-tekst", true)}</div>
         </div>
       </section>
 

@@ -42,8 +42,8 @@ export default function ContentManager() {
             {T("heroTitle", "Hovedoverskrift", true)}
             {T("heroSubtitle", "Underrubrik", true)}
             <div className="grid grid-cols-2 gap-3">
-              {T("heroCtaPrimary", "Primaer knap")}
-              {T("heroCtaSecondary", "Sekundaer knap")}
+              {T("heroCtaPrimary", "Primær knap")}
+              {T("heroCtaSecondary", "Sekundær knap")}
             </div>
             <label className="block">
               <span className="mb-1 block text-sm font-medium text-brand-ink2">USP-punkter (en pr. linje)</span>

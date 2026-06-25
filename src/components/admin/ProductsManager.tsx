@@ -57,7 +57,7 @@ export default function ProductsManager() {
                 <p className="text-sm text-brand-ink2/65">{p.shortText}</p>
                 <p className="mt-1 text-sm text-brand-ink2/80">
                   {formatDKK(p.pricePerSqm)}/m² · max {p.maxWidthMm}×{p.maxHeightMm} mm
-                  {p.doubleDoorThresholdMm ? ` · Dobbeltdor > ${p.doubleDoorThresholdMm} mm` : ""}
+                  {p.doubleDoorThresholdMm ? ` · Dobbeltdør > ${p.doubleDoorThresholdMm} mm` : ""}
                 </p>
               </div>
               <div className="flex gap-2">
@@ -84,11 +84,11 @@ export default function ProductsManager() {
                 <NumInp label="Pris pr. m² (DKK)" v={edit.pricePerSqm} on={(v) => setEdit({ ...edit, pricePerSqm: v })} />
                 <NumInp label="Sortering" v={edit.sortOrder} on={(v) => setEdit({ ...edit, sortOrder: v })} />
                 <NumInp label="Max bredde (mm)" v={edit.maxWidthMm} on={(v) => setEdit({ ...edit, maxWidthMm: v })} />
-                <NumInp label="Max hojde (mm)" v={edit.maxHeightMm} on={(v) => setEdit({ ...edit, maxHeightMm: v })} />
+                <NumInp label="Max højde (mm)" v={edit.maxHeightMm} on={(v) => setEdit({ ...edit, maxHeightMm: v })} />
                 <NumInp label="Min bredde (mm)" v={edit.minWidthMm} on={(v) => setEdit({ ...edit, minWidthMm: v })} />
-                <NumInp label="Min hojde (mm)" v={edit.minHeightMm} on={(v) => setEdit({ ...edit, minHeightMm: v })} />
+                <NumInp label="Min højde (mm)" v={edit.minHeightMm} on={(v) => setEdit({ ...edit, minHeightMm: v })} />
               </div>
-              <NumInp label="Dobbeltdor-graense (mm, tom = fra)" v={edit.doubleDoorThresholdMm ?? ("" as any)} on={(v) => setEdit({ ...edit, doubleDoorThresholdMm: v })} allowEmpty />
+              <NumInp label="Dobbeltdør-grænse (mm, tom = fra)" v={edit.doubleDoorThresholdMm ?? ("" as any)} on={(v) => setEdit({ ...edit, doubleDoorThresholdMm: v })} allowEmpty />
               <div>
                 <span className="mb-1 block text-sm font-medium text-brand-ink2">Egenskaber (en pr. linje)</span>
                 <textarea className="input min-h-[80px]" value={(edit.features || []).join("\n")} onChange={(e) => setEdit({ ...edit, features: e.target.value.split("\n") })} />

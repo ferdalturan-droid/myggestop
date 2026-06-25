@@ -37,9 +37,9 @@ export default function ColorsManager() {
       <div className="mb-4 flex items-center justify-between">
         <div>
           <h1 className="text-2xl font-extrabold text-brand-ink">Farver</h1>
-          <p className="text-sm text-brand-ink2/65">Standardfarver har intet tillaeg. Ovrige farver bruger deres eget tillaeg pr. m².</p>
+          <p className="text-sm text-brand-ink2/65">Standardfarver har intet tillæg. Ovrige farver bruger deres eget tillæg pr. m².</p>
         </div>
-        <button className="btn-ghost py-2.5 text-sm" onClick={add}>+ Tilfoj farve</button>
+        <button className="btn-ghost py-2.5 text-sm" onClick={add}>+ Tilføj farve</button>
       </div>
 
       <div className="space-y-3">
@@ -48,7 +48,7 @@ export default function ColorsManager() {
             <input type="color" value={c.hex} onChange={(e) => update(i, { hex: e.target.value })} className="h-10 w-12 rounded border border-brand-line" />
             <input className="input max-w-[200px]" value={c.name} onChange={(e) => update(i, { name: e.target.value })} placeholder="Farvenavn" />
             <label className="flex items-center gap-1 text-sm">
-              Tillaeg/m²
+              Tillæg/m²
               <input className="input w-24" inputMode="numeric" value={c.surchargePerSqm} onChange={(e) => update(i, { surchargePerSqm: parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0 })} />
             </label>
             <label className="flex items-center gap-2 text-sm"><input type="checkbox" checked={c.isStandard} onChange={(e) => update(i, { isStandard: e.target.checked })} /> Standard</label>

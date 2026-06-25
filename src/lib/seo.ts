@@ -61,6 +61,6 @@ export async function organizationSchema() {
     },
     areaServed: { "@type": "Country", name: "Danmark" },
     description:
-      "Specialfremstillede myggenet, insektnet og fluenet til vinduer og dore. Myggedore og plissedore i specialmal. Levering i hele Danmark."
+      "Specialfremstillede myggenet, insektnet og fluenet til vinduer og døre. Myggedøre og plissédøre i specialmål. Levering i hele Danmark."
   };
 }

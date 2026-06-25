@@ -123,11 +123,11 @@ export async function generateOrderPdf(order: PdfOrder, b: PdfBranding): Promise
   y -= 4;
 
   // tabelhoved
-  const cols = { rum: M, type: M + 95, mal: M + 235, farve: M + 330, areal: M + 415, pris: W - M - 70 };
+  const cols = { rum: M, type: M + 95, mål: M + 235, farve: M + 330, areal: M + 415, pris: W - M - 70 };
   y -= 14;
   text(page, "Rum", cols.rum, y, 8, bold, GREY);
   text(page, "Produkt", cols.type, y, 8, bold, GREY);
-  text(page, "Mal (BxH)", cols.mal, y, 8, bold, GREY);
+  text(page, "Mal (BxH)", cols.mål, y, 8, bold, GREY);
   text(page, "Farve", cols.farve, y, 8, bold, GREY);
   text(page, "m2", cols.areal, y, 8, bold, GREY);
   text(page, "Pris", cols.pris, y, 8, bold, GREY);
@@ -144,10 +144,10 @@ export async function generateOrderPdf(order: PdfOrder, b: PdfBranding): Promise
 
   for (const it of order.items) {
     ensure();
-    const typeLabel = it.productName + (it.isDoubleDoor ? " (Dobbeltdor)" : "");
+    const typeLabel = it.productName + (it.isDoubleDoor ? " (Dobbeltdør)" : "");
     text(page, it.roomName || "-", cols.rum, y, 9, bold);
     text(page, clip(typeLabel, 24), cols.type, y, 9);
-    text(page, `${it.widthMm} x ${it.heightMm} mm`, cols.mal, y, 9);
+    text(page, `${it.widthMm} x ${it.heightMm} mm`, cols.mål, y, 9);
     text(page, clip(it.colorName || "-", 14), cols.farve, y, 9);
     text(page, it.areaSqm.toString().replace(".", ","), cols.areal, y, 9);
     text(page, formatDKK(it.lineTotal), cols.pris - 6, y, 9);
@@ -181,7 +181,7 @@ export async function generateOrderPdf(order: PdfOrder, b: PdfBranding): Promise
   ensure();
   y -= 6;
   if (order.note) {
-    text(page, "Bemaerkning fra kunde:", M, y, 9, bold, GREY);
+    text(page, "Bemærkning fra kunde:", M, y, 9, bold, GREY);
     y -= 13;
     for (const line of wrap(order.note, font, 9, W - 2 * M)) {
       text(page, line, M, y, 9);
@@ -190,8 +190,8 @@ export async function generateOrderPdf(order: PdfOrder, b: PdfBranding): Promise
     y -= 6;
   }
   const disc = [
-    "Bemaerk: Dette er en uforpligtende anmodning - ikke en endelig faktura. Prisen er estimeret ud fra",
-    "dine indtastede mal og er afrundet kommercielt op til naermeste 0,5 m2. " + b.shippingText,
+    "Bemærk: Dette er en uforpligtende anmodning - ikke en endelig faktura. Prisen er estimeret ud fra",
+    "dine indtastede mål og er afrundet kommercielt op til nærmeste 0,5 m2. " + b.shippingText,
     "Myggestop kontakter dig vedr. endelig pris, levering og evt. montering."
   ];
   for (const d of disc) {

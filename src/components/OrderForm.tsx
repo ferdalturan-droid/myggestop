@@ -79,7 +79,7 @@ export default function OrderForm({
     if (!it) return;
     setDraft({ roomName: it.roomName, productId: it.productId, widthMm: String(it.widthMm), heightMm: String(it.heightMm), colorId: it.colorId, comment: it.comment });
     setItems((arr) => arr.filter((x) => x.uid !== uid));
-    window.scrollTo({ top: document.getElementById("tilfoj")?.offsetTop ?? 0 - 80, behavior: "smooth" });
+    window.scrollTo({ top: document.getElementById("tilføj")?.offsetTop ?? 0 - 80, behavior: "smooth" });
   }
 
   async function submit(e: React.FormEvent) {
@@ -134,7 +134,7 @@ export default function OrderForm({
       </section>
 
       {/* 2. Tilføj produkt (fast boks) */}
-      <section id="tilfoj" className="card p-6 sm:p-8">
+      <section id="tilføj" className="card p-6 sm:p-8">
         <h2 className="text-xl font-bold text-brand-ink">2. Tilføj produkt</h2>
         <p className="mt-1 text-sm text-brand-ink2/65">Udfyld ét produkt og tryk “Tilføj til ordren”. Gentag for hvert rum.</p>
 

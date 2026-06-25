@@ -8,10 +8,10 @@ import { getSetting } from "@/lib/settings";
 export const dynamic = "force-dynamic";
 export const generateMetadata = () =>
   buildMetadata({
-    title: "Produkter — Myggenet og plissegardin i specialmal",
-    description: "Standard myggenet og plissegardin til vinduer og dore. Specialfremstillet efter mal. Levering i hele Danmark.",
+    title: "Produkter — Myggenet og plisségardin i specialmål",
+    description: "Standard myggenet og plisségardin til vinduer og døre. Specialfremstillet efter mål. Levering i hele Danmark.",
     path: "/produkter",
-    keywords: ["myggenet", "plissedor", "plissegardin", "myggedor", "insektnet vindue", "specialmal myggenet"]
+    keywords: ["myggenet", "plissédør", "plisségardin", "myggedør", "insektnet vindue", "specialmål myggenet"]
   });
 
 export default async function ProdukterPage() {
@@ -23,10 +23,10 @@ export default async function ProdukterPage() {
         <div className="container-page">
           <SectionHeading
             eyebrow="Produkter"
-            title="Specialfremstillede myggenet til vinduer og dore"
-            text="Alle vores produkter laves efter dine egne mal. Vaelg produkt, indtast mal i bestillingen, og fa en estimeret pris med det samme."
+            title="Specialfremstillede myggenet til vinduer og døre"
+            text="Alle vores produkter fremstilles efter dine mål. Vælg produkt, indtast mål i bestillingen, og få en estimeret pris med det samme."
           />
-          <img src="/produkter-banner.png" alt="Myggestop produkter - plissedor og myggenet til vinduer og dore" className="mt-10 w-full rounded-xl2 border border-brand-line shadow-card" />
+          <img src="/produkter-banner.png" alt="Myggestop produkter - plissédør og myggenet til vinduer og døre" className="mt-10 w-full rounded-xl2 border border-brand-line shadow-card" />
           <div className="mt-12 grid gap-6 lg:grid-cols-2">
             {products.map((p) => (
               <ProductCard key={p.id} product={p} />
@@ -47,13 +47,13 @@ export default async function ProdukterPage() {
                   <dd className="text-lg font-bold text-brand-ink">{p.maxWidthMm} mm</dd>
                 </div>
                 <div className="rounded-xl bg-brand-mist p-4">
-                  <dt className="text-brand-ink2/60">Max hojde</dt>
+                  <dt className="text-brand-ink2/60">Max højde</dt>
                   <dd className="text-lg font-bold text-brand-ink">{p.maxHeightMm} mm</dd>
                 </div>
               </dl>
               {p.doubleDoorThresholdMm && (
                 <p className="mt-4 rounded-xl border border-brand-blue/20 bg-brand-blue/5 p-4 text-sm text-brand-bluedark">
-                  Ved bredder over {p.doubleDoorThresholdMm} mm klassificeres losningen automatisk som <strong>Dobbeltdor</strong>.
+                  Ved bredder over {p.doubleDoorThresholdMm} mm klassificeres løsningen automatisk som <strong>Dobbeltdør</strong>.
                 </p>
               )}
             </div>

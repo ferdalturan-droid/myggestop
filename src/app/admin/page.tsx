@@ -37,7 +37,7 @@ export default async function AdminDashboard() {
       </div>
 
       <div className="mt-4 rounded-xl2 bg-brand-ink p-5 text-white">
-        <p className="text-sm text-slate-300">Samlet estimeret ordrevaerdi</p>
+        <p className="text-sm text-slate-300">Samlet estimeret ordreværdi</p>
         <p className="mt-1 text-3xl font-extrabold text-brand-green">{formatDKK(sum._sum.estimatedTotal || 0)}</p>
       </div>
 

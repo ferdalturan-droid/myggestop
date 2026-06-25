@@ -31,7 +31,7 @@ export async function POST(req: NextRequest) {
       }
     }
     const items: ItemPayload[] = Array.isArray(body.items) ? body.items : [];
-    if (items.length === 0) return NextResponse.json({ error: "Tilfoj mindst et produkt." }, { status: 400 });
+    if (items.length === 0) return NextResponse.json({ error: "Tilføj mindst et produkt." }, { status: 400 });
 
     const settings = await getAllSettings();
     const config: PricingConfig = {

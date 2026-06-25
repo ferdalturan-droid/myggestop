@@ -9,7 +9,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   const h = headers();
   const path = h.get("x-invoke-path") || h.get("x-pathname") || "";
   const session = await getSession();
-  // login-siden har sin egen fulde skaerm
+  // login-siden har sin egen fulde skærm
   if (!session) {
     return <>{children}</>;
   }

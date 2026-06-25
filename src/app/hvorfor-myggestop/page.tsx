@@ -6,8 +6,8 @@ import { getSetting } from "@/lib/settings";
 
 export const generateMetadata = () =>
   buildMetadata({
-    title: "Hvorfor vaelge Myggestop?",
-    description: "Specialmal, hoj kvalitet, professionel radgivning, levering i hele Danmark og montering i Kobenhavn og omegn. Derfor vaelger danskerne Myggestop.",
+    title: "Hvorfor vælge Myggestop?",
+    description: "Specialmål, høj kvalitet, professionel rådgivning, levering i hele Danmark og montering i København og omegn. Derfor vælger danskerne Myggestop.",
     path: "/hvorfor-myggestop"
   });
 
@@ -19,9 +19,9 @@ export default async function HvorforPage() {
         <div className="container-page">
           <SectionHeading
             center
-            eyebrow="Hvorfor vaelge Myggestop?"
+            eyebrow="Hvorfor vælge Myggestop?"
             title="Den trygge vej til et insektfrit hjem"
-            text="Vi leverer ikke bare net — vi leverer ro, komfort og handvaerk i hoj kvalitet, tilpasset netop dit hjem."
+            text="Vi leverer ikke bare net — vi leverer ro, komfort og håndværk i høj kvalitet, tilpasset netop dit hjem."
           />
           <div className="mt-12">
             <WhyUs />

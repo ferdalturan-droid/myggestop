@@ -53,7 +53,7 @@ export default function Hero({ home }: { home: any }) {
                 <circle cx="345" cy="100" r="9" fill="#7ed957" />
               </svg>
               <div className="absolute bottom-4 left-4 rounded-xl bg-white/95 px-4 py-3 shadow-card">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-bluedark">Specialmal</p>
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-bluedark">Specialmål</p>
                 <p className="text-sm font-bold text-brand-ink">Op til 2500 mm bredde</p>
               </div>
             </div>

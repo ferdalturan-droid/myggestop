@@ -10,12 +10,12 @@ import { IconShield, IconLeaf, IconRuler, IconTruck, IconTools, IconChat } from 
 export const dynamic = "force-dynamic";
 
 const BENEFITS = [
-  { icon: IconShield, title: "Beskyttelse mod insekter", text: "Hold myg, fluer, hvepse og andre insekter ude — abne vinduer uden bekymring." },
-  { icon: IconLeaf, title: "Bedre komfort", text: "Frisk luft og naturligt lys hele aret, uden generende insekter i hjemmet." },
-  { icon: IconRuler, title: "Specialfremstillet", text: "Hvert net laves efter dine praecise mal for perfekt pasform." },
-  { icon: IconTools, title: "Nem montering", text: "Enkle losninger du selv kan saette op — eller lad os montere i Kobenhavn." },
+  { icon: IconShield, title: "Beskyttelse mod insekter", text: "Hold myg, fluer, hvepse og andre insekter ude — åbne vinduer uden bekymring." },
+  { icon: IconLeaf, title: "Bedre komfort", text: "Frisk luft og naturligt lys hele året, uden generende insekter i hjemmet." },
+  { icon: IconRuler, title: "Specialfremstillet", text: "Hvert net fremstilles efter dine præcise mål for perfekt pasform." },
+  { icon: IconTools, title: "Nem montering", text: "Enkle løsninger du selv kan saette op — eller lad os montere i København." },
   { icon: IconTruck, title: "Hurtig levering", text: "Vi producerer og sender hurtigt til hele Danmark." },
-  { icon: IconChat, title: "Dansk kundeservice", text: "Personlig radgivning og support pa dansk fra start til slut." }
+  { icon: IconChat, title: "Dansk kundeservice", text: "Personlig rådgivning og support pa dansk fra start til slut." }
 ];
 
 export default async function HomePage() {
@@ -56,10 +56,10 @@ export default async function HomePage() {
       <section className="section bg-brand-mist">
         <div className="container-page">
           <div className="flex flex-wrap items-end justify-between gap-4">
-            <SectionHeading eyebrow="Produkter" title="Vaelg din losning" text="To gennemprovede produkter — begge i frit specialmal." />
+            <SectionHeading eyebrow="Produkter" title="Vælg din løsning" text="To gennemprovede produkter — begge i frit specialmål." />
             <a href="/produkter" className="btn-ghost">Se alle produkter</a>
           </div>
-          <img src="/produkter-banner.png" alt="Myggestop produkter - plissedor og myggenet" className="mt-10 w-full rounded-xl2 border border-brand-line shadow-card" />
+          <img src="/produkter-banner.png" alt="Myggestop produkter - plissédør og myggenet" className="mt-10 w-full rounded-xl2 border border-brand-line shadow-card" />
           <div className="mt-12 grid gap-6 sm:grid-cols-2">
             {products.map((p) => (
               <ProductCard key={p.id} product={p} />

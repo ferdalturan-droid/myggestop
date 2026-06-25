@@ -69,7 +69,7 @@ export default function GalleryManager() {
             <input className="input" value={title} onChange={(e) => setTitle(e.target.value)} />
           </label>
           <label className="block">
-            <span className="mb-1 block text-sm font-medium text-brand-ink2">Vaelg fil (billede/video)</span>
+            <span className="mb-1 block text-sm font-medium text-brand-ink2">Vælg fil (billede/video)</span>
             <input ref={fileRef} type="file" accept="image/*,video/*" onChange={onUpload} disabled={uploading} className="block w-full text-sm text-brand-ink2 file:mr-3 file:rounded-full file:border-0 file:bg-brand-blue file:px-4 file:py-2 file:text-white" />
           </label>
         </div>
