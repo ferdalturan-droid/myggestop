@@ -18,8 +18,8 @@ export const ORDER_STATUS_ORDER = [
 
 export const GALLERY_CATEGORIES = [
   { key: "vinduer", label: "Vinduer" },
-  { key: "døre", label: "Dore" },
-  { key: "dobbeltdøre", label: "Dobbeltdøre" },
+  { key: "dore", label: "Døre" },
+  { key: "dobbeltdore", label: "Dobbeltdøre" },
   { key: "plisse", label: "Plisségardin" },
   { key: "videoer", label: "Videoer" }
 ] as const;
