@@ -1,70 +1,85 @@
+import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { getSetting } from "@/lib/settings";
 import Hero from "@/components/Hero";
-import SectionHeading from "@/components/SectionHeading";
 import WhyUs from "@/components/WhyUs";
+import HowItWorks from "@/components/HowItWorks";
+import Faq from "@/components/Faq";
 import CTASection from "@/components/CTASection";
 import ProductCard from "@/components/ProductCard";
-import { IconShield, IconLeaf, IconRuler, IconTruck, IconTools, IconChat } from "@/components/Icons";
 
 export const dynamic = "force-dynamic";
 
-const BENEFITS = [
-  { icon: IconShield, title: "Beskyttelse mod insekter", text: "Hold myg, fluer, hvepse og andre insekter ude — åbne vinduer uden bekymring." },
-  { icon: IconLeaf, title: "Bedre komfort", text: "Frisk luft og naturligt lys hele året, uden generende insekter i hjemmet." },
-  { icon: IconRuler, title: "Specialfremstillet", text: "Hvert net fremstilles efter dine præcise mål for perfekt pasform." },
-  { icon: IconTools, title: "Nem montering", text: "Enkle løsninger du selv kan saette op — eller lad os montere i København." },
-  { icon: IconTruck, title: "Hurtig levering", text: "Vi producerer og sender hurtigt til hele Danmark." },
-  { icon: IconChat, title: "Dansk kundeservice", text: "Personlig rådgivning og support pa dansk fra start til slut." }
-];
+function Heading({ eyebrow, title, text }: { eyebrow?: string; title: string; text?: string }) {
+  return (
+    <div className="reveal mx-auto max-w-2xl text-center">
+      {eyebrow && <span className="eyebrow">{eyebrow}</span>}
+      <h2 className="h-title mt-4 text-3xl sm:text-4xl">{title}</h2>
+      {text && <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-brand-ink2/65">{text}</p>}
+    </div>
+  );
+}
 
 export default async function HomePage() {
   const home = await getSetting("home");
   const products = await prisma.product.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
+  const gallery = await prisma.galleryItem.findMany({ where: { isActive: true, type: "image" }, orderBy: [{ sortOrder: "asc" }, { createdAt: "desc" }], take: 3 });
 
   return (
     <>
       <Hero home={home} />
 
-      {/* Intro / benefits */}
+      {/* Produkter */}
       <section className="section">
         <div className="container-page">
-          <SectionHeading
-            center
-            eyebrow="Hvorfor myggenet?"
-            title={home.introTitle}
-            text={home.introText}
-          />
-          <div className="mt-12 grid gap-5 sm:grid-cols-2 lg:grid-cols-3">
-            {BENEFITS.map((b, i) => {
-              const Icon = b.icon;
-              return (
-                <div key={b.title} className="reveal card p-6" style={{ transitionDelay: `${i * 50}ms` }}>
-                  <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-brand-blue to-brand-bluedark text-white">
-                    <Icon />
-                  </span>
-                  <h3 className="mt-4 text-lg font-bold text-brand-ink">{b.title}</h3>
-                  <p className="mt-2 text-sm leading-relaxed text-brand-ink2/75">{b.text}</p>
-                </div>
-              );
-            })}
+          <Heading eyebrow="Produkter" title="To løsninger – fremstillet efter mål" />
+          <div className="mt-14 grid gap-6 md:grid-cols-2">
+            {products.map((p) => <ProductCard key={p.id} product={p} />)}
           </div>
         </div>
       </section>
 
-      {/* Products */}
-      <section className="section bg-brand-mist">
+      {/* Derfor Myggestop */}
+      <section className="section bg-soft">
         <div className="container-page">
-          <div className="flex flex-wrap items-end justify-between gap-4">
-            <SectionHeading eyebrow="Produkter" title="Vælg din løsning" text="To gennemprovede produkter — begge i frit specialmål." />
-            <a href="/produkter" className="btn-ghost">Se alle produkter</a>
+          <Heading eyebrow="Derfor Myggestop" title="Kvalitet, du kan mærke" />
+          <div className="mt-16"><WhyUs /></div>
+        </div>
+      </section>
+
+      {/* Sadan virker det */}
+      <section className="section">
+        <div className="container-page">
+          <Heading eyebrow="Sådan virker det" title="Fra mål til monteret – på fire trin" />
+          <div className="mt-16"><HowItWorks /></div>
+        </div>
+      </section>
+
+      {/* Galleri preview */}
+      {gallery.length > 0 && (
+        <section className="section bg-soft">
+          <div className="container-page">
+            <Heading eyebrow="Galleri" title="Se vores løsninger" />
+            <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
+              {gallery.map((g) => (
+                <div key={g.id} className="reveal overflow-hidden rounded-2xl border border-brand-line bg-white">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src={g.url} alt={g.alt || g.title} className="aspect-[3/4] w-full object-contain" />
+                </div>
+              ))}
+            </div>
+            <div className="reveal mt-12 text-center">
+              <Link href="/galleri" className="btn-secondary">Se hele galleriet</Link>
+            </div>
           </div>
-          <img src="/produkter-banner.png" alt="Myggestop produkter - plissédør og myggenet" className="mt-10 w-full rounded-xl2 border border-brand-line shadow-card" />
-          <div className="mt-12 grid gap-6 sm:grid-cols-2">
-            {products.map((p) => (
-              <ProductCard key={p.id} product={p} />
-            ))}
-          </div>
+        </section>
+      )}
+
+      {/* FAQ */}
+      <section className="section">
+        <div className="container-narrow">
+          <Heading eyebrow="Ofte stillede spørgsmål" title="Godt at vide" />
+          <div className="mt-12"><Faq /></div>
         </div>
       </section>
 
