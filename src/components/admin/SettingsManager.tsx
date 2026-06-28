@@ -9,7 +9,7 @@ export default function SettingsManager() {
   const logoRef = useRef<HTMLInputElement>(null);
 
   useEffect(() => {
-    fetch("/api/settings").then((r) => r.json()).then((d) => {
+    fetch("/api/settings", { cache: "no-store" }).then((r) => r.json()).then((d) => {
       setContact(d.settings.contact);
       setBranding(d.settings.branding);
     });

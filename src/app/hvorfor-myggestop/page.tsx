@@ -4,6 +4,8 @@ import WhyUs from "@/components/WhyUs";
 import CTASection from "@/components/CTASection";
 import { getSetting } from "@/lib/settings";
 
+
+export const dynamic = "force-dynamic";
 export const generateMetadata = () =>
   buildMetadata({
     title: "Hvorfor vælge Myggestop?",

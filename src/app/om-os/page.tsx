@@ -3,6 +3,8 @@ import CTASection from "@/components/CTASection";
 import { getSetting } from "@/lib/settings";
 import { IconStar, IconTools, IconShield, IconChat, IconCheck, IconMap } from "@/components/Icons";
 
+
+export const dynamic = "force-dynamic";
 export const generateMetadata = () =>
   buildMetadata({
     title: "Om Os",

@@ -7,7 +7,7 @@ export default function SeoManager() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/seo").then((r) => r.json()).then((d) => setSeo(d.seo));
+    fetch("/api/seo", { cache: "no-store" }).then((r) => r.json()).then((d) => setSeo(d.seo));
   }, []);
 
   async function save() {

@@ -4,6 +4,8 @@ import SectionHeading from "@/components/SectionHeading";
 import ContactForm from "@/components/ContactForm";
 import { IconMap, IconChat, IconTruck } from "@/components/Icons";
 
+
+export const dynamic = "force-dynamic";
 export const generateMetadata = () =>
   buildMetadata({
     title: "Kontakt Myggestop",

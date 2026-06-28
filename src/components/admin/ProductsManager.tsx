@@ -21,7 +21,7 @@ export default function ProductsManager() {
   const [msg, setMsg] = useState<string | null>(null);
 
   async function load() {
-    const d = await (await fetch("/api/products")).json();
+    const d = await (await fetch("/api/products", { cache: "no-store" })).json();
     setProducts((d.products || []).map((p: any) => ({ ...p, features: Array.isArray(p.features) ? p.features : [] })));
   }
   useEffect(() => { load(); }, []);

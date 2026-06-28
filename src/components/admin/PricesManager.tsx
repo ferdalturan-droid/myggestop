@@ -8,7 +8,7 @@ export default function PricesManager() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/settings").then((r) => r.json()).then((d) => {
+    fetch("/api/settings", { cache: "no-store" }).then((r) => r.json()).then((d) => {
       setPricing(d.settings.pricing);
       setShipping(d.settings.shipping);
     });

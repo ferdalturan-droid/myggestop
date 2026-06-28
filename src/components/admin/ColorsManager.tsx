@@ -9,7 +9,7 @@ export default function ColorsManager() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/colors").then((r) => r.json()).then((d) => setColors(d.colors || []));
+    fetch("/api/colors", { cache: "no-store" }).then((r) => r.json()).then((d) => setColors(d.colors || []));
   }, []);
 
   function update(i: number, patch: Partial<C>) {

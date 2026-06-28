@@ -7,7 +7,7 @@ export default function ContentManager() {
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
-    fetch("/api/content").then((r) => r.json()).then((d) => setHome(d.home));
+    fetch("/api/content", { cache: "no-store" }).then((r) => r.json()).then((d) => setHome(d.home));
   }, []);
 
   async function save() {

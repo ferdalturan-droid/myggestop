@@ -2,6 +2,8 @@ import { buildMetadata } from "@/lib/seo";
 import SectionHeading from "@/components/SectionHeading";
 import GalleryGrid from "@/components/GalleryGrid";
 
+
+export const dynamic = "force-dynamic";
 export const generateMetadata = () =>
   buildMetadata({
     title: "Galleri — Myggenet, døre og plisségardin",
