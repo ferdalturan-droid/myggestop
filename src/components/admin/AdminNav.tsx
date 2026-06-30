@@ -6,6 +6,7 @@ import { useState } from "react";
 const LINKS = [
   { href: "/admin", label: "Oversigt" },
   { href: "/admin/ordrer", label: "Ordrer" },
+  { href: "/admin/imalat", label: "İmalat hesaplama" },
   { href: "/admin/produkter", label: "Produkter" },
   { href: "/admin/priser", label: "Priser & gebyrer" },
   { href: "/admin/farver", label: "Farver" },
