@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDKK } from "@/lib/pricing";
 import { ORDER_STATUS_LABELS } from "@/lib/types";
 import OrderStatusControl from "@/components/admin/OrderStatusControl";
+import ImalatImportButton from "@/components/admin/ImalatImportButton";
 
 export const dynamic = "force-dynamic";
 
@@ -21,7 +22,10 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             Oprettet {new Date(order.createdAt).toLocaleString("da-DK")} · Status: {ORDER_STATUS_LABELS[order.status]}
           </p>
         </div>
-        <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
+        <div className="flex gap-2">
+          <ImalatImportButton musteri={`${order.firstName} ${order.lastName}`} items={order.items.map((it) => ({ widthMm: it.widthMm, heightMm: it.heightMm }))} />
+          <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
+        </div>
       </div>
 
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">

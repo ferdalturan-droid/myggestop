@@ -46,7 +46,6 @@ function parts(r: Row): Part[] | null {
   }
   return out;
 }
-
 const ORDER = ["KASA EN", "KASA BOY", "KANAT", "TÜL BOY", "BANT", "PLS ŞERİT", "MIKNATIS", "İP", "PLS TAKIM"];
 
 export default function ImalatCalc() {
@@ -55,32 +54,34 @@ export default function ImalatCalc() {
   const [saved, setSaved] = useState<any[]>([]);
   const [msg, setMsg] = useState<string | null>(null);
 
-  // yukle
   useEffect(() => {
     try {
-      const cur = JSON.parse(localStorage.getItem("imalat_current") || "null");
-      if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); }
+      const imp = JSON.parse(localStorage.getItem("imalat_import") || "null");
+      if (imp && imp.rows?.length) {
+        setMusteri(imp.musteri || "");
+        setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ })));
+        localStorage.removeItem("imalat_import");
+      } else {
+        const cur = JSON.parse(localStorage.getItem("imalat_current") || "null");
+        if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); }
+      }
       setSaved(JSON.parse(localStorage.getItem("imalat_saved") || "[]"));
     } catch {}
   }, []);
-  // otomatik kaydet
   useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, rows })); }, [musteri, rows]);
 
   const upd = (uid: number, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   const add = () => setRows((rs) => [...rs, blank()]);
   const del = (uid: number) => setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : [blank()]));
 
-  // toplu kesim listesi (ayni olculeri birlestir)
   const liste = useMemo(() => {
     const cut: Record<string, { sys: Sys; label: string; len: number; qty: number }> = {};
     const cnt: Record<string, number> = {};
     for (const r of rows) {
       const ps = parts(r); if (!ps) continue;
       for (const p of ps) {
-        if (p.kind === "cut" && p.len !== undefined) {
-          const k = `${p.sys}|${p.label}|${p.len.toFixed(2)}`;
-          cut[k] = cut[k] || { sys: p.sys, label: p.label, len: p.len, qty: 0 }; cut[k].qty += p.qty;
-        } else if (p.kind === "count") { const k = `${p.sys}|${p.label}`; cnt[k] = (cnt[k] || 0) + p.qty; }
+        if (p.kind === "cut" && p.len !== undefined) { const k = `${p.sys}|${p.label}|${p.len.toFixed(2)}`; cut[k] = cut[k] || { sys: p.sys, label: p.label, len: p.len, qty: 0 }; cut[k].qty += p.qty; }
+        else if (p.kind === "count") { const k = `${p.sys}|${p.label}`; cnt[k] = (cnt[k] || 0) + p.qty; }
       }
     }
     const arr = Object.values(cut).sort((a, b) => a.sys.localeCompare(b.sys) || ORDER.indexOf(a.label) - ORDER.indexOf(b.label) || a.len - b.len);
@@ -99,12 +100,38 @@ export default function ImalatCalc() {
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); localStorage.setItem("imalat_saved", JSON.stringify(n)); }
   function yeni() { setMusteri(""); setRows([blank()]); }
 
+  function yazdir() {
+    const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
+    const wr = rows.map((r, i) => `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Duble" : "Tek"}</td><td>${r.tip === "DUBLE" ? "-" : (r.model === "YANA" ? "Yana" : "Aşağı")}</td><td>${r.adet}</td><td>${r.en}</td><td>${r.boy}</td></tr>`).join("");
+    const kl = liste.arr.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>${f(p.len)}</td><td>${p.qty} adet</td></tr>`).join("")
+      + liste.counts.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>-</td><td>${p.qty} adet</td></tr>`).join("");
+    win.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>İş Emri - ${musteri || ""}</title>
+    <style>body{font-family:Arial,sans-serif;color:#111;padding:28px;max-width:800px;margin:0 auto}
+    h2{font-size:15px;margin:22px 0 8px;text-transform:uppercase;letter-spacing:.5px;color:#3f9c12}
+    .head{display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:12px;margin-bottom:8px}
+    .brand{font-weight:800;font-size:24px}.brand span{color:#5cc524}
+    .meta{font-size:13px;color:#555;margin:6px 0 0}
+    table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}
+    th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f1f5f3;text-transform:uppercase;font-size:11px;color:#555}
+    @media print{button{display:none}}</style></head><body>
+    <div class="head"><div><div class="brand">MYGGE<span>STOP</span></div><div class="meta">İŞ EMRİ - Kesim listesi</div></div>
+    <div style="text-align:right;font-size:13px"><b>${musteri || "-"}</b><br>${new Date().toLocaleString("tr-TR")}</div></div>
+    <h2>Pencereler</h2>
+    <table><thead><tr><th>#</th><th>Sistem</th><th>Tip</th><th>Model</th><th>Adet</th><th>EN</th><th>BOY</th></tr></thead><tbody>${wr}</tbody></table>
+    <h2>Kesim listesi (toplam)</h2>
+    <table><thead><tr><th>Sistem</th><th>Parça</th><th>Ölçü (cm)</th><th>Adet</th></tr></thead><tbody>${kl}</tbody></table>
+    <p style="margin-top:24px"><button onclick="window.print()" style="padding:10px 20px;font-size:14px;background:#3f9c12;color:#fff;border:none;border-radius:8px;cursor:pointer">Yazdır / PDF kaydet</button></p>
+    </body></html>`);
+    win.document.close();
+  }
+
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div><h1 className="text-2xl font-extrabold text-brand-ink">İmalat — Kesim hesabı</h1><p className="text-sm text-brand-ink2/60">Excel ile birebir. Otomatik kaydedilir.</p></div>
         <div className="flex items-center gap-2">
           <button onClick={yeni} className="btn-secondary py-2 text-sm">Yeni</button>
+          <button onClick={yazdir} className="btn-secondary py-2 text-sm">Yazdır / PDF</button>
           <button onClick={kaydet} className="btn-primary py-2 text-sm">Kaydet</button>
         </div>
       </div>
@@ -114,7 +141,6 @@ export default function ImalatCalc() {
         {msg && <div className="flex items-end pb-2 text-sm font-medium text-brand-greendark">{msg}</div>}
       </div>
 
-      {/* kompakt satirlar */}
       <div className="overflow-hidden rounded-xl border border-brand-line">
         <div className="hidden bg-brand-mist px-3 py-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60 sm:grid sm:grid-cols-[28px_84px_84px_110px_70px_80px_80px_36px] sm:gap-2">
           <span>#</span><span>Sistem</span><span>Tip</span><span>Model</span><span>Adet</span><span>EN cm</span><span>BOY cm</span><span></span>
@@ -134,7 +160,6 @@ export default function ImalatCalc() {
       </div>
       <button onClick={add} className="btn-secondary mt-3 w-full border-dashed py-2 text-sm">+ Pencere ekle</button>
 
-      {/* toplu kesim listesi */}
       {liste.arr.length > 0 && (
         <div className="mt-8">
           <h2 className="mb-2 text-lg font-bold text-brand-ink">Kesim listesi (toplam)</h2>
@@ -143,29 +168,14 @@ export default function ImalatCalc() {
             <table className="w-full text-sm">
               <thead><tr className="bg-brand-mist text-left text-xs uppercase tracking-wide text-brand-ink2/60"><th className="px-4 py-2">Sistem</th><th className="px-4 py-2">Parça</th><th className="px-4 py-2">Ölçü (cm)</th><th className="px-4 py-2">Adet</th></tr></thead>
               <tbody className="divide-y divide-brand-line">
-                {liste.arr.map((p, idx) => (
-                  <tr key={idx}>
-                    <td className="px-4 py-2 text-brand-ink2/70">{p.sys}</td>
-                    <td className="px-4 py-2 font-medium text-brand-ink">{p.label}</td>
-                    <td className="px-4 py-2 font-semibold text-brand-ink">{f(p.len)}</td>
-                    <td className="px-4 py-2 text-brand-ink">{p.qty} adet</td>
-                  </tr>
-                ))}
-                {liste.counts.map((p, idx) => (
-                  <tr key={"c" + idx} className="bg-brand-mist/40">
-                    <td className="px-4 py-2 text-brand-ink2/70">{p.sys}</td>
-                    <td className="px-4 py-2 font-medium text-brand-ink">{p.label}</td>
-                    <td className="px-4 py-2 text-brand-ink2/50">—</td>
-                    <td className="px-4 py-2 text-brand-ink">{p.qty} adet</td>
-                  </tr>
-                ))}
+                {liste.arr.map((p, idx) => (<tr key={idx}><td className="px-4 py-2 text-brand-ink2/70">{p.sys}</td><td className="px-4 py-2 font-medium text-brand-ink">{p.label}</td><td className="px-4 py-2 font-semibold text-brand-ink">{f(p.len)}</td><td className="px-4 py-2 text-brand-ink">{p.qty} adet</td></tr>))}
+                {liste.counts.map((p, idx) => (<tr key={"c" + idx} className="bg-brand-mist/40"><td className="px-4 py-2 text-brand-ink2/70">{p.sys}</td><td className="px-4 py-2 font-medium text-brand-ink">{p.label}</td><td className="px-4 py-2 text-brand-ink2/50">—</td><td className="px-4 py-2 text-brand-ink">{p.qty} adet</td></tr>))}
               </tbody>
             </table>
           </div>
         </div>
       )}
 
-      {/* kayitli siparisler */}
       {saved.length > 0 && (
         <div className="mt-8">
           <h2 className="mb-3 text-lg font-bold text-brand-ink">Kayıtlı siparişler</h2>
@@ -173,10 +183,7 @@ export default function ImalatCalc() {
             {saved.map((s) => (
               <div key={s.id} className="flex items-center justify-between rounded-xl border border-brand-line bg-white px-4 py-2.5 text-sm">
                 <div><span className="font-semibold text-brand-ink">{s.musteri}</span> <span className="text-brand-ink2/55">· {s.rows.length} pencere · {s.date}</span></div>
-                <div className="flex gap-3">
-                  <button onClick={() => yukle(s)} className="font-medium text-brand-greendark hover:underline">Aç</button>
-                  <button onClick={() => sil(s.id)} className="text-red-400 hover:text-red-600">Sil</button>
-                </div>
+                <div className="flex gap-3"><button onClick={() => yukle(s)} className="font-medium text-brand-greendark hover:underline">Aç</button><button onClick={() => sil(s.id)} className="text-red-400 hover:text-red-600">Sil</button></div>
               </div>
             ))}
           </div>
