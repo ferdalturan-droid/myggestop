@@ -132,25 +132,26 @@ export default function ImalatCalc() {
       </div>
       {msg && <div className="mb-3 text-sm font-medium text-brand-greendark">{msg}</div>}
 
-      <div className="overflow-hidden rounded-xl border border-brand-line">
-        <div className="hidden bg-brand-mist px-3 py-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60 sm:grid sm:grid-cols-[26px_72px_70px_88px_52px_64px_64px_88px_60px_28px] sm:gap-2">
-          <span>#</span><span>Sistem</span><span>Tip</span><span>Model</span><span>Adet</span><span>EN</span><span>BOY</span><span>Fiyat</span><span>Tamam</span><span></span>
-        </div>
+      <div className="space-y-3">
         {rows.map((r, i) => {
           const ps = parts(r); const open = openUid === r.uid; const pr = priceOf(r);
           return (
-            <div key={r.uid} className={`border-t border-brand-line ${r.done ? "bg-green-50/60" : ""}`}>
-              <div className="grid grid-cols-2 gap-2 px-3 py-2 sm:grid-cols-[26px_72px_70px_88px_52px_64px_64px_88px_60px_28px] sm:items-center">
-                <button onClick={() => setOpenUid(open ? null : r.uid)} className="flex items-center gap-1 text-sm font-bold text-brand-greendark">{i + 1}<span className="text-[10px]">{open ? "▲" : "▼"}</span></button>
-                <select className="input py-1.5 text-sm" value={r.sys} onChange={(e) => upd(r.uid, { sys: e.target.value as Sys })}><option>1,9</option><option>2,8</option></select>
-                <select className="input py-1.5 text-sm" value={r.tip} onChange={(e) => upd(r.uid, { tip: e.target.value as Tip })}><option value="TEK">Tek</option><option value="DUBLE">Duble</option></select>
-                <select className="input py-1.5 text-sm" value={r.model} disabled={r.tip === "DUBLE"} onChange={(e) => upd(r.uid, { model: e.target.value as any })}><option value="YANA">Yana</option><option value="AŞAĞI">Aşağı</option></select>
-                <input className="input py-1.5 text-sm" inputMode="numeric" value={r.adet} placeholder="Ad." onChange={(e) => upd(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} />
-                <input className="input py-1.5 text-sm" inputMode="decimal" value={r.en} placeholder="EN" onChange={(e) => upd(r.uid, { en: e.target.value.replace(/[^0-9.,]/g, "") })} />
-                <input className="input py-1.5 text-sm" inputMode="decimal" value={r.boy} placeholder="BOY" onChange={(e) => upd(r.uid, { boy: e.target.value.replace(/[^0-9.,]/g, "") })} />
-                <span className="text-sm font-semibold text-brand-ink">{pr ? kr(pr.price) : "-"}</span>
-                <label className="flex items-center gap-1 text-xs text-brand-ink2/70"><input type="checkbox" checked={!!r.done} onChange={(e) => upd(r.uid, { done: e.target.checked })} /> ✓</label>
-                <button onClick={() => del(r.uid)} className="text-lg text-red-400 hover:text-red-600">×</button>
+            <div key={r.uid} className={`rounded-xl border border-brand-line ${r.done ? "bg-green-50/60" : "bg-white"}`}>
+              <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
+                <button onClick={() => setOpenUid(open ? null : r.uid)} className="flex items-center gap-1.5 text-sm font-bold text-brand-greendark"><span className="grid h-6 w-6 place-items-center rounded-full bg-brand-greendark text-xs text-white">{i + 1}</span> detay {open ? "▲" : "▼"}</button>
+                <div className="flex items-center gap-3">
+                  <span className="text-sm font-bold text-brand-ink">{pr ? kr(pr.price) : ""}</span>
+                  <label className="flex items-center gap-1 text-xs text-brand-ink2/70"><input type="checkbox" checked={!!r.done} onChange={(e) => upd(r.uid, { done: e.target.checked })} /> Tamam</label>
+                  <button onClick={() => del(r.uid)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button>
+                </div>
+              </div>
+              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-6">
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Sistem</span><select className="input py-2 text-sm" value={r.sys} onChange={(e) => upd(r.uid, { sys: e.target.value as Sys })}><option>1,9</option><option>2,8</option></select></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Tip</span><select className="input py-2 text-sm" value={r.tip} onChange={(e) => upd(r.uid, { tip: e.target.value as Tip })}><option value="TEK">Tek</option><option value="DUBLE">Duble</option></select></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Model</span><select className="input py-2 text-sm" value={r.model} disabled={r.tip === "DUBLE"} onChange={(e) => upd(r.uid, { model: e.target.value as any })}><option value="YANA">Yana</option><option value="AŞAĞI">Aşağı</option></select></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Adet</span><input className="input py-2 text-sm" inputMode="numeric" value={r.adet} onChange={(e) => upd(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">EN (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.en} onChange={(e) => upd(r.uid, { en: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">BOY (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.boy} onChange={(e) => upd(r.uid, { boy: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
               </div>
               {open && ps && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
@@ -178,8 +179,8 @@ export default function ImalatCalc() {
         <div className="mt-8">
           <h2 className="mb-2 text-lg font-bold text-brand-ink">Kesim listesi (toplam)</h2>
           <p className="mb-3 text-sm text-brand-ink2/60">Aynı ölçüler birleştirildi. Kesileni işaretle.</p>
-          <div className="overflow-hidden rounded-xl border border-brand-line">
-            <table className="w-full text-sm"><thead><tr className="bg-brand-mist text-left text-xs uppercase tracking-wide text-brand-ink2/60"><th className="px-3 py-2">✓</th><th className="px-3 py-2">Sistem</th><th className="px-3 py-2">Parça</th><th className="px-3 py-2">Ölçü</th><th className="px-3 py-2">Adet</th></tr></thead>
+          <div className="overflow-x-auto rounded-xl border border-brand-line">
+            <table className="w-full min-w-[460px] text-sm"><thead><tr className="bg-brand-mist text-left text-xs uppercase tracking-wide text-brand-ink2/60"><th className="px-3 py-2">✓</th><th className="px-3 py-2">Sistem</th><th className="px-3 py-2">Parça</th><th className="px-3 py-2">Ölçü</th><th className="px-3 py-2">Adet</th></tr></thead>
               <tbody className="divide-y divide-brand-line">
                 {liste.arr.map((p, idx) => { const k = `${p.sys}|${p.label}|${p.len.toFixed(2)}`; const d = doneKeys.includes(k); return (
                   <tr key={idx} className={d ? "bg-green-50/60" : ""}><td className="px-3 py-2"><input type="checkbox" checked={d} onChange={() => toggleKey(k)} /></td><td className="px-3 py-2 text-brand-ink2/70">{p.sys}</td><td className={`px-3 py-2 font-medium ${d ? "text-brand-ink2/40 line-through" : "text-brand-ink"}`}>{p.label}</td><td className={`px-3 py-2 font-semibold ${d ? "text-brand-ink2/40 line-through" : "text-brand-ink"}`}>{f(p.len)} cm</td><td className="px-3 py-2 text-brand-ink">{p.qty} adet</td></tr>); })}
