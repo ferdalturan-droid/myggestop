@@ -16,6 +16,16 @@ const blank = (): Row => ({ uid: c++, sys: "1,9", tip: "TEK", model: "YANA", ade
 interface Part { label: string; qty: number; len?: number; kind: "cut" | "count" | "pile"; sys: Sys }
 const DEF_RATES = { tek19: 400, tek28: 450, dub19: 500, dub28: 550 };
 let recInstance: any = null;
+const WMAP: Record<string, number> = { "sıfır": 0, sifir: 0, bir: 1, iki: 2, "üç": 3, uc: 3, "dört": 4, dort: 4, "beş": 5, bes: 5, "altı": 6, alti: 6, yedi: 7, sekiz: 8, dokuz: 9, on: 10, yirmi: 20, otuz: 30, "kırk": 40, kirk: 40, elli: 50, "altmış": 60, altmis: 60, "yetmiş": 70, yetmis: 70, seksen: 80, doksan: 90, "yüz": 100, yuz: 100, bin: 1000 };
+function parseNums(t: string): number[] {
+  const d = (t.match(/\d+(?:[.,]\d+)?/g) || []).map((x) => parseFloat(x.replace(",", ".")));
+  if (d.length) return d;
+  const toks = t.toLowerCase().replace(/[^a-zçğıöşü ]/g, " ").split(/\s+/).filter(Boolean);
+  const nums: number[] = []; let cur = 0; let started = false;
+  const flush = () => { if (started) { nums.push(cur); cur = 0; started = false; } };
+  for (const w of toks) { if (!(w in WMAP)) { flush(); continue; } const v = WMAP[w]; started = true; if (v === 100) cur = (cur === 0 ? 1 : cur) * 100; else if (v === 1000) cur = (cur === 0 ? 1 : cur) * 1000; else cur += v; }
+  flush(); return nums;
+}
 
 function dims(r: Row) {
   const en = parseFloat(r.en.replace(",", ".")) || 0, boy = parseFloat(r.boy.replace(",", ".")) || 0, adet = Math.max(1, parseInt(r.adet) || 1);
@@ -96,25 +106,27 @@ export default function ImalatCalc() {
   function addWith(en: string, boy: string) {
     setRows((rs) => { const last = rs[rs.length - 1]; return [...rs, { ...blank(), sys: last?.sys || "1,9", tip: last?.tip || "TEK", model: last?.model || "YANA", en, boy }]; });
   }
-  function startListen() {
-    const SR = (typeof window !== "undefined") && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
-    if (!SR) { setMsg("Bu tarayıcı sesli girişi desteklemiyor (Chrome önerilir)."); setTimeout(() => setMsg(null), 3500); return; }
+  function handleTranscript(t: string) {
+    const nums = parseNums(t);
+    const fn = (n: number) => String(n).replace(".", ",");
+    if (nums.length >= 2) { addWith(fn(nums[0]), fn(nums[1])); setMsg(`Eklendi: ${nums[0]} × ${nums[1]}  (duydum: ${t.trim()})`); }
+    else if (nums.length === 1) { addWith(fn(nums[0]), ""); setMsg(`Tek sayı: ${nums[0]} (duydum: ${t.trim()})`); }
+    else { setMsg(`Anlaşılmadı — duydum: "${t.trim() || "(boş)"}"`); }
+    setTimeout(() => setMsg(null), 4000);
+  }
+  function toggleListen() {
+    if (listening) { try { recInstance && recInstance.stop(); } catch {} return; }
+    const SR: any = (typeof window !== "undefined") && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SR) { setMsg("Bu tarayıcı sesli girişi desteklemiyor. Chrome kullan."); setTimeout(() => setMsg(null), 4000); return; }
     try {
-      recInstance = new SR(); recInstance.lang = "tr-TR"; recInstance.interimResults = false; recInstance.maxAlternatives = 1;
-      recInstance.onresult = (e: any) => {
-        const t = (e.results?.[0]?.[0]?.transcript || "").toString();
-        const nums = (t.match(/\d+(?:[.,]\d+)?/g) || []).map((x: string) => x.replace(",", "."));
-        if (nums.length >= 2) { addWith(String(parseFloat(nums[0])).replace(".", ","), String(parseFloat(nums[1])).replace(".", ",")); setMsg("Eklendi: " + nums[0] + " × " + nums[1]); setTimeout(() => setMsg(null), 2000); }
-        else if (nums.length === 1) { addWith(String(parseFloat(nums[0])).replace(".", ","), ""); }
-        else { setMsg("Rakam anlaşılmadı: \"" + t + "\""); setTimeout(() => setMsg(null), 3500); }
-      };
-      recInstance.onend = () => setListening(false);
-      recInstance.onerror = () => setListening(false);
+      recInstance = new SR(); recInstance.lang = "tr-TR"; recInstance.interimResults = true; recInstance.continuous = false; recInstance.maxAlternatives = 1;
+      let fin = "";
+      recInstance.onresult = (e: any) => { let txt = ""; for (let i = 0; i < e.results.length; i++) txt += e.results[i][0].transcript + " "; fin = txt; };
+      recInstance.onerror = (e: any) => { setListening(false); setMsg("Ses hatası: " + (e?.error || "")); setTimeout(() => setMsg(null), 3500); };
+      recInstance.onend = () => { setListening(false); if (fin.trim()) handleTranscript(fin); };
       recInstance.start(); setListening(true);
     } catch { setListening(false); }
   }
-  function stopListen() { try { recInstance && recInstance.stop(); } catch {} }
-
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
     const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Duble" : "Tek"}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
@@ -190,7 +202,7 @@ export default function ImalatCalc() {
         })}
       </div>
       <div className="mt-3 flex gap-2">
-        <button type="button" onPointerDown={startListen} onPointerUp={stopListen} onPointerLeave={stopListen} className={`flex flex-[2] items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold text-white transition ${listening ? "bg-red-500 animate-pulse" : "bg-brand-ink"}`}>🎤 {listening ? "Dinliyor… bırakınca ekler" : "Bas-konuş: “100 120”"}</button>
+        <button type="button" onClick={toggleListen} className={`flex flex-[2] items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold text-white transition ${listening ? "bg-red-500 animate-pulse" : "bg-brand-ink"}`}>🎤 {listening ? "Dinliyor… (konuş, sonra bekle)" : "Sesle ekle: “100 120”"}</button>
         <button onClick={add} className="btn-secondary flex-1 border-dashed py-2 text-sm">+ Elle ekle</button>
       </div>
 
