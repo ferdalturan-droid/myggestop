@@ -7,7 +7,7 @@ const TEK: Record<Sys, any> = { "1,9": { y5: 3.5, y6: 5.5, y7: 5.8, y8: 4, y9: 2
 const DUB: Record<Sys, any> = { "1,9": { y5: 3.7, y6: 5.7, y7: 5.8, y8: 4, y9: 2.2, y12: 54, y13: 5 }, "2,8": { y5: 4, y6: 7.2, y7: 7.5, y8: 4, y9: 2, y12: 52.5, y13: 5 } };
 const ceil = (x: number) => Math.ceil(Math.round(x * 1e9) / 1e9);
 const f = (n: number) => (!isFinite(n) ? "-" : (Math.round(n * 100) / 100).toString().replace(".", ","));
-const r50 = (cm: number) => Math.ceil(cm / 50) * 50;
+const ceilHalf = (x: number) => (x <= 0 ? 0 : Math.ceil((x - 1e-9) * 2) / 2);
 const kr = (n: number) => (Math.round(n * 100) / 100).toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kr";
 
 interface Row { uid: number; sys: Sys; tip: Tip; model: "YANA" | "AŞAĞI"; adet: string; en: string; boy: string; done?: boolean; }
@@ -62,7 +62,7 @@ export default function ImalatCalc() {
   useEffect(() => { localStorage.setItem("imalat_rates", JSON.stringify(rates)); }, [rates]);
 
   const rateOf = (r: Row) => r.tip === "TEK" ? (r.sys === "1,9" ? rates.tek19 : rates.tek28) : (r.sys === "1,9" ? rates.dub19 : rates.dub28);
-  function priceOf(r: Row) { const { en, boy, adet } = dims(r); if (en <= 0 || boy <= 0) return null; const m2 = (r50(en) / 100) * (r50(boy) / 100); return { m2, enR: r50(en), boyR: r50(boy), price: m2 * rateOf(r) * adet }; }
+  function priceOf(r: Row) { const { en, boy, adet } = dims(r); if (en <= 0 || boy <= 0) return null; const area = (en / 100) * (boy / 100); const m2 = ceilHalf(area); return { area, m2, price: m2 * rateOf(r) * adet }; }
 
   const upd = (uid: number, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   const add = () => setRows((rs) => [...rs, blank()]);
@@ -93,13 +93,13 @@ export default function ImalatCalc() {
 
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
-    const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Duble" : "Tek"}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${pr ? f(pr.enR) + "×" + f(pr.boyR) : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
+    const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Duble" : "Tek"}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
     const kl = liste.arr.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>${f(p.len)}</td><td>${p.qty} adet</td></tr>`).join("") + liste.counts.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>-</td><td>${p.qty} adet</td></tr>`).join("");
     win.document.write(`<!doctype html><html lang="tr"><head><meta charset="utf-8"><title>İş Emri - ${musteri || ""}</title>
     <style>body{font-family:Arial,sans-serif;color:#111;padding:28px;max-width:800px;margin:0 auto}h2{font-size:15px;margin:22px 0 8px;text-transform:uppercase;color:#3f9c12}.head{display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:12px}.brand{font-weight:800;font-size:24px}.brand span{color:#5cc524}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f1f5f3;font-size:11px;color:#555}.tot{margin-top:14px;width:auto;float:right}.tot td{border:none;padding:3px 10px}@media print{button{display:none}}</style></head><body>
     <div class="head"><div><div class="brand">MYGGE<span>STOP</span></div><div style="font-size:13px;color:#555">İŞ EMRİ</div></div>
     <div style="text-align:right;font-size:13px"><b>${musteri || "-"}</b><br>${tel || ""}<br>${adres || ""}<br>${new Date().toLocaleString("tr-TR")}</div></div>
-    <h2>Pencereler & fiyat</h2><table><thead><tr><th>#</th><th>Sistem</th><th>Tip</th><th>Adet</th><th>Ölçü cm</th><th>Hesap (50)</th><th>Fiyat</th></tr></thead><tbody>${wr}</tbody></table>
+    <h2>Pencereler & fiyat</h2><table><thead><tr><th>#</th><th>Sistem</th><th>Tip</th><th>Adet</th><th>Ölçü cm</th><th>m²</th><th>Fiyat</th></tr></thead><tbody>${wr}</tbody></table>
     <table class="tot"><tr><td>Ara toplam:</td><td style="text-align:right"><b>${kr(totals.ara)}</b></td></tr><tr><td>Moms %25:</td><td style="text-align:right">${kr(totals.moms)}</td></tr><tr><td><b>Genel toplam:</b></td><td style="text-align:right"><b>${kr(totals.dahil)}</b></td></tr></table>
     <div style="clear:both"></div><h2>Kesim listesi (toplam)</h2><table><thead><tr><th>Sistem</th><th>Parça</th><th>Ölçü (cm)</th><th>Adet</th></tr></thead><tbody>${kl}</tbody></table>
     <p style="margin-top:24px"><button onclick="window.print()" style="padding:10px 20px;background:#3f9c12;color:#fff;border:none;border-radius:8px;cursor:pointer">Yazdır / PDF kaydet</button></p></body></html>`);
@@ -155,7 +155,7 @@ export default function ImalatCalc() {
               </div>
               {open && ps && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">Pencere {i + 1} — {r.tip === "DUBLE" ? "Duble" : "Tek"} {r.sys} · {r.en}×{r.boy} cm {pr ? `· ${f(pr.enR)}×${f(pr.boyR)} hesap · ${kr(pr.price)}` : ""}</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">Pencere {i + 1} — {r.tip === "DUBLE" ? "Duble" : "Tek"} {r.sys} · {r.en}×{r.boy} cm {pr ? `· ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}</p>
                   <div className="grid gap-1.5 text-sm sm:grid-cols-2">
                     {ps.map((p) => (<div key={p.label} className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">{p.label}</span><span className="font-semibold text-brand-ink">{p.kind === "pile" ? `${f(p.len!)} kat` : p.kind === "count" ? `${p.qty} adet` : `${p.qty} adet × ${f(p.len!)} cm`}</span></div>))}
                   </div>
