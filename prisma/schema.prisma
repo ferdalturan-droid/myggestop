@@ -151,3 +151,16 @@ model OrderCounter {
   year  Int @id
   count Int @default(0)
 }
+
+model Appointment {
+  id        String   @id @default(cuid())
+  day       String   // "2026-05-12"
+  time      String   // "17:00"
+  customer  String
+  phone     String   @default("")
+  address   String   @default("")
+  note      String   @default("")
+  createdAt DateTime @default(now())
+
+  @@index([day])
+}

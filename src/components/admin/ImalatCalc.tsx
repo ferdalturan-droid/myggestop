@@ -60,17 +60,20 @@ export default function ImalatCalc() {
   const [showRates, setShowRates] = useState(false);
   const [saved, setSaved] = useState<any[]>([]); const [msg, setMsg] = useState<string | null>(null);
   const [listening, setListening] = useState(false);
+  const [tarih, setTarih] = useState(""); const [saat, setSaat] = useState("");
+  const [appts, setAppts] = useState<any[]>([]); const [apptMsg, setApptMsg] = useState<{ t: string; ok: boolean } | null>(null);
 
   useEffect(() => {
     try {
       const rt = JSON.parse(localStorage.getItem("imalat_rates") || "null"); if (rt) setRates({ ...DEF_RATES, ...rt });
       const imp = JSON.parse(localStorage.getItem("imalat_import") || "null");
       if (imp && imp.rows?.length) { setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || ""); setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); localStorage.removeItem("imalat_import"); }
-      else { const cur = JSON.parse(localStorage.getItem("imalat_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(cur.doneKeys || []); } }
+      else { const cur = JSON.parse(localStorage.getItem("imalat_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || ""); } }
       setSaved(JSON.parse(localStorage.getItem("imalat_saved") || "[]"));
     } catch {}
   }, []);
-  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys })); }, [musteri, tel, adres, rows, doneKeys]);
+  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat]);
+  useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
   useEffect(() => { localStorage.setItem("imalat_rates", JSON.stringify(rates)); }, [rates]);
 
   const rateOf = (r: Row) => r.tip === "TEK" ? (r.sys === "1,9" ? rates.tek19 : rates.tek28) : (r.sys === "1,9" ? rates.dub19 : rates.dub28);
@@ -106,6 +109,18 @@ export default function ImalatCalc() {
   function addWith(en: string, boy: string) {
     setRows((rs) => { const last = rs[rs.length - 1]; return [...rs, { ...blank(), sys: last?.sys || "1,9", tip: last?.tip || "TEK", model: last?.model || "YANA", en, boy }]; });
   }
+  async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
+  async function randevuAl() {
+    if (!musteri.trim()) { setApptMsg({ t: "Önce müşteri adı girin.", ok: false }); return; }
+    if (!tarih || !saat) { setApptMsg({ t: "Tarih ve saat seçin.", ok: false }); return; }
+    const res = await fetch("/api/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ day: tarih, time: saat, customer: musteri, phone: tel, address: adres }) });
+    const d = await res.json().catch(() => ({}));
+    if (res.status === 409) { setApptMsg({ t: `⚠ ${tarih} ${saat} DOLU — ${d.conflict?.customer || ""}`, ok: false }); return; }
+    if (!res.ok) { setApptMsg({ t: d.error || "Hata", ok: false }); return; }
+    setApptMsg({ t: "Randevu alındı ✓", ok: true }); await loadAppts(); setTimeout(() => setApptMsg(null), 4000);
+  }
+  async function randevuSil(id: string) { if (!confirm("Randevu silinsin mi?")) return; await fetch(`/api/appointments/${id}`, { method: "DELETE" }); await loadAppts(); }
+
   function handleTranscript(t: string) {
     const nums = parseNums(t);
     const fn = (n: number) => String(n).replace(".", ",");
@@ -165,6 +180,26 @@ export default function ImalatCalc() {
         <label className="block"><span className="label">Müşteri</span><input className="input" value={musteri} onChange={(e) => setMusteri(e.target.value)} placeholder="Müşteri adı" /></label>
         <label className="block"><span className="label">Telefon</span><input className="input" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="Telefon" /></label>
         <label className="block"><span className="label">Adres</span><input className="input" value={adres} onChange={(e) => setAdres(e.target.value)} placeholder="Adres" /></label>
+      </div>
+
+      <div className="mb-4 rounded-xl border border-brand-line bg-brand-mist/40 p-3">
+        <div className="flex flex-wrap items-end gap-3">
+          <label className="block"><span className="label">Montaj tarihi</span><input type="date" className="input py-2 text-sm" value={tarih} onChange={(e) => setTarih(e.target.value)} /></label>
+          <label className="block"><span className="label">Saat</span><input type="time" className="input py-2 text-sm" value={saat} onChange={(e) => setSaat(e.target.value)} /></label>
+          <button onClick={randevuAl} className="btn-primary py-2.5 text-sm">Randevu al</button>
+          {apptMsg && <span className={`pb-2 text-sm font-semibold ${apptMsg.ok ? "text-brand-greendark" : "text-red-600"}`}>{apptMsg.t}</span>}
+        </div>
+        {appts.length > 0 && (
+          <div className="mt-3 space-y-1">
+            <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink2/55">Randevular ({appts.length})</p>
+            {appts.map((a) => (
+              <div key={a.id} className="flex items-center justify-between rounded-lg bg-white px-3 py-1.5 text-sm">
+                <span><b className="text-brand-ink">{a.day} · {a.time}</b> <span className="text-brand-ink2/70">— {a.customer}{a.phone ? " · " + a.phone : ""}</span></span>
+                <button onClick={() => randevuSil(a.id)} className="text-red-400 hover:text-red-600">×</button>
+              </div>
+            ))}
+          </div>
+        )}
       </div>
       {msg && <div className="mb-3 text-sm font-medium text-brand-greendark">{msg}</div>}
 
