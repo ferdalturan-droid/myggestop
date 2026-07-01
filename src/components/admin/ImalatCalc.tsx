@@ -15,6 +15,7 @@ let c = 1;
 const blank = (): Row => ({ uid: c++, sys: "1,9", tip: "TEK", model: "YANA", adet: "1", en: "", boy: "", done: false });
 interface Part { label: string; qty: number; len?: number; kind: "cut" | "count" | "pile"; sys: Sys }
 const DEF_RATES = { tek19: 400, tek28: 450, dub19: 500, dub28: 550 };
+let recInstance: any = null;
 
 function dims(r: Row) {
   const en = parseFloat(r.en.replace(",", ".")) || 0, boy = parseFloat(r.boy.replace(",", ".")) || 0, adet = Math.max(1, parseInt(r.adet) || 1);
@@ -48,6 +49,7 @@ export default function ImalatCalc() {
   const [rates, setRates] = useState(DEF_RATES);
   const [showRates, setShowRates] = useState(false);
   const [saved, setSaved] = useState<any[]>([]); const [msg, setMsg] = useState<string | null>(null);
+  const [listening, setListening] = useState(false);
 
   useEffect(() => {
     try {
@@ -90,6 +92,28 @@ export default function ImalatCalc() {
   function yukle(rec: any) { setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || ""); setRows(rec.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(rec.doneKeys || []); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); localStorage.setItem("imalat_saved", JSON.stringify(n)); }
   function yeni() { if (confirm("Yeni boş sayfa açılsın mı?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank()]); setDoneKeys([]); } }
+
+  function addWith(en: string, boy: string) {
+    setRows((rs) => { const last = rs[rs.length - 1]; return [...rs, { ...blank(), sys: last?.sys || "1,9", tip: last?.tip || "TEK", model: last?.model || "YANA", en, boy }]; });
+  }
+  function startListen() {
+    const SR = (typeof window !== "undefined") && ((window as any).SpeechRecognition || (window as any).webkitSpeechRecognition);
+    if (!SR) { setMsg("Bu tarayıcı sesli girişi desteklemiyor (Chrome önerilir)."); setTimeout(() => setMsg(null), 3500); return; }
+    try {
+      recInstance = new SR(); recInstance.lang = "tr-TR"; recInstance.interimResults = false; recInstance.maxAlternatives = 1;
+      recInstance.onresult = (e: any) => {
+        const t = (e.results?.[0]?.[0]?.transcript || "").toString();
+        const nums = (t.match(/\d+(?:[.,]\d+)?/g) || []).map((x: string) => x.replace(",", "."));
+        if (nums.length >= 2) { addWith(String(parseFloat(nums[0])).replace(".", ","), String(parseFloat(nums[1])).replace(".", ",")); setMsg("Eklendi: " + nums[0] + " × " + nums[1]); setTimeout(() => setMsg(null), 2000); }
+        else if (nums.length === 1) { addWith(String(parseFloat(nums[0])).replace(".", ","), ""); }
+        else { setMsg("Rakam anlaşılmadı: \"" + t + "\""); setTimeout(() => setMsg(null), 3500); }
+      };
+      recInstance.onend = () => setListening(false);
+      recInstance.onerror = () => setListening(false);
+      recInstance.start(); setListening(true);
+    } catch { setListening(false); }
+  }
+  function stopListen() { try { recInstance && recInstance.stop(); } catch {} }
 
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
@@ -165,7 +189,10 @@ export default function ImalatCalc() {
           );
         })}
       </div>
-      <button onClick={add} className="btn-secondary mt-3 w-full border-dashed py-2 text-sm">+ Pencere ekle</button>
+      <div className="mt-3 flex gap-2">
+        <button type="button" onPointerDown={startListen} onPointerUp={stopListen} onPointerLeave={stopListen} className={`flex flex-[2] items-center justify-center gap-2 rounded-full py-3 text-sm font-semibold text-white transition ${listening ? "bg-red-500 animate-pulse" : "bg-brand-ink"}`}>🎤 {listening ? "Dinliyor… bırakınca ekler" : "Bas-konuş: “100 120”"}</button>
+        <button onClick={add} className="btn-secondary flex-1 border-dashed py-2 text-sm">+ Elle ekle</button>
+      </div>
 
       {totals.ara > 0 && (
         <div className="mt-6 ml-auto max-w-xs rounded-xl border border-brand-line bg-white p-4 text-sm">
