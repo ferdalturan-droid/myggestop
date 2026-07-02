@@ -1,6 +1,7 @@
 import { buildMetadata } from "@/lib/seo";
 import SectionHeading from "@/components/SectionHeading";
 import WhyUs from "@/components/WhyUs";
+import MaterialsSection from "@/components/MaterialsSection";
 import CTASection from "@/components/CTASection";
 import { getSetting } from "@/lib/settings";
 
@@ -27,6 +28,19 @@ export default async function HvorforPage() {
           />
           <div className="mt-12">
             <WhyUs />
+          </div>
+        </div>
+      </section>
+      <section className="section pt-0">
+        <div className="container-page">
+          <SectionHeading
+            center
+            eyebrow="Materialer"
+            title="Det er dette, vi bygger med"
+            text="Åbn og se præcis, hvilke materialer der indgår i dit myggenet eller din plissegardin."
+          />
+          <div className="mt-12">
+            <MaterialsSection />
           </div>
         </div>
       </section>
