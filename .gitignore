@@ -9,3 +9,4 @@ out
 !/public/uploads/.gitkeep
 prisma/dev.db
 .vercel
+tsconfig.tsbuildinfo

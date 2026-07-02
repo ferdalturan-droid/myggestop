@@ -23,7 +23,12 @@ export default async function OrderDetail({ params }: { params: { id: string } }
           </p>
         </div>
         <div className="flex gap-2">
-          <ImalatImportButton musteri={`${order.firstName} ${order.lastName}`} items={order.items.map((it) => ({ widthMm: it.widthMm, heightMm: it.heightMm }))} />
+          <ImalatImportButton
+            musteri={`${order.firstName} ${order.lastName}`}
+            tel={order.phone}
+            adres={`${order.address}, ${order.postalCode} ${order.city}`}
+            items={order.items.map((it) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
+          />
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
         </div>
       </div>
