@@ -5,6 +5,7 @@ import { formatDKK } from "@/lib/pricing";
 import { ORDER_STATUS_LABELS } from "@/lib/types";
 import OrderStatusControl from "@/components/admin/OrderStatusControl";
 import ImalatImportButton from "@/components/admin/ImalatImportButton";
+import OrderDeleteButton from "@/components/admin/OrderDeleteButton";
 
 export const dynamic = "force-dynamic";
 
@@ -30,6 +31,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             items={order.items.map((it) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
           />
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
+          <OrderDeleteButton orderId={order.id} orderNumber={order.orderNumber} />
         </div>
       </div>
 

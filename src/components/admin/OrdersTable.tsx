@@ -35,6 +35,13 @@ export default function OrdersTable() {
     return () => clearTimeout(t);
   }, [load]);
 
+  async function del(id: string, orderNumber: string) {
+    if (!confirm(`Slet ordre ${orderNumber}? Dette kan ikke fortrydes.`)) return;
+    const res = await fetch(`/api/orders/${id}`, { method: "DELETE" });
+    if (res.ok) load();
+    else alert("Kunne ikke slette ordren.");
+  }
+
   function exportCsv() {
     const headers = ["Ordrenr", "Dato", "Navn", "Email", "Telefon", "By", "Postnr", "Montering", "Status", "Estimeret total"];
     const rows = orders.map((o) => [
@@ -108,7 +115,12 @@ export default function OrdersTable() {
                     <td className="px-4 py-3">{o.items.length}</td>
                     <td className="px-4 py-3 font-semibold">{formatDKK(o.estimatedTotal)}</td>
                     <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABELS[o.status]}</span></td>
-                    <td className="px-4 py-3 text-right"><Link href={`/admin/ordrer/${o.id}`} className="text-sm font-semibold text-brand-blue hover:underline">Åbn</Link></td>
+                    <td className="px-4 py-3 text-right">
+                      <div className="flex items-center justify-end gap-3">
+                        <Link href={`/admin/ordrer/${o.id}`} className="text-sm font-semibold text-brand-blue hover:underline">Åbn</Link>
+                        <button onClick={() => del(o.id, o.orderNumber)} className="text-sm font-semibold text-red-500 hover:text-red-700">Slet</button>
+                      </div>
+                    </td>
                   </tr>
                 ))
               )}
