@@ -6,9 +6,9 @@ const ceilHalf = (x: number) => (x <= 0 ? 0 : Math.ceil((x - 1e-9) * 2) / 2);
 const f = (n: number) => (!isFinite(n) ? "-" : (Math.round(n * 100) / 100).toString().replace(".", ","));
 const kr = (n: number) => (Math.round(n * 100) / 100).toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kr";
 
-interface Row { uid: number; kanat: Kanat; en: string; boy: string; adet: string; }
+interface Row { uid: number; kanat: Kanat; en: string; boy: string; adet: string; farve: string; }
 let c = 1;
-const blank = (): Row => ({ uid: c++, kanat: "HAREKETLI", en: "", boy: "", adet: "1" });
+const blank = (): Row => ({ uid: c++, kanat: "HAREKETLI", en: "", boy: "", adet: "1", farve: "" });
 
 function calc(r: Row, rate: number) {
   const en = parseFloat(r.en.replace(",", ".")) || 0, boy = parseFloat(r.boy.replace(",", ".")) || 0, adet = Math.max(1, parseInt(r.adet) || 1);
@@ -51,10 +51,10 @@ export default function PerdeCalc() {
 
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
-    const wr = rows.map((r, i) => { const x = calc(r, rate); if (!x) return ""; return `<tr><td>${i + 1}</td><td>${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}</td><td>${r.en}×${r.boy}</td><td>${x.adet}</td><td>${f(x.perdeEn)}</td><td>${f(x.pile)}</td><td>${f(x.alumProfil)} (${x.alumAdet})</td><td>${f(x.serit)} (${x.seritAdet})</td><td>${f(x.ipBoy)}</td><td>${f(x.m2)} m²</td><td>${kr(x.price)}</td></tr>`; }).join("");
+    const wr = rows.map((r, i) => { const x = calc(r, rate); if (!x) return ""; return `<tr><td>${i + 1}</td><td>${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${x.adet}</td><td>${f(x.perdeEn)}</td><td>${f(x.pile)}</td><td>${f(x.alumProfil)} (${x.alumAdet})</td><td>${f(x.serit)} (${x.seritAdet})</td><td>${f(x.ipBoy)}</td><td>${f(x.m2)} m²</td><td>${kr(x.price)}</td></tr>`; }).join("");
     win.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Gardin Arbejdsseddel - ${musteri}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:24px}h2{color:#3f9c12;font-size:15px}.brand{font-weight:800;font-size:22px}.brand span{color:#5cc524}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}th{background:#f1f5f3;font-size:10px}.tot td{border:none;padding:2px 8px}@media print{button{display:none}}</style></head><body>
     <div style="display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:10px"><div class="brand">MYGGE<span>STOP</span> <span style="font-size:13px;color:#555">— Plissegardin</span></div><div style="text-align:right;font-size:12px"><b>${musteri || "-"}</b><br>${tel}<br>${adres}<br>${new Date().toLocaleString("da-DK")}</div></div>
-    <h2>Gardiner — tilskæring & pris</h2><table><thead><tr><th>#</th><th>Fløj</th><th>Glas</th><th>Antal</th><th>Gardin bredde</th><th>Pileantal</th><th>Aluminium (stk.)</th><th>Strimmel (stk.)</th><th>Snorlængde</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
+    <h2>Gardiner — tilskæring & pris</h2><table><thead><tr><th>#</th><th>Fløj</th><th>Glas</th><th>Farve</th><th>Antal</th><th>Gardin bredde</th><th>Pileantal</th><th>Aluminium (stk.)</th><th>Strimmel (stk.)</th><th>Snorlængde</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
     <table class="tot" style="width:auto;float:right;margin-top:12px"><tr><td>Subtotal:</td><td style="text-align:right"><b>${kr(totals.ara)}</b></td></tr><tr><td>Moms 25%:</td><td style="text-align:right">${kr(totals.moms)}</td></tr><tr><td><b>Total i alt:</b></td><td style="text-align:right"><b>${kr(totals.dahil)}</b></td></tr></table><div style="clear:both"></div>
     <p><button onclick="window.print()" style="padding:10px 20px;background:#3f9c12;color:#fff;border:none;border-radius:8px;cursor:pointer">Udskriv / PDF</button></p></body></html>`);
     win.document.close();
@@ -90,11 +90,12 @@ export default function PerdeCalc() {
                 <button onClick={() => setOpenUid(open ? null : r.uid)} className="flex items-center gap-1.5 text-sm font-bold text-brand-greendark"><span className="grid h-6 w-6 place-items-center rounded-full bg-brand-greendark text-xs text-white">{i + 1}</span> detaljer {open ? "▲" : "▼"}</button>
                 <div className="flex items-center gap-3"><span className="text-sm font-bold text-brand-ink">{x ? kr(x.price) : ""}</span><button onClick={() => del(r.uid)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button></div>
               </div>
-              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-4">
+              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-5">
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Fløj</span><select className="input py-2 text-sm" value={r.kanat} onChange={(e) => upd(r.uid, { kanat: e.target.value as Kanat })}><option value="HAREKETLI">Bevægelig</option><option value="SABIT">Fast</option></select></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Antal</span><input className="input py-2 text-sm" inputMode="numeric" value={r.adet} onChange={(e) => upd(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Glas bredde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.en} onChange={(e) => upd(r.uid, { en: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Glas højde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.boy} onChange={(e) => upd(r.uid, { boy: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span><input className="input py-2 text-sm" value={r.farve} onChange={(e) => upd(r.uid, { farve: e.target.value })} placeholder="f.eks. Hvid" /></label>
               </div>
               {open && x && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
@@ -105,6 +106,7 @@ export default function PerdeCalc() {
                     <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">ALUMINIUM PROFIL</span><span className="font-semibold">{x.alumAdet} stk. × {f(x.alumProfil)} cm</span></div>
                     <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">SELVKLÆBENDE STRIMMEL</span><span className="font-semibold">{x.seritAdet} stk. × {f(x.serit)} cm</span></div>
                     <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">SNORLÆNGDE</span><span className="font-semibold">{f(x.ipBoy)} cm</span></div>
+                    <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">FARVE</span><span className="font-semibold">{r.farve || "—"}</span></div>
                   </div>
                 </div>
               )}
