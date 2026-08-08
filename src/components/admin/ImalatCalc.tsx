@@ -10,9 +10,9 @@ const f = (n: number) => (!isFinite(n) ? "-" : (Math.round(n * 100) / 100).toStr
 const ceilHalf = (x: number) => (x <= 0 ? 0 : Math.ceil((x - 1e-9) * 2) / 2);
 const kr = (n: number) => (Math.round(n * 100) / 100).toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kr";
 
-interface Row { uid: number; sys: Sys; tip: Tip; model: "YANA" | "AŞAĞI"; adet: string; en: string; boy: string; done?: boolean; }
+interface Row { uid: number; sys: Sys; tip: Tip; model: "YANA" | "AŞAĞI"; adet: string; en: string; boy: string; farve: string; done?: boolean; }
 let c = 1;
-const blank = (): Row => ({ uid: c++, sys: "1,9", tip: "TEK", model: "YANA", adet: "1", en: "", boy: "", done: false });
+const blank = (): Row => ({ uid: c++, sys: "1,9", tip: "TEK", model: "YANA", adet: "1", en: "", boy: "", farve: "", done: false });
 interface Part { label: string; qty: number; len?: number; kind: "cut" | "count" | "pile"; sys: Sys }
 const DEF_RATES = { tek19: 400, tek28: 450, dub19: 500, dub28: 550 };
 
@@ -108,13 +108,13 @@ export default function ImalatCalc() {
 
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
-    const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
+    const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
     const kl = liste.arr.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>${f(p.len)}</td><td>${p.qty} stk.</td></tr>`).join("") + liste.counts.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>-</td><td>${p.qty} stk.</td></tr>`).join("");
     win.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Arbejdsseddel - ${musteri || ""}</title>
     <style>body{font-family:Arial,sans-serif;color:#111;padding:28px;max-width:800px;margin:0 auto}h2{font-size:15px;margin:22px 0 8px;text-transform:uppercase;color:#3f9c12}.head{display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:12px}.brand{font-weight:800;font-size:24px}.brand span{color:#5cc524}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f1f5f3;font-size:11px;color:#555}.tot{margin-top:14px;width:auto;float:right}.tot td{border:none;padding:3px 10px}@media print{button{display:none}}</style></head><body>
     <div class="head"><div><div class="brand">MYGGE<span>STOP</span></div><div style="font-size:13px;color:#555">ARBEJDSSEDDEL</div></div>
     <div style="text-align:right;font-size:13px"><b>${musteri || "-"}</b><br>${tel || ""}<br>${adres || ""}<br>${new Date().toLocaleString("da-DK")}</div></div>
-    <h2>Vinduer & pris</h2><table><thead><tr><th>#</th><th>System</th><th>Type</th><th>Antal</th><th>Mål cm</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
+    <h2>Vinduer & pris</h2><table><thead><tr><th>#</th><th>System</th><th>Type</th><th>Antal</th><th>Mål cm</th><th>Farve</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
     <table class="tot"><tr><td>Subtotal:</td><td style="text-align:right"><b>${kr(totals.ara)}</b></td></tr><tr><td>Moms 25%:</td><td style="text-align:right">${kr(totals.moms)}</td></tr><tr><td><b>Total i alt:</b></td><td style="text-align:right"><b>${kr(totals.dahil)}</b></td></tr></table>
     <div style="clear:both"></div><h2>Skæreliste (i alt)</h2><table><thead><tr><th>System</th><th>Del</th><th>Mål (cm)</th><th>Antal</th></tr></thead><tbody>${kl}</tbody></table>
     <p style="margin-top:24px"><button onclick="window.print()" style="padding:10px 20px;background:#3f9c12;color:#fff;border:none;border-radius:8px;cursor:pointer">Udskriv / Gem som PDF</button></p></body></html>`);
@@ -180,17 +180,18 @@ export default function ImalatCalc() {
                   <button onClick={() => del(r.uid)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-6">
+              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-7">
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">System</span><select className="input py-2 text-sm" value={r.sys} onChange={(e) => upd(r.uid, { sys: e.target.value as Sys })}><option>1,9</option><option>2,8</option></select></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Type</span><select className="input py-2 text-sm" value={r.tip} onChange={(e) => upd(r.uid, { tip: e.target.value as Tip })}><option value="TEK">Enkelt</option><option value="DUBLE">Dobbelt</option></select></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Model</span><select className="input py-2 text-sm" value={r.model} disabled={r.tip === "DUBLE"} onChange={(e) => upd(r.uid, { model: e.target.value as any })}><option value="YANA">Side</option><option value="AŞAĞI">Ned</option></select></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Antal</span><input className="input py-2 text-sm" inputMode="numeric" value={r.adet} onChange={(e) => upd(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Bredde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.en} onChange={(e) => upd(r.uid, { en: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Højde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.boy} onChange={(e) => upd(r.uid, { boy: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span><input className="input py-2 text-sm" value={r.farve} onChange={(e) => upd(r.uid, { farve: e.target.value })} placeholder="f.eks. Hvid" /></label>
               </div>
               {open && ps && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">Vindue {i + 1} — {r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} {r.sys} · {r.en}×{r.boy} cm {pr ? `· ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">Vindue {i + 1} — {r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} {r.sys} · {r.en}×{r.boy} cm {r.farve ? `· ${r.farve}` : ""} {pr ? `· ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}</p>
                   <div className="grid gap-1.5 text-sm sm:grid-cols-2">
                     {ps.map((p) => (<div key={p.label} className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">{p.label}</span><span className="font-semibold text-brand-ink">{p.kind === "pile" ? `${f(p.len!)} lag` : p.kind === "count" ? `${p.qty} stk.` : `${p.qty} stk. × ${f(p.len!)} cm`}</span></div>))}
                   </div>
