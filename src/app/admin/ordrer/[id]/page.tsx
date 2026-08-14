@@ -28,6 +28,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             musteri={`${order.firstName} ${order.lastName}`}
             tel={order.phone}
             adres={`${order.address}, ${order.postalCode} ${order.city}`}
+            orderId={order.id}
             items={order.items.map((it) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
           />
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>

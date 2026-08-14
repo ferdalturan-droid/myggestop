@@ -50,19 +50,22 @@ export default function ImalatCalc() {
   const [saved, setSaved] = useState<any[]>([]); const [msg, setMsg] = useState<string | null>(null);
   const [tarih, setTarih] = useState(""); const [saat, setSaat] = useState("");
   const [appts, setAppts] = useState<any[]>([]); const [apptMsg, setApptMsg] = useState<{ t: string; ok: boolean } | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
+  const [orderMsg, setOrderMsg] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const rt = JSON.parse(localStorage.getItem("imalat_rates") || "null"); if (rt) setRates({ ...DEF_RATES, ...rt });
       const imp = JSON.parse(localStorage.getItem("imalat_import") || "null");
-      if (imp && imp.rows?.length) { setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || ""); setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); localStorage.removeItem("imalat_import"); }
-      else { const cur = JSON.parse(localStorage.getItem("imalat_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || ""); } }
+      if (imp && imp.rows?.length) { setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || ""); setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setSourceOrderId(imp.sourceOrderId || null); setOrderId(null); localStorage.removeItem("imalat_import"); }
+      else { const cur = JSON.parse(localStorage.getItem("imalat_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || ""); setOrderId(cur.orderId || null); setSourceOrderId(cur.sourceOrderId || null); } }
     } catch {}
     fetch("/api/imalat-records?type=SINEKLIK").then((r) => r.json()).then((d) => setSaved(d.items || [])).catch(() => {
       try { setSaved(JSON.parse(localStorage.getItem("imalat_saved") || "[]")); } catch {}
     });
   }, []);
-  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat]);
+  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId]);
   useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
   useEffect(() => { localStorage.setItem("imalat_rates", JSON.stringify(rates)); }, [rates]);
 
@@ -87,15 +90,45 @@ export default function ImalatCalc() {
   const totals = useMemo(() => { let ara = 0; for (const r of rows) { const p = priceOf(r); if (p) ara += p.price; } return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rates]);
 
   function gemPaaServer(n: any[]) { fetch("/api/imalat-records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "SINEKLIK", items: n }) }).catch(() => {}); localStorage.setItem("imalat_saved", JSON.stringify(n)); }
+
+  function buildOrderItems() {
+    const out: any[] = [];
+    for (const r of rows) {
+      const pr = priceOf(r); if (!pr) continue;
+      const { adet } = dims(r);
+      const widthMm = Math.round((parseFloat(r.en.replace(",", ".")) || 0) * 10);
+      const heightMm = Math.round((parseFloat(r.boy.replace(",", ".")) || 0) * 10);
+      const perUnit = pr.price / adet;
+      const comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"}`;
+      for (let n = 0; n < adet; n++) out.push({ productName: "Standard Myggenet", widthMm, heightMm, colorName: r.farve || "", comment, lineTotal: perUnit });
+    }
+    return out;
+  }
+
+  async function gemSomOrdre() {
+    if (sourceOrderId) return; // allerede en rigtig ordre — opret ikke en ny
+    const items = buildOrderItems();
+    if (items.length === 0) return;
+    try {
+      const res = await fetch("/api/orders/manual", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ musteri: musteri.trim(), tel, adres, items, orderId: orderId || undefined })
+      });
+      const d = await res.json();
+      if (res.ok && d.orderId) { setOrderId(d.orderId); setOrderMsg(`Gemt i Ordrer ✓ (${d.orderNumber})`); setTimeout(() => setOrderMsg(null), 4000); }
+    } catch {}
+  }
+
   function kaydet() {
     if (!musteri.trim()) { setMsg("Angiv kundens navn."); setTimeout(() => setMsg(null), 2000); return; }
-    const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys };
+    const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId, sourceOrderId };
     const next = [rec, ...saved].slice(0, 50); setSaved(next); gemPaaServer(next);
+    gemSomOrdre();
     setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 2000);
   }
-  function yukle(rec: any) { setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || ""); setRows(rec.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(rec.doneKeys || []); window.scrollTo({ top: 0, behavior: "smooth" }); }
+  function yukle(rec: any) { setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || ""); setRows(rec.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(rec.doneKeys || []); setOrderId(rec.orderId || null); setSourceOrderId(rec.sourceOrderId || null); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); }
-  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank()]); setDoneKeys([]); } }
+  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank()]); setDoneKeys([]); setOrderId(null); setSourceOrderId(null); setOrderMsg(null); } }
 
   async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
   async function randevuAl() {
@@ -168,7 +201,9 @@ export default function ImalatCalc() {
           </div>
         )}
       </div>
-      {msg && <div className="mb-3 text-sm font-medium text-brand-greendark">{msg}</div>}
+      {msg && <div className="mb-1 text-sm font-medium text-brand-greendark">{msg}</div>}
+      {orderMsg && <div className="mb-3 text-sm font-medium text-brand-bluedark">{orderMsg}</div>}
+      {sourceOrderId && <div className="mb-3 text-xs text-brand-ink2/55">Denne beregning er hentet fra en eksisterende ordre — opdaterer ikke Ordrer-siden.</div>}
 
       <div className="space-y-3">
         {rows.map((r, i) => {

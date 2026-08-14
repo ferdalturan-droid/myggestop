@@ -26,19 +26,22 @@ export default function PerdeCalc() {
   const [rate, setRate] = useState(400); const [showP, setShowP] = useState(false);
   const [openUid, setOpenUid] = useState<number | null>(null);
   const [saved, setSaved] = useState<any[]>([]); const [msg, setMsg] = useState<string | null>(null);
+  const [orderId, setOrderId] = useState<string | null>(null);
+  const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
+  const [orderMsg, setOrderMsg] = useState<string | null>(null);
 
   useEffect(() => {
     try {
       const rt = parseFloat(localStorage.getItem("perde_rate") || ""); if (rt > 0) setRate(rt);
       const imp = JSON.parse(localStorage.getItem("perde_import") || "null");
-      if (imp && imp.rows?.length) { setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || ""); setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); localStorage.removeItem("perde_import"); }
-      else { const cur = JSON.parse(localStorage.getItem("perde_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); } }
+      if (imp && imp.rows?.length) { setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || ""); setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setSourceOrderId(imp.sourceOrderId || null); setOrderId(null); localStorage.removeItem("perde_import"); }
+      else { const cur = JSON.parse(localStorage.getItem("perde_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setOrderId(cur.orderId || null); setSourceOrderId(cur.sourceOrderId || null); } }
     } catch {}
     fetch("/api/imalat-records?type=PERDE").then((r) => r.json()).then((d) => setSaved(d.items || [])).catch(() => {
       try { setSaved(JSON.parse(localStorage.getItem("perde_saved") || "[]")); } catch {}
     });
   }, []);
-  useEffect(() => { localStorage.setItem("perde_current", JSON.stringify({ musteri, tel, adres, rows })); }, [musteri, tel, adres, rows]);
+  useEffect(() => { localStorage.setItem("perde_current", JSON.stringify({ musteri, tel, adres, rows, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, orderId, sourceOrderId]);
   useEffect(() => { localStorage.setItem("perde_rate", String(rate)); }, [rate]);
 
   const upd = (uid: number, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
@@ -47,10 +50,44 @@ export default function PerdeCalc() {
   const totals = useMemo(() => { const ara = rows.reduce((s, r) => { const x = calc(r, rate); return s + (x ? x.price : 0); }, 0); return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rate]);
 
   function gemPaaServer(n: any[]) { fetch("/api/imalat-records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "PERDE", items: n }) }).catch(() => {}); localStorage.setItem("perde_saved", JSON.stringify(n)); }
-  function kaydet() { if (!musteri.trim()) { setMsg("Angiv kundens navn."); setTimeout(() => setMsg(null), 2000); return; } const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows }; const n = [rec, ...saved].slice(0, 50); setSaved(n); gemPaaServer(n); setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 2000); }
-  function yukle(rec: any) { setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || ""); setRows(rec.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+  function buildOrderItems() {
+    const out: any[] = [];
+    for (const r of rows) {
+      const x = calc(r, rate); if (!x) continue;
+      const widthMm = Math.round((parseFloat(r.en.replace(",", ".")) || 0) * 10);
+      const heightMm = Math.round((parseFloat(r.boy.replace(",", ".")) || 0) * 10);
+      const perUnit = x.price / x.adet;
+      const comment = `Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`;
+      for (let n = 0; n < x.adet; n++) out.push({ productName: "Plissegardin", widthMm, heightMm, colorName: r.farve || "", comment, lineTotal: perUnit });
+    }
+    return out;
+  }
+
+  async function gemSomOrdre() {
+    if (sourceOrderId) return; // allerede en rigtig ordre — opret ikke en ny
+    const items = buildOrderItems();
+    if (items.length === 0) return;
+    try {
+      const res = await fetch("/api/orders/manual", {
+        method: "POST", headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ musteri: musteri.trim(), tel, adres, items, orderId: orderId || undefined })
+      });
+      const d = await res.json();
+      if (res.ok && d.orderId) { setOrderId(d.orderId); setOrderMsg(`Gemt i Ordrer ✓ (${d.orderNumber})`); setTimeout(() => setOrderMsg(null), 4000); }
+    } catch {}
+  }
+
+  function kaydet() {
+    if (!musteri.trim()) { setMsg("Angiv kundens navn."); setTimeout(() => setMsg(null), 2000); return; }
+    const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, orderId, sourceOrderId };
+    const n = [rec, ...saved].slice(0, 50); setSaved(n); gemPaaServer(n);
+    gemSomOrdre();
+    setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 2000);
+  }
+  function yukle(rec: any) { setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || ""); setRows(rec.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setOrderId(rec.orderId || null); setSourceOrderId(rec.sourceOrderId || null); window.scrollTo({ top: 0, behavior: "smooth" }); }
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); }
-  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank()]); } }
+  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank()]); setOrderId(null); setSourceOrderId(null); setOrderMsg(null); } }
 
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
@@ -82,7 +119,9 @@ export default function PerdeCalc() {
         <label className="block"><span className="label">Telefon</span><input className="input" value={tel} onChange={(e) => setTel(e.target.value)} placeholder="Telefon" /></label>
         <label className="block"><span className="label">Adresse</span><input className="input" value={adres} onChange={(e) => setAdres(e.target.value)} placeholder="Adresse" /></label>
       </div>
-      {msg && <div className="mb-3 text-sm font-medium text-brand-greendark">{msg}</div>}
+      {msg && <div className="mb-1 text-sm font-medium text-brand-greendark">{msg}</div>}
+      {orderMsg && <div className="mb-3 text-sm font-medium text-brand-bluedark">{orderMsg}</div>}
+      {sourceOrderId && <div className="mb-3 text-xs text-brand-ink2/55">Denne beregning er hentet fra en eksisterende ordre — opdaterer ikke Ordrer-siden.</div>}
 
       <div className="space-y-3">
         {rows.map((r, i) => {

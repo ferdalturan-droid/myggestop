@@ -3,7 +3,7 @@ import { useRouter } from "next/navigation";
 
 interface ImportItem { productName: string; widthMm: number; heightMm: number }
 
-export default function ImalatImportButton({ musteri, tel, adres, items }: { musteri: string; tel?: string; adres?: string; items: ImportItem[] }) {
+export default function ImalatImportButton({ musteri, tel, adres, orderId, items }: { musteri: string; tel?: string; adres?: string; orderId?: string; items: ImportItem[] }) {
   const router = useRouter();
 
   function isPerde(productName: string) {
@@ -20,7 +20,7 @@ export default function ImalatImportButton({ musteri, tel, adres, items }: { mus
         en: String(it.widthMm / 10).replace(".", ","),
         boy: String(it.heightMm / 10).replace(".", ",")
       }));
-      localStorage.setItem("imalat_import", JSON.stringify({ musteri, tel: tel || "", adres: adres || "", rows }));
+      localStorage.setItem("imalat_import", JSON.stringify({ musteri, tel: tel || "", adres: adres || "", rows, sourceOrderId: orderId || null }));
     }
 
     if (perdeItems.length > 0) {
@@ -29,7 +29,7 @@ export default function ImalatImportButton({ musteri, tel, adres, items }: { mus
         en: String(it.widthMm / 10).replace(".", ","),
         boy: String(it.heightMm / 10).replace(".", ",")
       }));
-      localStorage.setItem("perde_import", JSON.stringify({ musteri, tel: tel || "", adres: adres || "", rows }));
+      localStorage.setItem("perde_import", JSON.stringify({ musteri, tel: tel || "", adres: adres || "", rows, sourceOrderId: orderId || null }));
     }
 
     // Vis fanen der matcher ordren: hvis der kun er gardin-varer, åbn Gardin-fanen.
