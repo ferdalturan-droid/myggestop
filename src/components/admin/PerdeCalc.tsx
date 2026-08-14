@@ -33,8 +33,10 @@ export default function PerdeCalc() {
       const imp = JSON.parse(localStorage.getItem("perde_import") || "null");
       if (imp && imp.rows?.length) { setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || ""); setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); localStorage.removeItem("perde_import"); }
       else { const cur = JSON.parse(localStorage.getItem("perde_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); } }
-      setSaved(JSON.parse(localStorage.getItem("perde_saved") || "[]"));
     } catch {}
+    fetch("/api/imalat-records?type=PERDE").then((r) => r.json()).then((d) => setSaved(d.items || [])).catch(() => {
+      try { setSaved(JSON.parse(localStorage.getItem("perde_saved") || "[]")); } catch {}
+    });
   }, []);
   useEffect(() => { localStorage.setItem("perde_current", JSON.stringify({ musteri, tel, adres, rows })); }, [musteri, tel, adres, rows]);
   useEffect(() => { localStorage.setItem("perde_rate", String(rate)); }, [rate]);
@@ -44,9 +46,10 @@ export default function PerdeCalc() {
   const del = (uid: number) => { if (confirm("Skal dette gardin slettes?")) setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : [blank()])); };
   const totals = useMemo(() => { const ara = rows.reduce((s, r) => { const x = calc(r, rate); return s + (x ? x.price : 0); }, 0); return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rate]);
 
-  function kaydet() { if (!musteri.trim()) { setMsg("Angiv kundens navn."); setTimeout(() => setMsg(null), 2000); return; } const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows }; const n = [rec, ...saved].slice(0, 50); setSaved(n); localStorage.setItem("perde_saved", JSON.stringify(n)); setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 2000); }
+  function gemPaaServer(n: any[]) { fetch("/api/imalat-records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "PERDE", items: n }) }).catch(() => {}); localStorage.setItem("perde_saved", JSON.stringify(n)); }
+  function kaydet() { if (!musteri.trim()) { setMsg("Angiv kundens navn."); setTimeout(() => setMsg(null), 2000); return; } const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows }; const n = [rec, ...saved].slice(0, 50); setSaved(n); gemPaaServer(n); setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 2000); }
   function yukle(rec: any) { setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || ""); setRows(rec.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); window.scrollTo({ top: 0, behavior: "smooth" }); }
-  function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); localStorage.setItem("perde_saved", JSON.stringify(n)); }
+  function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); }
   function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank()]); } }
 
   function yazdir() {
