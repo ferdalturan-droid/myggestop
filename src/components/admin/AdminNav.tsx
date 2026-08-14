@@ -13,7 +13,8 @@ const LINKS = [
   { href: "/admin/galleri", label: "Galleri & videoer" },
   { href: "/admin/indhold", label: "Forside-indhold" },
   { href: "/admin/seo", label: "SEO" },
-  { href: "/admin/indstillinger", label: "Kontakt & logo" }
+  { href: "/admin/indstillinger", label: "Kontakt & logo" },
+  { href: "/admin/konto", label: "Konto" }
 ];
 
 export default function AdminNav({ email }: { email: string }) {

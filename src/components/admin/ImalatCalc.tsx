@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Sys = "1,9" | "2,8";
 type Tip = "TEK" | "DUBLE";
@@ -53,6 +53,7 @@ export default function ImalatCalc() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
   const [orderMsg, setOrderMsg] = useState<string | null>(null);
+  const ratesLoadedRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -64,10 +65,14 @@ export default function ImalatCalc() {
     fetch("/api/imalat-records?type=SINEKLIK").then((r) => r.json()).then((d) => setSaved(d.items || [])).catch(() => {
       try { setSaved(JSON.parse(localStorage.getItem("imalat_saved") || "[]")); } catch {}
     });
+    fetch("/api/imalat-rates").then((r) => r.json()).then((d) => { if (d.sineklik) setRates({ ...DEF_RATES, ...d.sineklik }); }).finally(() => { ratesLoadedRef.current = true; });
   }, []);
   useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId]);
   useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
-  useEffect(() => { localStorage.setItem("imalat_rates", JSON.stringify(rates)); }, [rates]);
+  useEffect(() => {
+    localStorage.setItem("imalat_rates", JSON.stringify(rates));
+    if (ratesLoadedRef.current) fetch("/api/imalat-rates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "SINEKLIK", value: rates }) }).catch(() => {});
+  }, [rates]);
 
   const rateOf = (r: Row) => r.tip === "TEK" ? (r.sys === "1,9" ? rates.tek19 : rates.tek28) : (r.sys === "1,9" ? rates.dub19 : rates.dub28);
   function priceOf(r: Row) { const { en, boy, adet } = dims(r); if (en <= 0 || boy <= 0) return null; const area = (en / 100) * (boy / 100); const m2 = ceilHalf(area); return { area, m2, price: m2 * rateOf(r) * adet }; }

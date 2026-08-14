@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 
 type Kanat = "HAREKETLI" | "SABIT";
 const ceilHalf = (x: number) => (x <= 0 ? 0 : Math.ceil((x - 1e-9) * 2) / 2);
@@ -29,6 +29,7 @@ export default function PerdeCalc() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
   const [orderMsg, setOrderMsg] = useState<string | null>(null);
+  const rateLoadedRef = useRef(false);
 
   useEffect(() => {
     try {
@@ -40,9 +41,13 @@ export default function PerdeCalc() {
     fetch("/api/imalat-records?type=PERDE").then((r) => r.json()).then((d) => setSaved(d.items || [])).catch(() => {
       try { setSaved(JSON.parse(localStorage.getItem("perde_saved") || "[]")); } catch {}
     });
+    fetch("/api/imalat-rates").then((r) => r.json()).then((d) => { if (typeof d.perde === "number") setRate(d.perde); }).finally(() => { rateLoadedRef.current = true; });
   }, []);
   useEffect(() => { localStorage.setItem("perde_current", JSON.stringify({ musteri, tel, adres, rows, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, orderId, sourceOrderId]);
-  useEffect(() => { localStorage.setItem("perde_rate", String(rate)); }, [rate]);
+  useEffect(() => {
+    localStorage.setItem("perde_rate", String(rate));
+    if (rateLoadedRef.current) fetch("/api/imalat-rates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "PERDE", value: rate }) }).catch(() => {});
+  }, [rate]);
 
   const upd = (uid: number, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   const add = () => setRows((rs) => [...rs, blank()]);

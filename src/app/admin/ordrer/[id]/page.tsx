@@ -32,6 +32,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             items={order.items.map((it) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
           />
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
+          <Link href={`/admin/ordrer/${order.id}/rediger`} className="btn-secondary py-2.5 text-sm">Rediger</Link>
           <OrderDeleteButton orderId={order.id} orderNumber={order.orderNumber} />
         </div>
       </div>
