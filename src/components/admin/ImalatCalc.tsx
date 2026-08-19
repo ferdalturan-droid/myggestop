@@ -151,13 +151,26 @@ export default function ImalatCalc() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
     const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
     const kl = liste.arr.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>${f(p.len)}</td><td>${p.qty} stk.</td></tr>`).join("") + liste.counts.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>-</td><td>${p.qty} stk.</td></tr>`).join("");
+    const winHtml = rows.map((r, i) => {
+      const ps = parts(r); const pr = priceOf(r);
+      if (!ps) return "";
+      const title = `Vindue ${i + 1} — ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} ${r.sys} · ${r.en}×${r.boy} cm${r.farve ? ` · ${r.farve}` : ""}${pr ? ` · ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}`;
+      const partsHtml = ps.map((p) => {
+        const val = p.kind === "pile" ? `${f(p.len!)} lag` : p.kind === "count" ? `${p.qty} stk.` : `${p.qty} stk. × ${f(p.len!)} cm`;
+        return `<div class="part"><span>${p.label}</span><span>${val}</span></div>`;
+      }).join("");
+      return `<div class="win"><h3>${title}</h3><div class="grid2">${partsHtml}</div></div>`;
+    }).join("");
     win.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Arbejdsseddel - ${musteri || ""}</title>
-    <style>body{font-family:Arial,sans-serif;color:#111;padding:28px;max-width:800px;margin:0 auto}h2{font-size:15px;margin:22px 0 8px;text-transform:uppercase;color:#3f9c12}.head{display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:12px}.brand{font-weight:800;font-size:24px}.brand span{color:#5cc524}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f1f5f3;font-size:11px;color:#555}.tot{margin-top:14px;width:auto;float:right}.tot td{border:none;padding:3px 10px}@media print{button{display:none}}</style></head><body>
+    <style>body{font-family:Arial,sans-serif;color:#111;padding:28px;max-width:800px;margin:0 auto}h2{font-size:15px;margin:22px 0 8px;text-transform:uppercase;color:#3f9c12}.head{display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:12px}.brand{font-weight:800;font-size:24px}.brand span{color:#5cc524}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f1f5f3;font-size:11px;color:#555}.tot{margin-top:14px;width:auto;float:right}.tot td{border:none;padding:3px 10px}.win{margin-top:14px;border:1px solid #d7e0da;border-radius:8px;padding:12px 14px;break-inside:avoid;page-break-inside:avoid}.win h3{margin:0 0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.02em;color:#555;font-weight:700}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.part{display:flex;justify-content:space-between;background:#f7f9f8;border-radius:6px;padding:6px 10px;font-size:13px}.part span:first-child{color:#667}.part span:last-child{font-weight:700}@media print{button{display:none}}</style></head><body>
     <div class="head"><div><div class="brand">MYGGE<span>STOP</span></div><div style="font-size:13px;color:#555">ARBEJDSSEDDEL</div></div>
     <div style="text-align:right;font-size:13px"><b>${musteri || "-"}</b><br>${tel || ""}<br>${adres || ""}<br>${new Date().toLocaleString("da-DK")}</div></div>
     <h2>Vinduer & pris</h2><table><thead><tr><th>#</th><th>System</th><th>Type</th><th>Antal</th><th>Mål cm</th><th>Farve</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
     <table class="tot"><tr><td>Subtotal:</td><td style="text-align:right"><b>${kr(totals.ara)}</b></td></tr><tr><td>Moms 25%:</td><td style="text-align:right">${kr(totals.moms)}</td></tr><tr><td><b>Total i alt:</b></td><td style="text-align:right"><b>${kr(totals.dahil)}</b></td></tr></table>
-    <div style="clear:both"></div><h2>Skæreliste (i alt)</h2><table><thead><tr><th>System</th><th>Del</th><th>Mål (cm)</th><th>Antal</th></tr></thead><tbody>${kl}</tbody></table>
+    <div style="clear:both"></div>
+    <h2>Detaljer pr. vindue</h2>
+    ${winHtml}
+    <h2>Skæreliste (i alt)</h2><table><thead><tr><th>System</th><th>Del</th><th>Mål (cm)</th><th>Antal</th></tr></thead><tbody>${kl}</tbody></table>
     <p style="margin-top:24px"><button onclick="window.print()" style="padding:10px 20px;background:#3f9c12;color:#fff;border:none;border-radius:8px;cursor:pointer">Udskriv / Gem som PDF</button></p></body></html>`);
     win.document.close();
   }
