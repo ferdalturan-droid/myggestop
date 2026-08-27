@@ -10,14 +10,20 @@ interface Row { uid: number; kanat: Kanat; en: string; boy: string; adet: string
 let c = 1;
 const blank = (): Row => ({ uid: c++, kanat: "HAREKETLI", en: "", boy: "", adet: "1", farve: "" });
 
-function calc(r: Row, rate: number) {
+interface ColorDef { id: string; name: string; surchargePerSqm: number; isStandard: boolean }
+
+function calc(r: Row, rate: number, colors: ColorDef[] = []) {
   const en = parseFloat(r.en.replace(",", ".")) || 0, boy = parseFloat(r.boy.replace(",", ".")) || 0, adet = Math.max(1, parseInt(r.adet) || 1);
   if (en <= 0 || boy <= 0) return null;
   const off = r.kanat === "HAREKETLI" ? 0.4 : 2;
   const perdeEn = en - off, alumProfil = en - off, serit = en - off;
   const pile = boy / 2.2, alumAdet = 2 * adet, seritAdet = adet * 2, ipBoy = en + boy + 35;
-  const area = (en / 100) * (boy / 100), m2 = ceilHalf(area), price = m2 * rate * adet;
-  return { adet, perdeEn, pile, alumProfil, alumAdet, serit, seritAdet, ipBoy, area, m2, price };
+  const area = (en / 100) * (boy / 100), m2 = ceilHalf(area);
+  const col = colors.find((c) => c.name === r.farve);
+  const colorPerSqm = col && !col.isStandard ? col.surchargePerSqm : 0;
+  const price = m2 * (rate + colorPerSqm) * adet;
+  const colorSurcharge = m2 * colorPerSqm * adet;
+  return { adet, perdeEn, pile, alumProfil, alumAdet, serit, seritAdet, ipBoy, area, m2, price, colorSurcharge };
 }
 
 export default function PerdeCalc() {
@@ -29,6 +35,7 @@ export default function PerdeCalc() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
   const [orderMsg, setOrderMsg] = useState<string | null>(null);
+  const [colors, setColors] = useState<ColorDef[]>([]);
   const rateLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -42,6 +49,7 @@ export default function PerdeCalc() {
       try { setSaved(JSON.parse(localStorage.getItem("perde_saved") || "[]")); } catch {}
     });
     fetch("/api/imalat-rates").then((r) => r.json()).then((d) => { if (typeof d.perde === "number") setRate(d.perde); }).finally(() => { rateLoadedRef.current = true; });
+    fetch("/api/colors").then((r) => r.json()).then((d) => setColors(d.colors || [])).catch(() => {});
   }, []);
   useEffect(() => { localStorage.setItem("perde_current", JSON.stringify({ musteri, tel, adres, rows, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, orderId, sourceOrderId]);
   useEffect(() => {
@@ -52,14 +60,14 @@ export default function PerdeCalc() {
   const upd = (uid: number, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   const add = () => setRows((rs) => [...rs, blank()]);
   const del = (uid: number) => { if (confirm("Skal dette gardin slettes?")) setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : [blank()])); };
-  const totals = useMemo(() => { const ara = rows.reduce((s, r) => { const x = calc(r, rate); return s + (x ? x.price : 0); }, 0); return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rate]);
+  const totals = useMemo(() => { const ara = rows.reduce((s, r) => { const x = calc(r, rate, colors); return s + (x ? x.price : 0); }, 0); return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rate, colors]);
 
   function gemPaaServer(n: any[]) { fetch("/api/imalat-records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "PERDE", items: n }) }).catch(() => {}); localStorage.setItem("perde_saved", JSON.stringify(n)); }
 
   function buildOrderItems() {
     const out: any[] = [];
     for (const r of rows) {
-      const x = calc(r, rate); if (!x) continue;
+      const x = calc(r, rate, colors); if (!x) continue;
       const widthMm = Math.round((parseFloat(r.en.replace(",", ".")) || 0) * 10);
       const heightMm = Math.round((parseFloat(r.boy.replace(",", ".")) || 0) * 10);
       const perUnit = x.price / x.adet;
@@ -96,7 +104,7 @@ export default function PerdeCalc() {
 
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
-    const wr = rows.map((r, i) => { const x = calc(r, rate); if (!x) return ""; return `<tr><td>${i + 1}</td><td>${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${x.adet}</td><td>${f(x.perdeEn)}</td><td>${f(x.pile)}</td><td>${f(x.alumProfil)} (${x.alumAdet})</td><td>${f(x.serit)} (${x.seritAdet})</td><td>${f(x.ipBoy)}</td><td>${f(x.m2)} m²</td><td>${kr(x.price)}</td></tr>`; }).join("");
+    const wr = rows.map((r, i) => { const x = calc(r, rate, colors); if (!x) return ""; return `<tr><td>${i + 1}</td><td>${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${x.adet}</td><td>${f(x.perdeEn)}</td><td>${f(x.pile)}</td><td>${f(x.alumProfil)} (${x.alumAdet})</td><td>${f(x.serit)} (${x.seritAdet})</td><td>${f(x.ipBoy)}</td><td>${f(x.m2)} m²</td><td>${kr(x.price)}</td></tr>`; }).join("");
     win.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Gardin Arbejdsseddel - ${musteri}</title><style>body{font-family:Arial,sans-serif;color:#111;padding:24px}h2{color:#3f9c12;font-size:15px}.brand{font-weight:800;font-size:22px}.brand span{color:#5cc524}table{width:100%;border-collapse:collapse;font-size:12px}th,td{border:1px solid #ccc;padding:5px 7px;text-align:left}th{background:#f1f5f3;font-size:10px}.tot td{border:none;padding:2px 8px}@media print{button{display:none}}</style></head><body>
     <div style="display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:10px"><div class="brand">MYGGE<span>STOP</span> <span style="font-size:13px;color:#555">— Plissegardin</span></div><div style="text-align:right;font-size:12px"><b>${musteri || "-"}</b><br>${tel}<br>${adres}<br>${new Date().toLocaleString("da-DK")}</div></div>
     <h2>Gardiner — tilskæring & pris</h2><table><thead><tr><th>#</th><th>Fløj</th><th>Glas</th><th>Farve</th><th>Antal</th><th>Gardin bredde</th><th>Pileantal</th><th>Aluminium (stk.)</th><th>Strimmel (stk.)</th><th>Snorlængde</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
@@ -130,7 +138,7 @@ export default function PerdeCalc() {
 
       <div className="space-y-3">
         {rows.map((r, i) => {
-          const x = calc(r, rate); const open = openUid === r.uid;
+          const x = calc(r, rate, colors); const open = openUid === r.uid;
           return (
             <div key={r.uid} className="rounded-xl border border-brand-line bg-white">
               <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
@@ -142,7 +150,14 @@ export default function PerdeCalc() {
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Antal</span><input className="input py-2 text-sm" inputMode="numeric" value={r.adet} onChange={(e) => upd(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Glas bredde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.en} onChange={(e) => upd(r.uid, { en: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Glas højde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.boy} onChange={(e) => upd(r.uid, { boy: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span><input className="input py-2 text-sm" value={r.farve} onChange={(e) => upd(r.uid, { farve: e.target.value })} placeholder="f.eks. Hvid" /></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span>
+                  <select className="input py-2 text-sm" value={r.farve} onChange={(e) => upd(r.uid, { farve: e.target.value })}>
+                    <option value="">Standard</option>
+                    {colors.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}{!c.isStandard && c.surchargePerSqm > 0 ? ` (+${c.surchargePerSqm} kr/m²)` : ""}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
               {open && x && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
@@ -153,7 +168,7 @@ export default function PerdeCalc() {
                     <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">ALUMINIUM PROFIL</span><span className="font-semibold">{x.alumAdet} stk. × {f(x.alumProfil)} cm</span></div>
                     <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">SELVKLÆBENDE STRIMMEL</span><span className="font-semibold">{x.seritAdet} stk. × {f(x.serit)} cm</span></div>
                     <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">SNORLÆNGDE</span><span className="font-semibold">{f(x.ipBoy)} cm</span></div>
-                    <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">FARVE</span><span className="font-semibold">{r.farve || "—"}</span></div>
+                    <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">FARVE</span><span className="font-semibold">{r.farve || "Standard"}{x.colorSurcharge > 0 ? ` (+${kr(x.colorSurcharge)})` : ""}</span></div>
                   </div>
                 </div>
               )}

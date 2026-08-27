@@ -53,6 +53,7 @@ export default function ImalatCalc() {
   const [orderId, setOrderId] = useState<string | null>(null);
   const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
   const [orderMsg, setOrderMsg] = useState<string | null>(null);
+  const [colors, setColors] = useState<{ id: string; name: string; surchargePerSqm: number; isStandard: boolean }[]>([]);
   const ratesLoadedRef = useRef(false);
 
   useEffect(() => {
@@ -66,6 +67,7 @@ export default function ImalatCalc() {
       try { setSaved(JSON.parse(localStorage.getItem("imalat_saved") || "[]")); } catch {}
     });
     fetch("/api/imalat-rates").then((r) => r.json()).then((d) => { if (d.sineklik) setRates({ ...DEF_RATES, ...d.sineklik }); }).finally(() => { ratesLoadedRef.current = true; });
+    fetch("/api/colors").then((r) => r.json()).then((d) => setColors(d.colors || [])).catch(() => {});
   }, []);
   useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId]);
   useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
@@ -75,7 +77,14 @@ export default function ImalatCalc() {
   }, [rates]);
 
   const rateOf = (r: Row) => r.tip === "TEK" ? (r.sys === "1,9" ? rates.tek19 : rates.tek28) : (r.sys === "1,9" ? rates.dub19 : rates.dub28);
-  function priceOf(r: Row) { const { en, boy, adet } = dims(r); if (en <= 0 || boy <= 0) return null; const area = (en / 100) * (boy / 100); const m2 = ceilHalf(area); return { area, m2, price: m2 * rateOf(r) * adet }; }
+  function colorSurchargeOf(r: Row) { const col = colors.find((c) => c.name === r.farve); return col && !col.isStandard ? col.surchargePerSqm : 0; }
+  function priceOf(r: Row) {
+    const { en, boy, adet } = dims(r); if (en <= 0 || boy <= 0) return null;
+    const area = (en / 100) * (boy / 100); const m2 = ceilHalf(area);
+    const colorPerSqm = colorSurchargeOf(r);
+    const price = m2 * (rateOf(r) + colorPerSqm) * adet;
+    return { area, m2, price, colorSurcharge: m2 * colorPerSqm * adet };
+  }
 
   const upd = (uid: number, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   const add = () => setRows((rs) => [...rs, blank()]);
@@ -243,13 +252,21 @@ export default function ImalatCalc() {
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Antal</span><input className="input py-2 text-sm" inputMode="numeric" value={r.adet} onChange={(e) => upd(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Bredde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.en} onChange={(e) => upd(r.uid, { en: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Højde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.boy} onChange={(e) => upd(r.uid, { boy: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span><input className="input py-2 text-sm" value={r.farve} onChange={(e) => upd(r.uid, { farve: e.target.value })} placeholder="f.eks. Hvid" /></label>
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span>
+                  <select className="input py-2 text-sm" value={r.farve} onChange={(e) => upd(r.uid, { farve: e.target.value })}>
+                    <option value="">Standard</option>
+                    {colors.map((c) => (
+                      <option key={c.id} value={c.name}>{c.name}{!c.isStandard && c.surchargePerSqm > 0 ? ` (+${c.surchargePerSqm} kr/m²)` : ""}</option>
+                    ))}
+                  </select>
+                </label>
               </div>
               {open && ps && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">Vindue {i + 1} — {r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} {r.sys} · {r.en}×{r.boy} cm {r.farve ? `· ${r.farve}` : ""} {pr ? `· ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}</p>
                   <div className="grid gap-1.5 text-sm sm:grid-cols-2">
                     {ps.map((p) => (<div key={p.label} className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">{p.label}</span><span className="font-semibold text-brand-ink">{p.kind === "pile" ? `${f(p.len!)} lag` : p.kind === "count" ? `${p.qty} stk.` : `${p.qty} stk. × ${f(p.len!)} cm`}</span></div>))}
+                    <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">FARVE</span><span className="font-semibold text-brand-ink">{r.farve || "Standard"}{pr && pr.colorSurcharge > 0 ? ` (+${kr(pr.colorSurcharge)})` : ""}</span></div>
                   </div>
                 </div>
               )}
