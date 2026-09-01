@@ -123,13 +123,13 @@ export default function OrderForm({
       <section className="card p-6 sm:p-8">
         <h2 className="text-xl font-bold text-brand-cream">1. Dine oplysninger</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
-          <div><label className="label">Fornavn *</label><input className="input" required value={customer.firstName} onChange={(e) => setCustomer({ ...customer, firstName: e.target.value })} /></div>
-          <div><label className="label">Efternavn *</label><input className="input" required value={customer.lastName} onChange={(e) => setCustomer({ ...customer, lastName: e.target.value })} /></div>
-          <div><label className="label">Telefonnummer *</label><input className="input" required type="tel" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} /></div>
-          <div><label className="label">E-mail *</label><input className="input" required type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} /></div>
-          <div className="sm:col-span-2"><label className="label">Adresse *</label><input className="input" required value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} /></div>
-          <div><label className="label">Postnummer *</label><input className="input" required value={customer.postalCode} onChange={(e) => setCustomer({ ...customer, postalCode: e.target.value })} /></div>
-          <div><label className="label">By *</label><input className="input" required value={customer.city} onChange={(e) => setCustomer({ ...customer, city: e.target.value })} /></div>
+          <div><label className="label text-brand-cream2">Fornavn *</label><input className="input" required value={customer.firstName} onChange={(e) => setCustomer({ ...customer, firstName: e.target.value })} /></div>
+          <div><label className="label text-brand-cream2">Efternavn *</label><input className="input" required value={customer.lastName} onChange={(e) => setCustomer({ ...customer, lastName: e.target.value })} /></div>
+          <div><label className="label text-brand-cream2">Telefonnummer *</label><input className="input" required type="tel" value={customer.phone} onChange={(e) => setCustomer({ ...customer, phone: e.target.value })} /></div>
+          <div><label className="label text-brand-cream2">E-mail *</label><input className="input" required type="email" value={customer.email} onChange={(e) => setCustomer({ ...customer, email: e.target.value })} /></div>
+          <div className="sm:col-span-2"><label className="label text-brand-cream2">Adresse *</label><input className="input" required value={customer.address} onChange={(e) => setCustomer({ ...customer, address: e.target.value })} /></div>
+          <div><label className="label text-brand-cream2">Postnummer *</label><input className="input" required value={customer.postalCode} onChange={(e) => setCustomer({ ...customer, postalCode: e.target.value })} /></div>
+          <div><label className="label text-brand-cream2">By *</label><input className="input" required value={customer.city} onChange={(e) => setCustomer({ ...customer, city: e.target.value })} /></div>
         </div>
       </section>
 
@@ -141,25 +141,25 @@ export default function OrderForm({
         <div className="mt-5 rounded-xl2 border border-brand-goldline bg-brand-charcoal2/60 p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
-              <label className="label">Rum navn</label>
+              <label className="label text-brand-cream2">Rum navn</label>
               <input className="input" list="rooms" placeholder="F.eks. Køkken" value={draft.roomName} onChange={(e) => setDraft({ ...draft, roomName: e.target.value })} />
               <datalist id="rooms">{ROOM_SUGGESTIONS.map((r) => <option key={r} value={r} />)}</datalist>
             </div>
             <div>
-              <label className="label">Produkttype</label>
+              <label className="label text-brand-cream2">Produkttype</label>
               <select className="input" value={draft.productId} onChange={(e) => setDraft({ ...draft, productId: e.target.value })}>
                 {products.map((p) => <option key={p.id} value={p.id}>{p.name} — {formatDKK(p.pricePerSqm)}/m²</option>)}
               </select>
             </div>
-            <div><label className="label">Bredde (mm)</label><input className="input" inputMode="numeric" placeholder="f.eks. 800" value={draft.widthMm} onChange={(e) => setDraft({ ...draft, widthMm: e.target.value.replace(/[^0-9]/g, "") })} /></div>
-            <div><label className="label">Højde (mm)</label><input className="input" inputMode="numeric" placeholder="f.eks. 1200" value={draft.heightMm} onChange={(e) => setDraft({ ...draft, heightMm: e.target.value.replace(/[^0-9]/g, "") })} /></div>
+            <div><label className="label text-brand-cream2">Bredde (mm)</label><input className="input" inputMode="numeric" placeholder="f.eks. 800" value={draft.widthMm} onChange={(e) => setDraft({ ...draft, widthMm: e.target.value.replace(/[^0-9]/g, "") })} /></div>
+            <div><label className="label text-brand-cream2">Højde (mm)</label><input className="input" inputMode="numeric" placeholder="f.eks. 1200" value={draft.heightMm} onChange={(e) => setDraft({ ...draft, heightMm: e.target.value.replace(/[^0-9]/g, "") })} /></div>
             <div>
-              <label className="label">Farve</label>
+              <label className="label text-brand-cream2">Farve</label>
               <select className="input" value={draft.colorId} onChange={(e) => setDraft({ ...draft, colorId: e.target.value })}>
                 {colors.map((c) => <option key={c.id} value={c.id}>{c.name}{!c.isStandard ? " (+tillæg)" : ""}</option>)}
               </select>
             </div>
-            <div><label className="label">Kommentar</label><input className="input" placeholder="Valgfri" value={draft.comment} onChange={(e) => setDraft({ ...draft, comment: e.target.value })} /></div>
+            <div><label className="label text-brand-cream2">Kommentar</label><input className="input" placeholder="Valgfri" value={draft.comment} onChange={(e) => setDraft({ ...draft, comment: e.target.value })} /></div>
           </div>
 
           {draftCalc?.res && !draftCalc.tooWide && (
@@ -224,7 +224,7 @@ export default function OrderForm({
           </label>
         </div>
 
-        <div className="mt-5"><label className="label">Bemærkning til ordren (valgfri)</label><textarea className="input min-h-[90px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Særlige ønsker, leveringsinfo m.m." /></div>
+        <div className="mt-5"><label className="label text-brand-cream2">Bemærkning til ordren (valgfri)</label><textarea className="input min-h-[90px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Særlige ønsker, leveringsinfo m.m." /></div>
 
         <div className="mt-6 rounded-xl2 bg-brand-ink p-6 text-white">
           <div className="space-y-2 text-sm">

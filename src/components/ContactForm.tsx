@@ -42,21 +42,21 @@ export default function ContactForm() {
   return (
     <form onSubmit={submit} className="card space-y-4 p-6 sm:p-8">
       <div>
-        <label className="label">Navn *</label>
+        <label className="label text-brand-cream2">Navn *</label>
         <input className="input" required value={form.name} onChange={(e) => setForm({ ...form, name: e.target.value })} />
       </div>
       <div className="grid gap-4 sm:grid-cols-2">
         <div>
-          <label className="label">E-mail *</label>
+          <label className="label text-brand-cream2">E-mail *</label>
           <input className="input" type="email" required value={form.email} onChange={(e) => setForm({ ...form, email: e.target.value })} />
         </div>
         <div>
-          <label className="label">Telefon</label>
+          <label className="label text-brand-cream2">Telefon</label>
           <input className="input" type="tel" value={form.phone} onChange={(e) => setForm({ ...form, phone: e.target.value })} />
         </div>
       </div>
       <div>
-        <label className="label">Besked *</label>
+        <label className="label text-brand-cream2">Besked *</label>
         <textarea className="input min-h-[130px]" required value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
       </div>
       {error && <p className="rounded-xl border border-red-900/40 bg-red-950/40 px-4 py-3 text-sm text-red-300">{error}</p>}
