@@ -28,7 +28,7 @@ export const defaultSettings = {
     instagram: ""
   },
   branding: {
-    logoUrl: "/logo.svg",
+    logoUrl: "/logo-nordica.png",
     primaryColor: "#1b8de0",
     secondaryColor: "#5cc524"
   },
