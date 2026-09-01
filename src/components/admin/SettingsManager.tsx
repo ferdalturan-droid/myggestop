@@ -50,7 +50,7 @@ export default function SettingsManager() {
         <div className="flex items-center gap-5">
           <div className="grid h-20 w-40 place-items-center rounded-xl border border-brand-line bg-brand-ink p-3">
             {/* eslint-disable-next-line @next/next/no-img-element */}
-            <img src={branding.logoUrl} alt="Logo" className="max-h-full max-w-full brightness-0 invert" />
+            <img src={branding.logoUrl} alt="Logo" className="max-h-full max-w-full" />
           </div>
           <div>
             <input ref={logoRef} type="file" accept="image/*" onChange={uploadLogo} className="block text-sm file:mr-3 file:rounded-full file:border-0 file:bg-brand-blue file:px-4 file:py-2 file:text-white" />
