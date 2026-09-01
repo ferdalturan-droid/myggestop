@@ -22,25 +22,25 @@ export default function MaterialsSection() {
   return (
     <div className="grid gap-8 md:grid-cols-2">
       <div className="card p-6">
-        <h3 className="text-lg font-bold text-brand-ink">Myggenet — materialer</h3>
-        <p className="mt-1 text-sm text-brand-ink2/65">Det er dette, dit myggenet er lavet af.</p>
+        <h3 className="text-lg font-bold text-brand-cream">Myggenet — materialer</h3>
+        <p className="mt-1 text-sm text-brand-cream2/70">Det er dette, dit myggenet er lavet af.</p>
         <ul className="mt-4 space-y-3">
           {MYGGENET_MATERIALS.map((m) => (
             <li key={m.title} className="text-sm">
-              <span className="font-semibold text-brand-ink">{m.title}</span>
-              <span className="text-brand-ink2/70"> — {m.text}</span>
+              <span className="font-semibold text-brand-cream">{m.title}</span>
+              <span className="text-brand-cream2/70"> — {m.text}</span>
             </li>
           ))}
         </ul>
       </div>
       <div className="card p-6">
-        <h3 className="text-lg font-bold text-brand-ink">Plissegardin — materialer</h3>
-        <p className="mt-1 text-sm text-brand-ink2/65">Det er dette, din plissegardin er lavet af.</p>
+        <h3 className="text-lg font-bold text-brand-cream">Plissegardin — materialer</h3>
+        <p className="mt-1 text-sm text-brand-cream2/70">Det er dette, din plissegardin er lavet af.</p>
         <ul className="mt-4 space-y-3">
           {PLISSE_MATERIALS.map((m) => (
             <li key={m.title} className="text-sm">
-              <span className="font-semibold text-brand-ink">{m.title}</span>
-              <span className="text-brand-ink2/70"> — {m.text}</span>
+              <span className="font-semibold text-brand-cream">{m.title}</span>
+              <span className="text-brand-cream2/70"> — {m.text}</span>
             </li>
           ))}
         </ul>

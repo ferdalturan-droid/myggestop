@@ -41,8 +41,8 @@ export interface PdfBranding {
   shippingText: string;
 }
 
-const BLUE = rgb(0.105, 0.553, 0.878);
-const GREEN = rgb(0.361, 0.773, 0.141);
+const BLUE = rgb(0.788, 0.635, 0.290);
+const GREEN = rgb(0.831, 0.686, 0.216);
 const INK = rgb(0.05, 0.105, 0.165);
 const GREY = rgb(0.45, 0.5, 0.55);
 const LINE = rgb(0.89, 0.92, 0.95);
@@ -53,8 +53,8 @@ function da(d: Date): string {
 
 export async function generateOrderPdf(order: PdfOrder, b: PdfBranding): Promise<Uint8Array> {
   const doc = await PDFDocument.create();
-  doc.setTitle(`Ordre ${order.orderNumber} - Myggestop`);
-  doc.setProducer("Myggestop");
+  doc.setTitle(`Ordre ${order.orderNumber} - Nordica`);
+  doc.setProducer("Nordica");
   let page = doc.addPage([595.28, 841.89]); // A4
   const font = await doc.embedFont(StandardFonts.Helvetica);
   const bold = await doc.embedFont(StandardFonts.HelveticaBold);
@@ -73,14 +73,12 @@ export async function generateOrderPdf(order: PdfOrder, b: PdfBranding): Promise
   ) => p.drawText(s ?? "", { x, y: yy, size, font: f, color });
 
   // ---- Header band ----
-  page.drawRectangle({ x: 0, y: page.getHeight() - 110, width: W, height: 110, color: rgb(0.051, 0.106, 0.165) });
+  page.drawRectangle({ x: 0, y: page.getHeight() - 110, width: W, height: 110, color: rgb(0.043, 0.039, 0.031) });
   // logo-mark (forenklet)
   page.drawCircle({ x: M + 16, y: page.getHeight() - 55, size: 18, color: BLUE });
   page.drawCircle({ x: M + 30, y: page.getHeight() - 48, size: 7, color: GREEN });
-  text(page, "MYGGE", M + 44, page.getHeight() - 52, 22, bold, rgb(1, 1, 1));
-  const mwidth = bold.widthOfTextAtSize("MYGGE", 22);
-  text(page, "STOP", M + 44 + mwidth, page.getHeight() - 52, 22, bold, GREEN);
-  text(page, "Specialfremstillede myggenet - hele Danmark", M + 44, page.getHeight() - 70, 9, font, rgb(0.8, 0.86, 0.92));
+  text(page, "NORDICA", M + 44, page.getHeight() - 52, 22, bold, GREEN);
+  text(page, "Specialfremstillede myggenet - hele Danmark", M + 44, page.getHeight() - 70, 9, font, rgb(0.8, 0.75, 0.62));
 
   text(page, "ORDREBEKRAEFTELSE", W - M - bold.widthOfTextAtSize("ORDREBEKRAEFTELSE", 11), page.getHeight() - 48, 11, bold, rgb(1, 1, 1));
   text(page, order.orderNumber, W - M - font.widthOfTextAtSize(order.orderNumber, 12), page.getHeight() - 66, 12, font, GREEN);
@@ -192,7 +190,7 @@ export async function generateOrderPdf(order: PdfOrder, b: PdfBranding): Promise
   const disc = [
     "Bemærk: Dette er en uforpligtende anmodning - ikke en endelig faktura. Prisen er estimeret ud fra",
     "dine indtastede mål og er afrundet kommercielt op til nærmeste 0,5 m2. " + b.shippingText,
-    "Myggestop kontakter dig vedr. endelig pris, levering og evt. montering."
+    "Nordica kontakter dig vedr. endelig pris, levering og evt. montering."
   ];
   for (const d of disc) {
     text(page, d, M, y, 8, font, GREY);

@@ -120,14 +120,14 @@ export async function POST(req: NextRequest) {
     }
 
     const attachments = pdfBuffer
-      ? [{ filename: `Myggestop-${orderNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
+      ? [{ filename: `Nordica-${orderNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
       : undefined;
 
     // Send e-mails (await, saa serverless-funktionen naar at sende foer den afsluttes)
     await Promise.allSettled([
       sendMail({
         to: order.email,
-        subject: `Tak for din bestilling – ${orderNumber} | Myggestop`,
+        subject: `Tak for din bestilling – ${orderNumber} | Nordica`,
         html: customerEmailHtml(pdfOrder, branding),
         attachments
       }),

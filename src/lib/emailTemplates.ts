@@ -7,7 +7,7 @@ function rows(order: PdfOrder): string {
       (it) => `
     <tr>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;font-weight:600;color:#0d1b2a">${esc(it.roomName)}</td>
-      <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${esc(it.productName)}${it.isDoubleDoor ? " <span style='color:#1b8de0'>(Dobbeltdør)</span>" : ""}</td>
+      <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${esc(it.productName)}${it.isDoubleDoor ? " <span style='color:#a3801e'>(Dobbeltdør)</span>" : ""}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${it.widthMm} × ${it.heightMm} mm</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${esc(it.colorName || "-")}</td>
       <td style="padding:8px 10px;border-bottom:1px solid #e4ebf2;color:#16263a">${String(it.areaSqm).replace(".", ",")} m²</td>
@@ -20,15 +20,15 @@ function rows(order: PdfOrder): string {
 function shell(title: string, inner: string): string {
   return `<!doctype html><html lang="da"><body style="margin:0;background:#f5f8fb;font-family:Segoe UI,Arial,sans-serif">
   <div style="max-width:640px;margin:0 auto;padding:24px">
-    <div style="background:#0d1b2a;border-radius:16px 16px 0 0;padding:24px 28px">
-      <span style="font-size:22px;font-weight:800;color:#fff;letter-spacing:.5px">MYGGE<span style="color:#5cc524">STOP</span></span>
-      <div style="color:#9fb3c8;font-size:12px;margin-top:4px">Specialfremstillede myggenet · hele Danmark</div>
+    <div style="background:#0b0a08;border-radius:16px 16px 0 0;padding:24px 28px">
+      <span style="font-size:22px;font-weight:800;color:#f4ecd8;letter-spacing:1px">NORD<span style="color:#d4af37">ICA</span></span>
+      <div style="color:#cbbfa0;font-size:12px;margin-top:4px">Specialfremstillede myggenet · hele Danmark</div>
     </div>
     <div style="background:#fff;border-radius:0 0 16px 16px;padding:28px;box-shadow:0 8px 30px -12px rgba(13,27,42,.2)">
       <h1 style="margin:0 0 6px;font-size:20px;color:#0d1b2a">${title}</h1>
       ${inner}
     </div>
-    <p style="text-align:center;color:#9fb3c8;font-size:12px;margin-top:18px">© ${new Date().getFullYear()} Myggestop · Dette er en automatisk besked.</p>
+    <p style="text-align:center;color:#9fb3c8;font-size:12px;margin-top:18px">© ${new Date().getFullYear()} Nordica · Dette er en automatisk besked.</p>
   </div></body></html>`;
 }
 
@@ -49,20 +49,20 @@ function summary(order: PdfOrder): string {
     <tr><td style="padding:4px 0;color:#6b7785">Produkter i alt</td><td style="text-align:right;color:#0d1b2a">${formatDKK(order.productsTotal)}</td></tr>
     ${order.wantsInstallation ? `<tr><td style="padding:4px 0;color:#6b7785">Montering</td><td style="text-align:right;color:#0d1b2a">${formatDKK(order.installationTotal)}</td></tr>` : ""}
     <tr><td style="padding:4px 0;color:#6b7785">Fragt</td><td style="text-align:right;color:#0d1b2a">Efter aftale</td></tr>
-    <tr><td style="padding:8px 0;font-weight:700;color:#0d1b2a;border-top:1px solid #e4ebf2">Estimeret total</td><td style="text-align:right;font-weight:700;color:#1b8de0;border-top:1px solid #e4ebf2">${formatDKK(order.estimatedTotal)}</td></tr>
+    <tr><td style="padding:8px 0;font-weight:700;color:#0d1b2a;border-top:1px solid #e4ebf2">Estimeret total</td><td style="text-align:right;font-weight:700;color:#a3801e;border-top:1px solid #e4ebf2">${formatDKK(order.estimatedTotal)}</td></tr>
   </table>`;
 }
 
 export function customerEmailHtml(order: PdfOrder, b: PdfBranding): string {
   return shell(
     `Tak for din bestilling, ${esc(order.firstName)}!`,
-    `<p style="color:#16263a;line-height:1.6">Vi har modtaget din anmodning med ordrenummer <strong style="color:#1b8de0">${order.orderNumber}</strong>.
+    `<p style="color:#16263a;line-height:1.6">Vi har modtaget din anmodning med ordrenummer <strong style="color:#a3801e">${order.orderNumber}</strong>.
     Dette er en <strong>uforpligtende anmodning</strong> — vi kontakter dig hurtigst muligt vedrørende endelig pris, levering og evt. montering.</p>
     ${summary(order)}
     <p style="color:#16263a;line-height:1.6"><strong>Fragt:</strong> ${esc(b.shippingText)}</p>
     <p style="color:#16263a;line-height:1.6">Du finder en PDF med hele din ordre vedhæftet denne mail.</p>
     <div style="margin-top:20px;padding:16px;background:#f5f8fb;border-radius:12px;color:#16263a;font-size:13px">
-      <strong>Myggestop</strong><br>${esc(b.phone)} · ${esc(b.email)}<br>${esc(b.address)}, ${esc(b.postalCode)} ${esc(b.city)}
+      <strong>Nordica</strong><br>${esc(b.phone)} · ${esc(b.email)}<br>${esc(b.address)}, ${esc(b.postalCode)} ${esc(b.city)}
     </div>`
   );
 }

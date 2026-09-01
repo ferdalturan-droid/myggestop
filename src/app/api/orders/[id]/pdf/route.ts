@@ -26,7 +26,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return new NextResponse(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",
-      "Content-Disposition": `attachment; filename="Myggestop-${order.orderNumber}.pdf"`
+      "Content-Disposition": `attachment; filename="Nordica-${order.orderNumber}.pdf"`
     }
   });
 }

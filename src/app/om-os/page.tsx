@@ -9,7 +9,7 @@ export const generateMetadata = () =>
   buildMetadata({
     title: "Om Os",
     description:
-      "Myggestop – mere end 3 års erfaring med skræddersyede myggenet og insektbeskyttelse. Egen produktion på værksted i Glostrup. Kvalitet, håndværk og personlig service.",
+      "Nordica – mere end 3 års erfaring med skræddersyede myggenet og insektbeskyttelse. Egen produktion på værksted i Glostrup. Kvalitet, håndværk og personlig service.",
     path: "/om-os"
   });
 
@@ -39,7 +39,7 @@ export default async function OmPage() {
       icon: IconChat,
       title: "Kundetilfredshed i fokus",
       text:
-        "Hos Myggestop er kundetilfredshed vores højeste prioritet. Derfor tilbyder vi personlig rådgivning, professionel opmåling og produkter fremstillet med fokus på kvalitet ned til mindste detalje."
+        "Hos Nordica er kundetilfredshed vores højeste prioritet. Derfor tilbyder vi personlig rådgivning, professionel opmåling og produkter fremstillet med fokus på kvalitet ned til mindste detalje."
     }
   ];
 
@@ -55,17 +55,17 @@ export default async function OmPage() {
       <section className="bg-mesh section">
         <div className="container-page grid items-center gap-12 lg:grid-cols-2">
           <div className="reveal">
-            <span className="eyebrow">Om Myggestop</span>
+            <span className="eyebrow">Om Nordica</span>
             <h1 className="h-title mt-5 text-4xl sm:text-5xl lg:text-6xl">Om Os</h1>
-            <p className="mt-6 text-lg leading-relaxed text-brand-ink2/85">
-              Hos Myggestop brænder vi for kvalitet, godt håndværk og skræddersyede løsninger. Med mere end 3 års
+            <p className="mt-6 text-lg leading-relaxed text-brand-cream2/85">
+              Hos Nordica brænder vi for kvalitet, godt håndværk og skræddersyede løsninger. Med mere end 3 års
               erfaring i branchen har vi hjulpet mange private og erhvervskunder med effektive løsninger inden for
               myggenet, insektbeskyttelse og specialtilpassede produkter til vinduer og døre.
             </p>
             <ul className="mt-7 flex flex-wrap gap-x-6 gap-y-2">
               {["Eget værksted i Glostrup", "Mere end 3 års erfaring", "Skræddersyet efter mål"].map((t) => (
-                <li key={t} className="flex items-center gap-2 text-sm font-medium text-brand-ink2">
-                  <span className="grid h-5 w-5 place-items-center rounded-full bg-brand-green/15 text-brand-greendark">
+                <li key={t} className="flex items-center gap-2 text-sm font-medium text-brand-cream2">
+                  <span className="grid h-5 w-5 place-items-center rounded-full bg-brand-green/15 text-brand-green">
                     <IconCheck className="h-3.5 w-3.5" />
                   </span>
                   {t}
@@ -76,12 +76,12 @@ export default async function OmPage() {
 
           <div className="reveal relative">
             <div className="absolute -inset-6 rounded-[2rem] bg-gradient-to-tr from-brand-blue/20 to-brand-green/20 blur-2xl" />
-            <div className="relative overflow-hidden rounded-[2rem] border border-white/60 bg-white/60 p-3 shadow-soft backdrop-blur">
+            <div className="relative overflow-hidden rounded-[2rem] border border-brand-goldline bg-brand-charcoal/70 p-3 shadow-soft backdrop-blur">
               {/* eslint-disable-next-line @next/next/no-img-element */}
-              <img src="/produkter-banner.png" alt="Myggestop produkter fra eget værksted" className="w-full rounded-[1.5rem]" />
-              <div className="absolute bottom-6 left-6 rounded-xl bg-white/95 px-4 py-3 shadow-card">
-                <p className="text-xs font-semibold uppercase tracking-wide text-brand-bluedark">Egen produktion</p>
-                <p className="text-sm font-bold text-brand-ink">Værksted i Glostrup</p>
+              <img src="/produkter-banner.png" alt="Nordica produkter fra eget værksted" className="w-full rounded-[1.5rem]" />
+              <div className="absolute bottom-6 left-6 rounded-xl bg-brand-charcoal2/95 px-4 py-3 shadow-card">
+                <p className="text-xs font-semibold uppercase tracking-wide text-brand-blue">Egen produktion</p>
+                <p className="text-sm font-bold text-brand-cream">Værksted i Glostrup</p>
               </div>
             </div>
           </div>
@@ -111,11 +111,11 @@ export default async function OmPage() {
             const Icon = s.icon;
             return (
               <div key={s.title} className="reveal card p-7 transition hover:-translate-y-1 hover:shadow-soft">
-                <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-brand-blue/15 to-brand-green/15 text-brand-bluedark">
+                <span className="grid h-12 w-12 place-items-center rounded-xl bg-gradient-to-br from-brand-blue/15 to-brand-green/15 text-brand-blue">
                   <Icon />
                 </span>
-                <h2 className="mt-4 text-xl font-bold text-brand-ink">{s.title}</h2>
-                <p className="mt-2 leading-relaxed text-brand-ink2/80">{s.text}</p>
+                <h2 className="mt-4 text-xl font-bold text-brand-cream">{s.title}</h2>
+                <p className="mt-2 leading-relaxed text-brand-cream2/80">{s.text}</p>
               </div>
             );
           })}
@@ -125,11 +125,11 @@ export default async function OmPage() {
       {/* CLOSING */}
       <section className="section pt-0">
         <div className="container-page">
-          <div className="reveal mx-auto max-w-3xl rounded-[2rem] border border-brand-line bg-brand-mist p-10 text-center">
-            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-green/15 text-brand-greendark">
+          <div className="reveal mx-auto max-w-3xl rounded-[2rem] border border-brand-goldline bg-brand-charcoal p-10 text-center">
+            <span className="mx-auto grid h-12 w-12 place-items-center rounded-full bg-brand-green/15 text-brand-green">
               <IconMap />
             </span>
-            <p className="mt-5 text-2xl font-semibold leading-snug text-brand-ink">
+            <p className="mt-5 text-2xl font-semibold leading-snug text-brand-cream">
               Vi ser frem til at hjælpe dig med den rette løsning til dit hjem eller din virksomhed.
             </p>
           </div>

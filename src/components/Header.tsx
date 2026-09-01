@@ -29,14 +29,14 @@ export default function Header({ logoUrl, phone }: { logoUrl: string; phone: str
 
   return (
     <header
-      className={`sticky top-0 z-50 transition-all ${
-        scrolled ? "bg-white/90 shadow-card backdrop-blur" : "bg-white/70 backdrop-blur"
+      className={`sticky top-0 z-50 border-b transition-all ${
+        scrolled ? "border-brand-goldline bg-brand-black/95 shadow-card backdrop-blur" : "border-brand-goldline/60 bg-brand-black/85 backdrop-blur"
       }`}
     >
-      <div className="container-page flex h-20 items-center justify-between gap-4">
-        <Link href="/" className="flex items-center" aria-label="Myggestop forside">
+      <div className="container-page flex h-24 items-center justify-between gap-4">
+        <Link href="/" className="flex items-center" aria-label="Nordica forside">
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl} alt="Myggestop" className="h-10 w-auto" />
+          <img src={logoUrl} alt="Nordica – Myggenet & Gardin" className="h-16 w-auto sm:h-20" />
         </Link>
 
         <nav className="hidden items-center gap-1 lg:flex">
@@ -47,7 +47,7 @@ export default function Header({ logoUrl, phone }: { logoUrl: string; phone: str
                 key={n.href}
                 href={n.href}
                 className={`rounded-full px-4 py-2 text-sm font-medium transition ${
-                  active ? "bg-brand-blue/10 text-brand-bluedark" : "text-brand-ink2 hover:bg-brand-mist hover:text-brand-blue"
+                  active ? "bg-brand-blue/15 text-brand-blue" : "text-brand-cream2 hover:bg-brand-charcoal hover:text-brand-blue"
                 }`}
               >
                 {n.label}
@@ -57,7 +57,7 @@ export default function Header({ logoUrl, phone }: { logoUrl: string; phone: str
         </nav>
 
         <div className="flex items-center gap-3">
-          <a href={`tel:${phone.replace(/\s/g, "")}`} className="hidden text-sm font-semibold text-brand-ink2 sm:block">
+          <a href={`tel:${phone.replace(/\s/g, "")}`} className="hidden text-sm font-semibold text-brand-cream2 sm:block">
             {phone}
           </a>
           <Link href="/bestil" className="btn-primary hidden sm:inline-flex">
@@ -66,7 +66,7 @@ export default function Header({ logoUrl, phone }: { logoUrl: string; phone: str
           <button
             aria-label="Menu"
             onClick={() => setOpen((o) => !o)}
-            className="grid h-11 w-11 place-items-center rounded-full border border-brand-line lg:hidden"
+            className="grid h-11 w-11 place-items-center rounded-full border border-brand-goldline text-brand-cream lg:hidden"
           >
             <span className="text-xl">{open ? "✕" : "☰"}</span>
           </button>
@@ -74,10 +74,10 @@ export default function Header({ logoUrl, phone }: { logoUrl: string; phone: str
       </div>
 
       {open && (
-        <div className="border-t border-brand-line bg-white lg:hidden">
+        <div className="border-t border-brand-goldline bg-brand-black lg:hidden">
           <div className="container-page flex flex-col py-3">
             {NAV.map((n) => (
-              <Link key={n.href} href={n.href} className="rounded-lg px-3 py-3 text-base font-medium text-brand-ink2 hover:bg-brand-mist">
+              <Link key={n.href} href={n.href} className="rounded-lg px-3 py-3 text-base font-medium text-brand-cream2 hover:bg-brand-charcoal">
                 {n.label}
               </Link>
             ))}

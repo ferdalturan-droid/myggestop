@@ -16,9 +16,9 @@ export default function WhyUs() {
         const Icon = it.icon;
         return (
           <div key={it.title} className="reveal">
-            <span className="text-brand-greendark"><Icon className="h-8 w-8" /></span>
-            <h3 className="mt-4 text-lg font-semibold text-brand-ink">{it.title}</h3>
-            <p className="mt-1.5 text-[15px] leading-relaxed text-brand-ink2/65">{it.text}</p>
+            <span className="text-brand-green"><Icon className="h-8 w-8" /></span>
+            <h3 className="mt-4 text-lg font-semibold text-brand-cream">{it.title}</h3>
+            <p className="mt-1.5 text-[15px] leading-relaxed text-brand-cream2/70">{it.text}</p>
           </div>
         );
       })}

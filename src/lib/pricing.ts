@@ -1,5 +1,5 @@
 // ---------------------------------------------------------------------------
-// Myggestop prisberegning (ren logik - bruges baade server- og klient-side)
+// Nordica prisberegning (ren logik - bruges baade server- og klient-side)
 // ---------------------------------------------------------------------------
 
 export interface PricingConfig {

@@ -1,7 +1,7 @@
 import { getSession } from "@/lib/auth";
 import AdminNav from "@/components/admin/AdminNav";
 
-export const metadata = { title: "Admin · Myggestop", robots: { index: false, follow: false } };
+export const metadata = { title: "Admin · Nordica", robots: { index: false, follow: false } };
 
 export default async function AdminLayout({ children }: { children: React.ReactNode }) {
   const session = await getSession();

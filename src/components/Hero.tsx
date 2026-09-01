@@ -9,7 +9,7 @@ export default function Hero({ home }: { home: any }) {
           <h1 className="h-title mt-5 text-4xl leading-[1.07] sm:text-5xl lg:text-[3.75rem]">
             {home.heroTitle}
           </h1>
-          <p className="mt-6 max-w-md text-lg leading-relaxed text-brand-ink2/70">
+          <p className="mt-6 max-w-md text-lg leading-relaxed text-brand-cream2/80">
             {home.heroSubtitle}
           </p>
           <div className="mt-9 flex flex-wrap gap-3">
@@ -19,7 +19,7 @@ export default function Hero({ home }: { home: any }) {
         </div>
 
         <div className="reveal">
-          <div className="aspect-[4/5] w-full overflow-hidden rounded-2xl bg-white sm:aspect-[4/3] lg:aspect-[4/5]">
+          <div className="aspect-[4/5] w-full overflow-hidden rounded-2xl border border-brand-goldline bg-brand-charcoal sm:aspect-[4/3] lg:aspect-[4/5]">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/galleri/enkelt-dor.png" alt="Specialfremstillet myggenet til dør" className="h-full w-full object-contain" />
           </div>

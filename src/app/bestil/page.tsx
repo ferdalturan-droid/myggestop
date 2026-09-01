@@ -34,7 +34,7 @@ export default async function BestilPage() {
         <div className="reveal max-w-2xl">
           <span className="eyebrow">Bestil nu</span>
           <h1 className="h-title mt-4 text-4xl sm:text-5xl">Bestil dine myggenet efter mål</h1>
-          <p className="mt-4 text-lg text-brand-ink2/80">
+          <p className="mt-4 text-lg text-brand-cream2/80">
             Tilføj så mange produkter du ønsker — et for hvert rum. Du ser en estimeret pris med det samme. Vi kontakter dig
             efterfolgende med endelig pris, levering og evt. montering.
           </p>
@@ -45,8 +45,8 @@ export default async function BestilPage() {
           <aside className="lg:sticky lg:top-28 lg:self-start">
             <MeasurementGuide />
             <div className="card mt-6 p-6">
-              <h3 className="font-bold text-brand-ink">Sa nemt er det</h3>
-              <ol className="mt-3 space-y-2 text-sm text-brand-ink2/80">
+              <h3 className="font-bold text-brand-cream">Sa nemt er det</h3>
+              <ol className="mt-3 space-y-2 text-sm text-brand-cream2/80">
                 <li>1. Udfyld dine oplysninger.</li>
                 <li>2. Tilføj produkter med mål pr. rum.</li>
                 <li>3. Vælg montering eller levering.</li>

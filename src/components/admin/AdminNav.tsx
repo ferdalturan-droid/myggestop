@@ -46,14 +46,14 @@ export default function AdminNav({ email }: { email: string }) {
     <>
       {/* mobil ust app-bar */}
       <div className="sticky top-0 z-40 flex items-center justify-between border-b border-brand-line bg-white/95 px-4 py-3 backdrop-blur lg:hidden">
-        <Link href="/admin" className="text-lg font-extrabold text-brand-ink">MYGGE<span className="text-brand-green">STOP</span></Link>
+        <Link href="/admin" className="text-lg font-extrabold text-brand-ink">NORD<span className="text-brand-green">ICA</span></Link>
         <button onClick={() => setOpen(true)} aria-label="Menü" className="grid h-10 w-10 place-items-center rounded-lg border border-brand-line text-xl">☰</button>
       </div>
 
       {/* kayan menu (mobil) + sabit sidebar (masaustu) */}
       <aside className={`fixed inset-y-0 left-0 z-50 flex w-72 max-w-[82%] transform flex-col border-r border-brand-line bg-white transition-transform lg:w-64 lg:translate-x-0 ${open ? "translate-x-0 shadow-2xl" : "-translate-x-full"}`}>
         <div className="flex items-center justify-between border-b border-brand-line px-5 py-4">
-          <Link href="/admin" onClick={() => setOpen(false)} className="text-xl font-extrabold text-brand-ink">MYGGE<span className="text-brand-green">STOP</span></Link>
+          <Link href="/admin" onClick={() => setOpen(false)} className="text-xl font-extrabold text-brand-ink">NORD<span className="text-brand-green">ICA</span></Link>
           <button onClick={() => setOpen(false)} aria-label="Kapat" className="grid h-9 w-9 place-items-center rounded-lg text-xl text-brand-ink2 lg:hidden">✕</button>
         </div>
         {Nav}

@@ -108,10 +108,10 @@ export default function OrderForm({
   if (result) {
     return (
       <div className="card p-8 text-center sm:p-12">
-        <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-green/15 text-brand-greendark"><IconCheck className="h-9 w-9" /></span>
+        <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-green/15 text-brand-green"><IconCheck className="h-9 w-9" /></span>
         <h2 className="h-title mt-6 text-3xl">Tak for din bestilling!</h2>
-        <p className="mt-3 text-brand-ink2/80">Dit ordrenummer er <strong className="text-brand-bluedark">{result.orderNumber}</strong>.</p>
-        <p className="mx-auto mt-3 max-w-md text-brand-ink2/75">Vi har sendt en bekræftelse med PDF til din e-mail. Dette er en uforpligtende anmodning — vi kontakter dig hurtigst muligt vedrørende endelig pris, levering og evt. montering.</p>
+        <p className="mt-3 text-brand-cream2/85">Dit ordrenummer er <strong className="text-brand-blue">{result.orderNumber}</strong>.</p>
+        <p className="mx-auto mt-3 max-w-md text-brand-cream2/75">Vi har sendt en bekræftelse med PDF til din e-mail. Dette er en uforpligtende anmodning — vi kontakter dig hurtigst muligt vedrørende endelig pris, levering og evt. montering.</p>
         <a href="/" className="btn-primary mt-8">Tilbage til forsiden</a>
       </div>
     );
@@ -121,7 +121,7 @@ export default function OrderForm({
     <form onSubmit={submit} className="space-y-8">
       {/* 1. Kunde */}
       <section className="card p-6 sm:p-8">
-        <h2 className="text-xl font-bold text-brand-ink">1. Dine oplysninger</h2>
+        <h2 className="text-xl font-bold text-brand-cream">1. Dine oplysninger</h2>
         <div className="mt-5 grid gap-4 sm:grid-cols-2">
           <div><label className="label">Fornavn *</label><input className="input" required value={customer.firstName} onChange={(e) => setCustomer({ ...customer, firstName: e.target.value })} /></div>
           <div><label className="label">Efternavn *</label><input className="input" required value={customer.lastName} onChange={(e) => setCustomer({ ...customer, lastName: e.target.value })} /></div>
@@ -135,10 +135,10 @@ export default function OrderForm({
 
       {/* 2. Tilføj produkt (fast boks) */}
       <section id="tilføj" className="card p-6 sm:p-8">
-        <h2 className="text-xl font-bold text-brand-ink">2. Tilføj produkt</h2>
-        <p className="mt-1 text-sm text-brand-ink2/65">Udfyld ét produkt og tryk “Tilføj til ordren”. Gentag for hvert rum.</p>
+        <h2 className="text-xl font-bold text-brand-cream">2. Tilføj produkt</h2>
+        <p className="mt-1 text-sm text-brand-cream2/70">Udfyld ét produkt og tryk “Tilføj til ordren”. Gentag for hvert rum.</p>
 
-        <div className="mt-5 rounded-xl2 border border-brand-line bg-brand-mist/40 p-5">
+        <div className="mt-5 rounded-xl2 border border-brand-goldline bg-brand-charcoal2/60 p-5">
           <div className="grid gap-4 sm:grid-cols-2">
             <div>
               <label className="label">Rum navn</label>
@@ -163,15 +163,15 @@ export default function OrderForm({
           </div>
 
           {draftCalc?.res && !draftCalc.tooWide && (
-            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl bg-white px-4 py-3 text-sm shadow-card">
-              <span className="text-brand-ink2/70">Areal: <strong className="text-brand-ink">{draftCalc.res.areaSqm.toString().replace(".", ",")} m²</strong></span>
-              {draftCalc.res.isDoubleDoor && <span className="rounded-full bg-brand-blue/10 px-2.5 py-0.5 text-xs font-semibold text-brand-bluedark">Dobbeltdør +{formatDKK(draftCalc.res.doubleDoorSurcharge)}</span>}
-              {draftCalc.res.colorSurcharge > 0 && <span className="rounded-full bg-brand-green/10 px-2.5 py-0.5 text-xs font-semibold text-brand-greendark">Farve +{formatDKK(draftCalc.res.colorSurcharge)}</span>}
-              <span className="ml-auto font-bold text-brand-bluedark">{formatDKK(draftCalc.res.lineTotal)}</span>
+            <div className="mt-4 flex flex-wrap items-center gap-x-5 gap-y-1 rounded-xl border border-brand-goldline bg-brand-charcoal2 px-4 py-3 text-sm shadow-card">
+              <span className="text-brand-cream2/70">Areal: <strong className="text-brand-cream">{draftCalc.res.areaSqm.toString().replace(".", ",")} m²</strong></span>
+              {draftCalc.res.isDoubleDoor && <span className="rounded-full bg-brand-blue/10 px-2.5 py-0.5 text-xs font-semibold text-brand-blue">Dobbeltdør +{formatDKK(draftCalc.res.doubleDoorSurcharge)}</span>}
+              {draftCalc.res.colorSurcharge > 0 && <span className="rounded-full bg-brand-green/10 px-2.5 py-0.5 text-xs font-semibold text-brand-green">Farve +{formatDKK(draftCalc.res.colorSurcharge)}</span>}
+              <span className="ml-auto font-bold text-brand-blue">{formatDKK(draftCalc.res.lineTotal)}</span>
             </div>
           )}
-          {draftCalc?.tooWide && <p className="mt-2 text-sm font-medium text-red-500">Målene overstiger maksimum for {draftCalc.product.name} (max {draftCalc.product.maxWidthMm}×{draftCalc.product.maxHeightMm} mm).</p>}
-          {formError && <p className="mt-2 text-sm font-medium text-red-500">{formError}</p>}
+          {draftCalc?.tooWide && <p className="mt-2 text-sm font-medium text-red-400">Målene overstiger maksimum for {draftCalc.product.name} (max {draftCalc.product.maxWidthMm}×{draftCalc.product.maxHeightMm} mm).</p>}
+          {formError && <p className="mt-2 text-sm font-medium text-red-400">{formError}</p>}
 
           <button type="button" onClick={addDraft} className="btn-green mt-4 w-full">+ Tilføj til ordren</button>
         </div>
@@ -180,28 +180,28 @@ export default function OrderForm({
       {/* 3. Tilføjede produkter (kompakt liste) */}
       <section className="card p-6 sm:p-8">
         <div className="flex items-center justify-between">
-          <h2 className="text-xl font-bold text-brand-ink">3. Dine produkter</h2>
-          <span className="rounded-full bg-brand-mist px-3 py-1 text-xs font-semibold text-brand-ink2">{items.length} stk.</span>
+          <h2 className="text-xl font-bold text-brand-cream">3. Dine produkter</h2>
+          <span className="rounded-full bg-brand-charcoal2 px-3 py-1 text-xs font-semibold text-brand-cream2">{items.length} stk.</span>
         </div>
 
         {items.length === 0 ? (
-          <div className="mt-4 rounded-xl border border-dashed border-brand-line bg-brand-mist/40 p-6 text-center text-sm text-brand-ink2/60">
+          <div className="mt-4 rounded-xl border border-dashed border-brand-goldline bg-brand-charcoal2/40 p-6 text-center text-sm text-brand-cream2/60">
             Ingen produkter endnu. Tilføj dit første produkt ovenfor.
           </div>
         ) : (
           <ul className="mt-4 space-y-2">
             {computedItems.map(({ it, res }, i) => (
-              <li key={it.uid} className="flex items-center gap-3 rounded-xl border border-brand-line bg-white px-4 py-3">
-                <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-brand-blue text-xs font-bold text-white">{i + 1}</span>
+              <li key={it.uid} className="flex items-center gap-3 rounded-xl border border-brand-goldline bg-brand-charcoal2/60 px-4 py-3">
+                <span className="grid h-7 w-7 flex-none place-items-center rounded-full bg-brand-blue text-xs font-bold text-brand-black">{i + 1}</span>
                 <div className="min-w-0 flex-1">
-                  <p className="truncate text-sm font-semibold text-brand-ink">
+                  <p className="truncate text-sm font-semibold text-brand-cream">
                     {it.roomName ? it.roomName + " · " : ""}{productName(it.productId)}{res.isDoubleDoor ? " (Dobbeltdør)" : ""}
                   </p>
-                  <p className="truncate text-xs text-brand-ink2/65">
+                  <p className="truncate text-xs text-brand-cream2/65">
                     {it.widthMm}×{it.heightMm} mm · {res.areaSqm.toString().replace(".", ",")} m² · {colorName(it.colorId)}{it.comment ? " · " + it.comment : ""}
                   </p>
                 </div>
-                <span className="flex-none text-sm font-bold text-brand-bluedark">{formatDKK(res.lineTotal)}</span>
+                <span className="flex-none text-sm font-bold text-brand-blue">{formatDKK(res.lineTotal)}</span>
                 <button type="button" onClick={() => editItem(it.uid)} className="flex-none text-xs font-medium text-brand-blue hover:underline">Rediger</button>
                 <button type="button" onClick={() => removeItem(it.uid)} aria-label="Fjern" className="flex-none text-lg leading-none text-red-400 hover:text-red-600">×</button>
               </li>
@@ -212,15 +212,15 @@ export default function OrderForm({
 
       {/* 4. Montering & oversigt */}
       <section className="card p-6 sm:p-8">
-        <h2 className="text-xl font-bold text-brand-ink">4. Montering & oversigt</h2>
+        <h2 className="text-xl font-bold text-brand-cream">4. Montering & oversigt</h2>
         <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${wantsInstallation ? "border-brand-blue bg-brand-blue/5" : "border-brand-line"}`}>
+          <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${wantsInstallation ? "border-brand-blue bg-brand-blue/5" : "border-brand-goldline"}`}>
             <input type="radio" name="install" className="mt-1" checked={wantsInstallation} onChange={() => setWantsInstallation(true)} />
-            <span><span className="block font-semibold text-brand-ink">Jeg ønsker montering</span><span className="block text-sm text-brand-ink2/70">Kun København og omegn. Grundgebyr + pris pr. produkt tilføjes.</span></span>
+            <span><span className="block font-semibold text-brand-cream">Jeg ønsker montering</span><span className="block text-sm text-brand-cream2/70">Kun København og omegn. Grundgebyr + pris pr. produkt tilføjes.</span></span>
           </label>
-          <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${!wantsInstallation ? "border-brand-blue bg-brand-blue/5" : "border-brand-line"}`}>
+          <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${!wantsInstallation ? "border-brand-blue bg-brand-blue/5" : "border-brand-goldline"}`}>
             <input type="radio" name="install" className="mt-1" checked={!wantsInstallation} onChange={() => setWantsInstallation(false)} />
-            <span><span className="block font-semibold text-brand-ink">Kun levering</span><span className="block text-sm text-brand-ink2/70">Vi sender dine net direkte til døren i hele Danmark.</span></span>
+            <span><span className="block font-semibold text-brand-cream">Kun levering</span><span className="block text-sm text-brand-cream2/70">Vi sender dine net direkte til døren i hele Danmark.</span></span>
           </label>
         </div>
 
@@ -236,9 +236,9 @@ export default function OrderForm({
           <p className="mt-4 text-xs leading-relaxed text-slate-400">Prisen er et uforpligtende estimat. Arealet afrundes kommercielt op til nærmeste 0,5 m². {shippingText}</p>
         </div>
 
-        {error && <p className="mt-4 rounded-xl bg-red-50 px-4 py-3 text-sm font-medium text-red-600">{error}</p>}
+        {error && <p className="mt-4 rounded-xl border border-red-900/40 bg-red-950/40 px-4 py-3 text-sm font-medium text-red-300">{error}</p>}
         <button type="submit" disabled={submitting} className="btn-primary mt-6 w-full text-base disabled:opacity-60">{submitting ? "Sender..." : "Send bestilling / anmod om tilbud"}</button>
-        <p className="mt-3 text-center text-xs text-brand-ink2/60">Ingen online betaling — vi kontakter dig med endelig pris.</p>
+        <p className="mt-3 text-center text-xs text-brand-cream2/60">Ingen online betaling — vi kontakter dig med endelig pris.</p>
       </section>
     </form>
   );

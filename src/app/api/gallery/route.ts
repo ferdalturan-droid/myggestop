@@ -27,7 +27,7 @@ export async function POST(req: NextRequest) {
       url: b.url,
       thumbUrl: b.thumbUrl || "",
       title: b.title || "",
-      alt: b.alt || b.title || "Myggestop",
+      alt: b.alt || b.title || "Nordica",
       sortOrder: Number(b.sortOrder) || 0
     }
   });

@@ -14,7 +14,7 @@ export const defaultSettings = {
     text: "Fragt beregnes efter aftale. Der kan tilkomme yderligere fragtomkostninger afhængigt af antal, størrelse og leveringsadresse."
   },
   contact: {
-    companyName: "Myggestop",
+    companyName: "Nordica",
     phone: "+45 12 34 56 78",
     email: "ferdalturan@gmail.com",
     adminEmail: "ferdalturan@gmail.com",
@@ -36,22 +36,22 @@ export const defaultSettings = {
     heroEyebrow: "Specialfremstillet i Danmark",
     heroTitle: "Myggenet efter mål – hold insekter ude, luk komforten ind",
     heroSubtitle:
-      "Myggestop leverer specialfremstillede myggenet til vinduer og døre i hele Danmark. Bestil online efter dine egne mål – vi står for resten.",
+      "Nordica leverer specialfremstillede myggenet til vinduer og døre i hele Danmark. Bestil online efter dine egne mål – vi står for resten.",
     heroCtaPrimary: "Bestil nu",
     heroCtaSecondary: "Se produkter",
     uspBar: ["Specialmål", "Levering i hele Danmark", "Montering i København og omegn", "Dansk kundeservice"],
     introTitle: "Sov roligt – uden myggesummen og insekter",
     introText:
-      "Et myggenet fra Myggestop giver dig friske, insektfrie rum hele året. Du kan have vinduer og døre stående åbne uden at lukke myg, fluer, hvepse og andre insekter ind. Vores net fremstilles efter dine præcise mål, så de passer perfekt til netop dine åbninger.",
+      "Et myggenet fra Nordica giver dig friske, insektfrie rum hele året. Du kan have vinduer og døre stående åbne uden at lukke myg, fluer, hvepse og andre insekter ind. Vores net fremstilles efter dine præcise mål, så de passer perfekt til netop dine åbninger.",
     ctaTitle: "Klar til en insektfri sommer?",
     ctaText:
       "Udfyld bestillingen med dine mål, så vender vi tilbage med en endelig pris, levering og eventuel montering. Helt uforpligtende.",
     ctaButton: "Anmod om tilbud"
   },
   seo: {
-    siteName: "Myggestop",
-    defaultTitle: "Myggestop – Specialfremstillede myggenet til vinduer og døre | Hele Danmark",
-    titleTemplate: "%s | Myggestop",
+    siteName: "Nordica",
+    defaultTitle: "Nordica – Specialfremstillede myggenet til vinduer og døre | Hele Danmark",
+    titleTemplate: "%s | Nordica",
     defaultDescription:
       "Myggenet, insektnet og fluenet efter mål til vinduer og døre. Plisségardiner til solafskærmning i specialmål. Levering i hele Danmark – montering i København og omegn. Bestil online.",
     keywords: [
@@ -60,7 +60,7 @@ export const defaultSettings = {
       "fluenet",
       "myggedør",
       "plisségardin",
-      "myggestop",
+      "nordica",
       "specialmål myggenet",
       "myggenet Danmark",
       "myggenet vindue",

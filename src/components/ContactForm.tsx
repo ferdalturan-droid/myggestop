@@ -31,11 +31,11 @@ export default function ContactForm() {
   if (sent)
     return (
       <div className="card p-8 text-center">
-        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-brand-green/15 text-brand-greendark">
+        <span className="mx-auto grid h-14 w-14 place-items-center rounded-full bg-brand-green/15 text-brand-green">
           <IconCheck className="h-8 w-8" />
         </span>
-        <h3 className="mt-4 text-xl font-bold text-brand-ink">Tak for din besked!</h3>
-        <p className="mt-2 text-brand-ink2/75">Vi vender tilbage hurtigst muligt.</p>
+        <h3 className="mt-4 text-xl font-bold text-brand-cream">Tak for din besked!</h3>
+        <p className="mt-2 text-brand-cream2/75">Vi vender tilbage hurtigst muligt.</p>
       </div>
     );
 
@@ -59,7 +59,7 @@ export default function ContactForm() {
         <label className="label">Besked *</label>
         <textarea className="input min-h-[130px]" required value={form.message} onChange={(e) => setForm({ ...form, message: e.target.value })} />
       </div>
-      {error && <p className="rounded-xl bg-red-50 px-4 py-3 text-sm text-red-600">{error}</p>}
+      {error && <p className="rounded-xl border border-red-900/40 bg-red-950/40 px-4 py-3 text-sm text-red-300">{error}</p>}
       <button type="submit" disabled={loading} className="btn-primary w-full disabled:opacity-60">
         {loading ? "Sender..." : "Send besked"}
       </button>

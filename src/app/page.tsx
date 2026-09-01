@@ -15,7 +15,7 @@ function Heading({ eyebrow, title, text }: { eyebrow?: string; title: string; te
     <div className="reveal mx-auto max-w-2xl text-center">
       {eyebrow && <span className="eyebrow">{eyebrow}</span>}
       <h2 className="h-title mt-4 text-3xl sm:text-4xl">{title}</h2>
-      {text && <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-brand-ink2/65">{text}</p>}
+      {text && <p className="mx-auto mt-4 max-w-xl text-lg leading-relaxed text-brand-cream2/70">{text}</p>}
     </div>
   );
 }
@@ -39,10 +39,10 @@ export default async function HomePage() {
         </div>
       </section>
 
-      {/* Derfor Myggestop */}
+      {/* Derfor Nordica */}
       <section className="section bg-soft">
         <div className="container-page">
-          <Heading eyebrow="Derfor Myggestop" title="Kvalitet, du kan mærke" />
+          <Heading eyebrow="Derfor Nordica" title="Kvalitet, du kan mærke" />
           <div className="mt-16"><WhyUs /></div>
         </div>
       </section>
@@ -62,7 +62,7 @@ export default async function HomePage() {
             <Heading eyebrow="Galleri" title="Se vores løsninger" />
             <div className="mt-14 grid gap-6 sm:grid-cols-2 lg:grid-cols-3">
               {gallery.map((g) => (
-                <div key={g.id} className="reveal overflow-hidden rounded-2xl border border-brand-line bg-white">
+                <div key={g.id} className="reveal overflow-hidden rounded-2xl border border-brand-goldline bg-brand-charcoal">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img src={g.url} alt={g.alt || g.title} className="aspect-[3/4] w-full object-contain" />
                 </div>

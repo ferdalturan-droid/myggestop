@@ -12,7 +12,7 @@ const FAQ = [
 export default function Faq() {
   const [open, setOpen] = useState<number | null>(0);
   return (
-    <div className="divide-y divide-brand-line border-y border-brand-line">
+    <div className="divide-y divide-brand-goldline border-y border-brand-goldline">
       {FAQ.map((f, i) => (
         <div key={i} className="reveal">
           <button
@@ -20,10 +20,10 @@ export default function Faq() {
             onClick={() => setOpen(open === i ? null : i)}
             className="flex w-full items-center justify-between gap-4 py-6 text-left"
           >
-            <span className="text-lg font-medium text-brand-ink">{f.q}</span>
-            <span className={`flex-none text-2xl font-light text-brand-greendark transition-transform ${open === i ? "rotate-45" : ""}`}>+</span>
+            <span className="text-lg font-medium text-brand-cream">{f.q}</span>
+            <span className={`flex-none text-2xl font-light text-brand-green transition-transform ${open === i ? "rotate-45" : ""}`}>+</span>
           </button>
-          {open === i && <p className="-mt-2 pb-6 pr-8 text-[15px] leading-relaxed text-brand-ink2/70">{f.a}</p>}
+          {open === i && <p className="-mt-2 pb-6 pr-8 text-[15px] leading-relaxed text-brand-cream2/70">{f.a}</p>}
         </div>
       ))}
     </div>

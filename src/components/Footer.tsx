@@ -10,7 +10,7 @@ export default function Footer({ contact, logoUrl }: { contact: any; logoUrl: st
       <div className="container-page grid gap-10 py-16 sm:grid-cols-2 lg:grid-cols-4">
         <div>
           {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img src={logoUrl} alt="Myggestop" className="h-10 w-auto brightness-0 invert" />
+          <img src={logoUrl} alt="Nordica – Myggenet & Gardin" className="h-14 w-auto brightness-0 invert" />
           <p className="mt-4 max-w-xs text-sm leading-relaxed text-slate-400">
             Specialfremstillede myggenet til vinduer og døre. Levering i hele Danmark — montering i København og omegn.
           </p>

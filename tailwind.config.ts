@@ -9,14 +9,20 @@ const config: Config = {
     extend: {
       colors: {
         brand: {
-          blue: "#1b8de0",
-          bluedark: "#0f5fa6",
-          green: "#5cc524",
-          greendark: "#3f9c12",
+          blue: "#c9a24a",
+          bluedark: "#a3801e",
+          green: "#d4af37",
+          greendark: "#b8912a",
           ink: "#0d1b2a",
           ink2: "#16263a",
           mist: "#f5f8fb",
-          line: "#e4ebf2"
+          line: "#e4ebf2",
+          black: "#0b0a08",
+          charcoal: "#17130f",
+          charcoal2: "#221c15",
+          cream: "#f4ecd8",
+          cream2: "#cbbfa0",
+          goldline: "#3d3320"
         }
       },
       fontFamily: {
@@ -26,7 +32,7 @@ const config: Config = {
       boxShadow: {
         soft: "0 10px 40px -12px rgba(13, 27, 42, 0.18)",
         card: "0 4px 24px -8px rgba(13, 27, 42, 0.12)",
-        glow: "0 12px 50px -10px rgba(27, 141, 224, 0.35)"
+        glow: "0 12px 50px -10px rgba(201, 162, 74, 0.35)"
       },
       borderRadius: {
         xl2: "1.25rem"

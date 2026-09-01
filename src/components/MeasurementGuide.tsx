@@ -1,9 +1,9 @@
 export default function MeasurementGuide() {
   return (
     <div className="card overflow-hidden">
-      <div className="border-b border-brand-line bg-brand-mist px-6 py-4">
-        <h3 className="text-lg font-bold text-brand-ink">Målevejledning</h3>
-        <p className="text-sm text-brand-ink2/70">Sådan måler og monterer du korrekt</p>
+      <div className="border-b border-brand-goldline bg-brand-charcoal2 px-6 py-4">
+        <h3 className="text-lg font-bold text-brand-cream">Målevejledning</h3>
+        <p className="text-sm text-brand-cream2/70">Sådan måler og monterer du korrekt</p>
       </div>
       <div className="p-6">
         <svg viewBox="0 0 320 300" className="mx-auto w-full max-w-sm" role="img" aria-label="Illustration af bredde og højde">
@@ -40,13 +40,13 @@ export default function MeasurementGuide() {
         </svg>
 
         {/* Myggenet */}
-        <div className="mt-5 rounded-xl bg-brand-blue/5 p-4 text-sm leading-relaxed text-brand-ink2">
-          <p className="font-semibold text-brand-bluedark">Myggenet — sådan måler du</p>
+        <div className="mt-5 rounded-xl bg-brand-blue/5 p-4 text-sm leading-relaxed text-brand-cream2">
+          <p className="font-semibold text-brand-blue">Myggenet — sådan måler du</p>
           <p className="mt-1">
             Mål altid bredde og højde fra <strong>trækanten</strong> (træ- eller aluminiumsrammen) på vinduet eller døren —
             ikke fra glasset. Angiv alle mål i millimeter (mm).
           </p>
-          <ul className="mt-3 space-y-1.5 text-brand-ink2/80">
+          <ul className="mt-3 space-y-1.5 text-brand-cream2/80">
             <li>• <strong>Bredde:</strong> mål vandret fra trækant til trækant.</li>
             <li>• <strong>Højde:</strong> mål lodret fra trækant til trækant.</li>
             <li>• Mål tre steder (top/midt/bund og venstre/midt/højre) og brug det mindste mål — rammer er sjældent helt firkantede.</li>
@@ -55,22 +55,22 @@ export default function MeasurementGuide() {
           </ul>
         </div>
 
-        <div className="mt-3 rounded-xl bg-brand-green/5 p-4 text-sm leading-relaxed text-brand-ink2">
-          <p className="font-semibold text-brand-greendark">Myggenet — vælg monteringsside</p>
-          <ul className="mt-2 space-y-1.5 text-brand-ink2/85">
+        <div className="mt-3 rounded-xl bg-brand-green/5 p-4 text-sm leading-relaxed text-brand-cream2">
+          <p className="font-semibold text-brand-green">Myggenet — vælg monteringsside</p>
+          <ul className="mt-2 space-y-1.5 text-brand-cream2/85">
             <li>• Åbner vinduet/døren <strong>udad</strong> → myggenettet monteres <strong>indvendigt</strong> (indefra).</li>
             <li>• Åbner vinduet/døren <strong>indad</strong> → myggenettet monteres <strong>udvendigt</strong> (udefra).</li>
           </ul>
         </div>
 
         {/* Plissegardin */}
-        <div className="mt-5 rounded-xl bg-brand-blue/5 p-4 text-sm leading-relaxed text-brand-ink2">
-          <p className="font-semibold text-brand-bluedark">Plissegardin — sådan måler du</p>
+        <div className="mt-5 rounded-xl bg-brand-blue/5 p-4 text-sm leading-relaxed text-brand-cream2">
+          <p className="font-semibold text-brand-blue">Plissegardin — sådan måler du</p>
           <p className="mt-1">
             Her måler du <strong>selve glasset</strong> — fra kant til kant af glasset, ikke rammen. Det er den vigtigste
             forskel fra myggenet-målingen. Angiv alle mål i millimeter (mm).
           </p>
-          <ul className="mt-3 space-y-1.5 text-brand-ink2/80">
+          <ul className="mt-3 space-y-1.5 text-brand-cream2/80">
             <li>• <strong>Bredde:</strong> mål glassets bredde vandret, kant til kant.</li>
             <li>• <strong>Højde:</strong> mål glassets højde lodret, kant til kant.</li>
             <li>• Mål tre steder og brug det mindste mål.</li>
