@@ -3,14 +3,14 @@ import { useEffect, useState } from "react";
 import { formatDKK } from "@/lib/pricing";
 
 interface P {
-  id: string; name: string; shortText: string; description: string;
+  id: string; name: string; shortText: string; description: string; imageUrl: string;
   pricePerSqm: number; maxWidthMm: number; maxHeightMm: number;
   minWidthMm: number; minHeightMm: number; doubleDoorThresholdMm: number | null;
   isActive: boolean; sortOrder: number; features: string[];
 }
 
 const empty = (): Partial<P> => ({
-  name: "", shortText: "", description: "", pricePerSqm: 500,
+  name: "", shortText: "", description: "", imageUrl: "", pricePerSqm: 500,
   maxWidthMm: 2500, maxHeightMm: 2500, minWidthMm: 150, minHeightMm: 150,
   doubleDoorThresholdMm: 1200, isActive: true, sortOrder: 99, features: []
 });
@@ -19,6 +19,19 @@ export default function ProductsManager() {
   const [products, setProducts] = useState<P[]>([]);
   const [edit, setEdit] = useState<Partial<P> | null>(null);
   const [msg, setMsg] = useState<string | null>(null);
+  const [uploading, setUploading] = useState(false);
+
+  async function uploadImage(e: React.ChangeEvent<HTMLInputElement>) {
+    const file = e.target.files?.[0];
+    if (!file || !edit) return;
+    setUploading(true);
+    const fd = new FormData();
+    fd.append("file", file);
+    const up = await fetch("/api/upload", { method: "POST", body: fd });
+    const d = await up.json();
+    setUploading(false);
+    if (up.ok) setEdit({ ...edit, imageUrl: d.url });
+  }
 
   async function load() {
     const d = await (await fetch("/api/products", { cache: "no-store" })).json();
@@ -52,13 +65,21 @@ export default function ProductsManager() {
         {products.map((p) => (
           <div key={p.id} className="rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
             <div className="flex flex-wrap items-start justify-between gap-3">
-              <div>
+              <div className="flex items-start gap-4">
+                {p.imageUrl ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img src={p.imageUrl} alt={p.name} className="h-16 w-16 flex-none rounded-lg border border-brand-line object-cover" />
+                ) : (
+                  <div className="grid h-16 w-16 flex-none place-items-center rounded-lg border border-dashed border-brand-line text-[10px] text-brand-ink2/40">Intet billede</div>
+                )}
+                <div>
                 <h3 className="font-bold text-brand-ink">{p.name} {!p.isActive && <span className="ml-2 rounded bg-red-100 px-2 py-0.5 text-xs text-red-600">Skjult</span>}</h3>
                 <p className="text-sm text-brand-ink2/65">{p.shortText}</p>
                 <p className="mt-1 text-sm text-brand-ink2/80">
                   {formatDKK(p.pricePerSqm)}/m² · max {p.maxWidthMm}×{p.maxHeightMm} mm
                   {p.doubleDoorThresholdMm ? ` · Dobbeltdør > ${p.doubleDoorThresholdMm} mm` : ""}
                 </p>
+                </div>
               </div>
               <div className="flex gap-2">
                 <button className="btn-ghost py-2 text-sm" onClick={() => setEdit(p)}>Rediger</button>
@@ -74,6 +95,23 @@ export default function ProductsManager() {
           <div className="max-h-[90vh] w-full max-w-lg overflow-y-auto rounded-xl2 bg-white p-6" onClick={(e) => e.stopPropagation()}>
             <h2 className="mb-4 text-lg font-bold text-brand-ink">{edit.id ? "Rediger produkt" : "Nyt produkt"}</h2>
             <div className="space-y-3">
+              <div>
+                <span className="mb-1 block text-sm font-medium text-brand-ink2">Billede</span>
+                <div className="flex items-center gap-4">
+                  <div className="grid h-20 w-20 flex-none place-items-center overflow-hidden rounded-xl border border-brand-line bg-brand-mist">
+                    {edit.imageUrl ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={edit.imageUrl} alt="" className="h-full w-full object-cover" />
+                    ) : (
+                      <span className="text-[10px] text-brand-ink2/40">Intet</span>
+                    )}
+                  </div>
+                  <div>
+                    <input type="file" accept="image/*" onChange={uploadImage} className="block text-sm file:mr-3 file:rounded-full file:border-0 file:bg-brand-blue file:px-4 file:py-2 file:text-white" />
+                    <p className="mt-1 text-xs text-brand-ink2/50">{uploading ? "Uploader..." : "PNG, JPG eller WEBP anbefales."}</p>
+                  </div>
+                </div>
+              </div>
               <Inp label="Navn" v={edit.name} on={(v) => setEdit({ ...edit, name: v })} />
               <Inp label="Kort tekst" v={edit.shortText} on={(v) => setEdit({ ...edit, shortText: v })} />
               <div>
