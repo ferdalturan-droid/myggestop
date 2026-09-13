@@ -78,6 +78,7 @@ export default function ImalatCalc() {
   const [lastTur, setLastTur] = useState<Tur>("SINEKLIK");
   const [doneKeys, setDoneKeys] = useState<string[]>([]);
   const [openUid, setOpenUid] = useState<number | null>(null);
+  const [openDoneUids, setOpenDoneUids] = useState<number[]>([]);
   const [rates, setRates] = useState(DEF_RATES);
   const [gardinRate, setGardinRate] = useState(DEF_GARDIN_RATE);
   const [showRates, setShowRates] = useState(false);
@@ -98,8 +99,15 @@ export default function ImalatCalc() {
     try {
       const rt = JSON.parse(localStorage.getItem("imalat_rates") || "null"); if (rt) setRates({ ...DEF_RATES, ...rt });
       const gr = parseFloat(localStorage.getItem("perde_rate") || ""); if (gr > 0) setGardinRate(gr);
+      const openRec = JSON.parse(localStorage.getItem("imalat_open_record") || "null");
       const imp = JSON.parse(localStorage.getItem("imalat_import") || "null");
-      if (imp && imp.rows?.length) {
+      if (openRec && openRec.rows?.length) {
+        setMusteri(openRec.musteri || ""); setTel(openRec.tel || ""); setAdres(openRec.adres || "");
+        setRows(openRec.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
+        setDoneKeys(openRec.doneKeys || []);
+        setOrderId(openRec.orderId || null); setOrderNumber(openRec.orderNumber || null); setRecId(openRec.id ?? null); setSourceOrderId(openRec.sourceOrderId || null);
+        localStorage.removeItem("imalat_open_record");
+      } else if (imp && imp.rows?.length) {
         setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || "");
         setRows(imp.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
         setSourceOrderId(imp.sourceOrderId || null); setOrderId(null); setOrderNumber(null); setRecId(null);
@@ -286,10 +294,11 @@ export default function ImalatCalc() {
     setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || "");
     setRows(rec.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
     setDoneKeys(rec.doneKeys || []); setOrderId(rec.orderId || null); setOrderNumber(rec.orderNumber || null); setRecId(rec.id ?? null); setSourceOrderId(rec.sourceOrderId || null);
+    setOpenDoneUids([]);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); if (recId === id) setRecId(null); }
-  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setOrderNumber(null); setRecId(null); setSourceOrderId(null); setOrderMsg(null); } }
+  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setOrderNumber(null); setRecId(null); setSourceOrderId(null); setOrderMsg(null); setOpenDoneUids([]); } }
 
   async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
   async function randevuAl() {
@@ -339,7 +348,13 @@ export default function ImalatCalc() {
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
-        <div><h1 className="text-2xl font-extrabold text-brand-ink">Produktion — Tilskæring & pris</h1><p className="text-sm text-brand-ink2/60">Gemmes automatisk.</p></div>
+        <div>
+          <h1 className="text-2xl font-extrabold text-brand-ink">Produktion — Tilskæring & pris</h1>
+          <p className="text-sm text-brand-ink2/60">
+            Gemmes automatisk.
+            {orderNumber && <span className="ml-2 rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">Ordre #{orderNumber}</span>}
+          </p>
+        </div>
         <div className="flex items-center gap-2"><button onClick={() => setShowRates((s) => !s)} className="btn-secondary py-2 text-sm">Priser</button><button onClick={yeni} className="btn-secondary py-2 text-sm">Ny</button><button onClick={yazdir} className="btn-secondary py-2 text-sm">Udskriv / PDF</button><button onClick={kaydet} className="btn-primary py-2 text-sm">Gem</button></div>
       </div>
 
@@ -390,17 +405,31 @@ export default function ImalatCalc() {
       <div className="space-y-3">
         {rows.map((r, i) => {
           const ps = partsFor(r); const open = openUid === r.uid; const pr = priceOf(r);
+          const collapsed = !!r.done && !openDoneUids.includes(r.uid);
           return (
             <div key={r.uid} className={`rounded-xl border border-brand-line ${r.done ? "bg-green-50/60" : "bg-white"}`}>
-              <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
-                <button onClick={() => setOpenUid(open ? null : r.uid)} className="flex items-center gap-1.5 text-sm font-bold text-brand-greendark"><span className="grid h-6 w-6 place-items-center rounded-full bg-brand-greendark text-xs text-white">{i + 1}</span> detaljer {open ? "▲" : "▼"}</button>
+              <div className="flex items-center justify-between gap-2 px-3 pt-2.5 pb-2.5">
+                {collapsed ? (
+                  <span className="flex items-center gap-1.5 text-sm font-bold text-brand-ink2/60">
+                    <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-greendark text-xs text-white">{i + 1}</span>
+                    {TUR_LABEL[r.tur]} · {r.en}×{r.boy} cm
+                  </span>
+                ) : (
+                  <button onClick={() => setOpenUid(open ? null : r.uid)} className="flex items-center gap-1.5 text-sm font-bold text-brand-greendark"><span className="grid h-6 w-6 place-items-center rounded-full bg-brand-greendark text-xs text-white">{i + 1}</span> detaljer {open ? "▲" : "▼"}</button>
+                )}
                 <div className="flex items-center gap-3">
                   <span className="text-sm font-bold text-brand-ink">{pr ? kr(pr.price) : ""}</span>
-                  <label className="flex items-center gap-1 text-xs text-brand-ink2/70"><input type="checkbox" checked={!!r.done} onChange={(e) => upd(r.uid, { done: e.target.checked })} /> Færdig</label>
+                  <label className="flex items-center gap-1 text-xs text-brand-ink2/70">
+                    <input type="checkbox" checked={!!r.done} onChange={(e) => { const checked = e.target.checked; upd(r.uid, { done: checked }); if (checked) setOpenDoneUids((u) => u.filter((x) => x !== r.uid)); }} /> Færdig
+                  </label>
+                  {r.done && (collapsed
+                    ? <button onClick={() => setOpenDoneUids((u) => [...u, r.uid])} className="text-xs font-semibold text-brand-greendark hover:underline">Vis ▾</button>
+                    : <button onClick={() => setOpenDoneUids((u) => u.filter((x) => x !== r.uid))} className="text-xs font-semibold text-brand-ink2/50 hover:underline">Skjul ▴</button>
+                  )}
                   <button onClick={() => del(r.uid)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-8">
+              {!collapsed && <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-8">
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Type</span>
                   <select className="input py-2 text-sm font-semibold" value={r.tur} onChange={(e) => setTur(r.uid, e.target.value as Tur)}>
                     <option value="SINEKLIK">Myggenet</option>
@@ -431,8 +460,8 @@ export default function ImalatCalc() {
                     ))}
                   </select>
                 </label>
-              </div>
-              {open && ps && (
+              </div>}
+              {!collapsed && open && ps && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
                   <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">
                     Linje {i + 1} — {TUR_LABEL[r.tur]} · {r.en}×{r.boy} cm {r.farve ? `· ${r.farve}` : ""} {pr ? `· ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}
