@@ -85,8 +85,11 @@ export default function ImalatCalc() {
   const [tarih, setTarih] = useState(""); const [saat, setSaat] = useState("");
   const [appts, setAppts] = useState<any[]>([]); const [apptMsg, setApptMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
+  const [orderNumber, setOrderNumber] = useState<string | null>(null);
+  const [recId, setRecId] = useState<number | null>(null);
   const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
   const [orderMsg, setOrderMsg] = useState<string | null>(null);
+  const [showListe, setShowListe] = useState(false);
   const [colors, setColors] = useState<{ id: string; name: string; surchargePerSqm: number; isStandard: boolean }[]>([]);
   const ratesLoadedRef = useRef(false);
   const gardinRateLoadedRef = useRef(false);
@@ -99,7 +102,7 @@ export default function ImalatCalc() {
       if (imp && imp.rows?.length) {
         setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || "");
         setRows(imp.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
-        setSourceOrderId(imp.sourceOrderId || null); setOrderId(null);
+        setSourceOrderId(imp.sourceOrderId || null); setOrderId(null); setOrderNumber(null); setRecId(null);
         localStorage.removeItem("imalat_import");
       } else {
         const cur = JSON.parse(localStorage.getItem("imalat_current") || "null");
@@ -107,7 +110,7 @@ export default function ImalatCalc() {
           setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || "");
           setRows(cur.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
           setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || "");
-          setOrderId(cur.orderId || null); setSourceOrderId(cur.sourceOrderId || null);
+          setOrderId(cur.orderId || null); setOrderNumber(cur.orderNumber || null); setRecId(cur.recId || null); setSourceOrderId(cur.sourceOrderId || null);
         }
       }
     } catch {}
@@ -120,11 +123,32 @@ export default function ImalatCalc() {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
+  // Fjerner duplikerede job-linjer der peger på samme ordre (fra den tidligere fejl, hvor
+  // "Gem" altid tilføjede en ny linje) — beholder kun den nyeste linje pr. orderId.
+  function dedupeByOrderId(items: any[]) {
+    const seen = new Map<string, any>();
+    const noOrder: any[] = [];
+    for (const it of items) {
+      if (it.orderId) {
+        const existing = seen.get(it.orderId);
+        if (!existing || (it.id || 0) > (existing.id || 0)) seen.set(it.orderId, it);
+      } else {
+        noOrder.push(it);
+      }
+    }
+    return [...seen.values(), ...noOrder].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 50);
+  }
+
   async function loadSaved() {
     try {
       const res = await fetch("/api/imalat-records?type=UNIFIED");
       const d = await res.json();
-      if (d.items && d.items.length > 0) { setSaved(d.items); return; }
+      if (d.items && d.items.length > 0) {
+        const clean = dedupeByOrderId(d.items);
+        setSaved(clean);
+        if (clean.length !== d.items.length) gemPaaServer(clean);
+        return;
+      }
     } catch {}
     // Migrering: de gamle Myggenet- og Gardin-lister samles én gang til den nye fælles liste.
     try {
@@ -134,7 +158,7 @@ export default function ImalatCalc() {
       ]);
       const sItems = (sRes.items || []).map((it: any) => ({ ...it, rows: (it.rows || []).map((r: any) => ({ ...r, tur: r.tur || "SINEKLIK" })) }));
       const pItems = (pRes.items || []).map((it: any) => ({ ...it, rows: (it.rows || []).map((r: any) => ({ ...r, tur: r.tur || "PERDE" })) }));
-      const merged = [...sItems, ...pItems].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 50);
+      const merged = dedupeByOrderId([...sItems, ...pItems]);
       setSaved(merged);
       if (merged.length > 0) gemPaaServer(merged);
     } catch {
@@ -142,7 +166,7 @@ export default function ImalatCalc() {
     }
   }
 
-  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId]);
+  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId]);
   useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
   useEffect(() => {
     localStorage.setItem("imalat_rates", JSON.stringify(rates));
@@ -206,12 +230,12 @@ export default function ImalatCalc() {
     return out;
   }
 
-  // Gemmer/opdaterer ordren og returnerer den gældende orderId, saa den korrekte reference
-  // gemmes sammen med jobbet — undgaar en ny (duplikeret) ordre, næste gang der trykkes Gem.
-  async function gemSomOrdre(): Promise<string | null> {
-    if (sourceOrderId) return orderId;
+  // Gemmer/opdaterer ordren og returnerer den gældende orderId + orderNumber, saa den korrekte
+  // reference gemmes sammen med jobbet — undgaar en ny (duplikeret) ordre, næste gang der trykkes Gem.
+  async function gemSomOrdre(): Promise<{ orderId: string | null; orderNumber: string | null }> {
+    if (sourceOrderId) return { orderId, orderNumber };
     const items = buildOrderItems();
-    if (items.length === 0) return orderId;
+    if (items.length === 0) return { orderId, orderNumber };
     try {
       const res = await fetch("/api/orders/manual", {
         method: "POST", headers: { "Content-Type": "application/json" },
@@ -219,34 +243,37 @@ export default function ImalatCalc() {
       });
       const d = await res.json();
       if (res.ok && d.orderId) {
-        setOrderId(d.orderId);
+        setOrderId(d.orderId); setOrderNumber(d.orderNumber || null);
         setOrderMsg(`Gemt i Ordrer ✓ (${d.orderNumber})`); setTimeout(() => setOrderMsg(null), 4000);
-        return d.orderId;
+        return { orderId: d.orderId, orderNumber: d.orderNumber || null };
       }
     } catch {}
-    return orderId;
+    return { orderId, orderNumber };
   }
 
   async function kaydet() {
     if (!musteri.trim()) { setMsg("Angiv kundens navn."); setTimeout(() => setMsg(null), 2000); return; }
     // Vent på at ordren er gemt/opdateret FØR jobbet gemmes i listen, saa vi kender den
     // rigtige orderId — ellers gemmes en forældet id, og næste "Gem" opretter en ny ordre.
-    const resolvedOrderId = await gemSomOrdre();
-    const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId: resolvedOrderId, sourceOrderId };
-    const next = [rec, ...saved].slice(0, 50);
+    const resolved = await gemSomOrdre();
+    // Genbrug samme liste-id ved genåbning/gen-gem af et allerede gemt job, saa der ikke
+    // oprettes en ekstra linje i "Gemte ordrer" hver gang der trykkes Gem.
+    const id = recId ?? Date.now();
+    const rec = { id, musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId: resolved.orderId, orderNumber: resolved.orderNumber, sourceOrderId };
+    const next = recId != null ? saved.map((s) => (s.id === recId ? rec : s)) : [rec, ...saved].slice(0, 50);
     setSaved(next); gemPaaServer(next);
-    setOrderId(resolvedOrderId);
+    setOrderId(resolved.orderId); setOrderNumber(resolved.orderNumber); setRecId(id);
     setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 2000);
   }
 
   function yukle(rec: any) {
     setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || "");
     setRows(rec.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
-    setDoneKeys(rec.doneKeys || []); setOrderId(rec.orderId || null); setSourceOrderId(rec.sourceOrderId || null);
+    setDoneKeys(rec.doneKeys || []); setOrderId(rec.orderId || null); setOrderNumber(rec.orderNumber || null); setRecId(rec.id ?? null); setSourceOrderId(rec.sourceOrderId || null);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
-  function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); }
-  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setSourceOrderId(null); setOrderMsg(null); } }
+  function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); if (recId === id) setRecId(null); }
+  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setOrderNumber(null); setRecId(null); setSourceOrderId(null); setOrderMsg(null); } }
 
   async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
   async function randevuAl() {
@@ -419,25 +446,39 @@ export default function ImalatCalc() {
 
       {liste.arr.length > 0 && (
         <div className="mt-8">
-          <h2 className="mb-2 text-lg font-bold text-brand-ink">Skæreliste (i alt)</h2>
-          <p className="mb-3 text-sm text-brand-ink2/60">Ens mål er samlet. Marker det der er skåret.</p>
-          <div className="overflow-x-auto rounded-xl border border-brand-line">
-            <table className="w-full min-w-[460px] text-sm"><thead><tr className="bg-brand-mist text-left text-xs uppercase tracking-wide text-brand-ink2/60"><th className="px-3 py-2">✓</th><th className="px-3 py-2">System</th><th className="px-3 py-2">Del</th><th className="px-3 py-2">Mål</th><th className="px-3 py-2">Antal</th></tr></thead>
-              <tbody className="divide-y divide-brand-line">
-                {liste.arr.map((p, idx) => { const k = `${p.sys}|${p.label}|${p.len.toFixed(2)}`; const d = doneKeys.includes(k); return (
-                  <tr key={idx} className={d ? "bg-green-50/60" : ""}><td className="px-3 py-2"><input type="checkbox" checked={d} onChange={() => toggleKey(k)} /></td><td className="px-3 py-2 text-brand-ink2/70">{p.sys}</td><td className={`px-3 py-2 font-medium ${d ? "text-brand-ink2/40 line-through" : "text-brand-ink"}`}>{p.label}</td><td className={`px-3 py-2 font-semibold ${d ? "text-brand-ink2/40 line-through" : "text-brand-ink"}`}>{f(p.len)} cm</td><td className="px-3 py-2 text-brand-ink">{p.qty} stk.</td></tr>); })}
-                {liste.counts.map((p, idx) => (<tr key={"c" + idx} className="bg-brand-mist/40"><td className="px-3 py-2"></td><td className="px-3 py-2 text-brand-ink2/70">{p.sys}</td><td className="px-3 py-2 font-medium text-brand-ink">{p.label}</td><td className="px-3 py-2 text-brand-ink2/50">—</td><td className="px-3 py-2 text-brand-ink">{p.qty} stk.</td></tr>))}
-              </tbody>
-            </table>
-          </div>
+          <button onClick={() => setShowListe((s) => !s)} className="flex w-full items-center justify-between rounded-xl border border-brand-line bg-brand-mist/50 px-4 py-3 text-left">
+            <span>
+              <span className="text-lg font-bold text-brand-ink">Skæreliste (i alt)</span>
+              <span className="ml-2 text-sm text-brand-ink2/55">{liste.arr.length + liste.counts.length} dele</span>
+            </span>
+            <span className="text-sm font-semibold text-brand-greendark">{showListe ? "Skjul ▲" : "Vis ▼"}</span>
+          </button>
+          {showListe && (
+            <div className="mt-3">
+              <p className="mb-3 text-sm text-brand-ink2/60">Ens mål er samlet. Marker det der er skåret.</p>
+              <div className="overflow-x-auto rounded-xl border border-brand-line">
+                <table className="w-full min-w-[460px] text-sm"><thead><tr className="bg-brand-mist text-left text-xs uppercase tracking-wide text-brand-ink2/60"><th className="px-3 py-2">✓</th><th className="px-3 py-2">System</th><th className="px-3 py-2">Del</th><th className="px-3 py-2">Mål</th><th className="px-3 py-2">Antal</th></tr></thead>
+                  <tbody className="divide-y divide-brand-line">
+                    {liste.arr.map((p, idx) => { const k = `${p.sys}|${p.label}|${p.len.toFixed(2)}`; const d = doneKeys.includes(k); return (
+                      <tr key={idx} className={d ? "bg-green-50/60" : ""}><td className="px-3 py-2"><input type="checkbox" checked={d} onChange={() => toggleKey(k)} /></td><td className="px-3 py-2 text-brand-ink2/70">{p.sys}</td><td className={`px-3 py-2 font-medium ${d ? "text-brand-ink2/40 line-through" : "text-brand-ink"}`}>{p.label}</td><td className={`px-3 py-2 font-semibold ${d ? "text-brand-ink2/40 line-through" : "text-brand-ink"}`}>{f(p.len)} cm</td><td className="px-3 py-2 text-brand-ink">{p.qty} stk.</td></tr>); })}
+                    {liste.counts.map((p, idx) => (<tr key={"c" + idx} className="bg-brand-mist/40"><td className="px-3 py-2"></td><td className="px-3 py-2 text-brand-ink2/70">{p.sys}</td><td className="px-3 py-2 font-medium text-brand-ink">{p.label}</td><td className="px-3 py-2 text-brand-ink2/50">—</td><td className="px-3 py-2 text-brand-ink">{p.qty} stk.</td></tr>))}
+                  </tbody>
+                </table>
+              </div>
+            </div>
+          )}
         </div>
       )}
 
       {saved.length > 0 && (
         <div className="mt-8"><h2 className="mb-3 text-lg font-bold text-brand-ink">Gemte ordrer</h2>
           <div className="space-y-2">{saved.map((s) => (
-            <div key={s.id} className="flex items-center justify-between rounded-xl border border-brand-line bg-white px-4 py-2.5 text-sm">
-              <div><span className="font-semibold text-brand-ink">{s.musteri}</span> <span className="text-brand-ink2/55">· {s.rows.length} linjer · {s.date}</span></div>
+            <div key={s.id} className={`flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm ${recId === s.id ? "border-brand-greendark bg-green-50/40" : "border-brand-line bg-white"}`}>
+              <div>
+                <span className="font-semibold text-brand-ink">{s.musteri}</span>
+                {s.orderNumber && <span className="ml-2 rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">Ordre #{s.orderNumber}</span>}
+                <span className="text-brand-ink2/55"> · {s.rows.length} linjer · {s.date}</span>
+              </div>
               <div className="flex gap-3"><button onClick={() => yukle(s)} className="font-medium text-brand-greendark hover:underline">Åbn</button><button onClick={() => sil(s.id)} className="text-red-400 hover:text-red-600">Slet</button></div>
             </div>))}
           </div>
