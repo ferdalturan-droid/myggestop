@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireAdmin, requireRole } from "@/lib/requireAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -25,7 +25,9 @@ export async function GET() {
 }
 
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  // FASE 2 (§4): rater kan LAESES af Builder/Installer (bruges direkte i
+  // Produktionsberegneren), men kun COORDINATOR maa aendre priserne.
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const b = await req.json().catch(() => ({}));
   if (b.type === "PERDE") {

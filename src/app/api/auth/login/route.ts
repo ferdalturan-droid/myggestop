@@ -13,7 +13,7 @@ export async function POST(req: NextRequest) {
   if (!user || !(await bcrypt.compare(password, user.passwordHash))) {
     return NextResponse.json({ error: "Forkert e-mail eller adgangskode." }, { status: 401 });
   }
-  const token = await createSession({ sub: user.id, email: user.email, name: user.name });
+  const token = await createSession({ sub: user.id, email: user.email, name: user.name, role: user.role });
   setSessionCookie(token);
-  return NextResponse.json({ ok: true });
+  return NextResponse.json({ ok: true, role: user.role });
 }

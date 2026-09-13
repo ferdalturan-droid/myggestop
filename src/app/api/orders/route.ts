@@ -6,7 +6,7 @@ import { nextOrderNumber } from "@/lib/orderNumber";
 import { generateOrderPdf, PdfOrder, PdfBranding } from "@/lib/pdf";
 import { sendMail } from "@/lib/email";
 import { customerEmailHtml, adminEmailHtml } from "@/lib/emailTemplates";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireRole } from "@/lib/requireAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -148,7 +148,7 @@ export async function POST(req: NextRequest) {
 
 // GET (admin): liste med sogning/filter
 export async function GET(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();

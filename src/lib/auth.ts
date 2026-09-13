@@ -1,6 +1,7 @@
 import { SignJWT, jwtVerify } from "jose";
 import { cookies } from "next/headers";
 import { NextRequest } from "next/server";
+import type { Role } from "@prisma/client";
 
 const COOKIE = "myg_admin";
 const ALG = "HS256";
@@ -14,10 +15,11 @@ export interface SessionPayload {
   sub: string; // admin id
   email: string;
   name: string;
+  role: Role; // FASE 2 (§3.1/§5)
 }
 
 export async function createSession(payload: SessionPayload): Promise<string> {
-  return await new SignJWT({ email: payload.email, name: payload.name })
+  return await new SignJWT({ email: payload.email, name: payload.name, role: payload.role })
     .setProtectedHeader({ alg: ALG })
     .setSubject(payload.sub)
     .setIssuedAt()
@@ -28,10 +30,15 @@ export async function createSession(payload: SessionPayload): Promise<string> {
 export async function verifySession(token: string): Promise<SessionPayload | null> {
   try {
     const { payload } = await jwtVerify(token, secret());
+    // FASE 2: sessioner udstedt foer rollefeltet blev tilfoejet har intet
+    // "role"-claim - de behandles som COORDINATOR (den eneste rolle der
+    // fandtes foer ombygningen), saa ingen bliver logget ud af skiftet.
+    const role = (payload.role as Role) || "COORDINATOR";
     return {
       sub: String(payload.sub),
       email: String(payload.email),
-      name: String(payload.name)
+      name: String(payload.name),
+      role
     };
   } catch {
     return null;

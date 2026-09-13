@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getSetting, saveSetting } from "@/lib/settings";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireRole } from "@/lib/requireAdmin";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -10,7 +10,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const b = await req.json();
   if (b.seo) await saveSetting("seo", b.seo);

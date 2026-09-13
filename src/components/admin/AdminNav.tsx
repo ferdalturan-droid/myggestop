@@ -2,6 +2,8 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useState } from "react";
+import { isPathAllowedForRole } from "@/lib/roles";
+import type { Role } from "@prisma/client";
 
 const LINKS = [
   { href: "/admin", label: "Oversigt" },
@@ -16,13 +18,16 @@ const LINKS = [
   { href: "/admin/indhold", label: "Forside-indhold" },
   { href: "/admin/seo", label: "SEO" },
   { href: "/admin/indstillinger", label: "Kontakt & logo" },
+  { href: "/admin/brugere", label: "Brugere" },
   { href: "/admin/konto", label: "Konto" }
 ];
 
-export default function AdminNav({ email }: { email: string }) {
+export default function AdminNav({ email, role }: { email: string; role: Role }) {
   const pathname = usePathname();
   const router = useRouter();
   const [open, setOpen] = useState(false);
+  // FASE 2 (§4): Builder/Installer ser kun de sider deres rolle maa aabne.
+  const links = LINKS.filter((l) => isPathAllowedForRole(l.href, role));
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -32,7 +37,7 @@ export default function AdminNav({ email }: { email: string }) {
 
   const Nav = (
     <nav className="flex-1 space-y-1 overflow-y-auto px-3 py-4">
-      {LINKS.map((l) => {
+      {links.map((l) => {
         const active = l.href === "/admin" ? pathname === "/admin" : pathname.startsWith(l.href);
         return (
           <Link key={l.href} href={l.href} onClick={() => setOpen(false)}

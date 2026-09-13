@@ -22,7 +22,10 @@ export default function AdminLogin() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Login fejlede");
-      router.push(params.get("next") || "/admin");
+      // FASE 2: send Builder/Installer direkte til deres egen startside
+      // i stedet for at lade middleware bounce dem vaek fra /admin.
+      const rolleHjem = d.role === "BUILDER" || d.role === "INSTALLER" ? "/admin/imalat" : "/admin";
+      router.push(params.get("next") || rolleHjem);
       router.refresh();
     } catch (err: any) {
       setError(err.message);

@@ -1,13 +1,13 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireRole } from "@/lib/requireAdmin";
 import { ORDER_STATUS_ORDER } from "@/lib/types";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true } });
   if (!order) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
@@ -15,7 +15,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 }
 
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const body = await req.json();
   const existing = await prisma.order.findUnique({ where: { id: params.id } });
@@ -59,7 +59,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   await prisma.order.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });

@@ -8,7 +8,7 @@ export default async function AdminLayout({ children }: { children: React.ReactN
   if (!session) return <>{children}</>;
   return (
     <div className="min-h-screen bg-brand-mist">
-      <AdminNav email={session.email} />
+      <AdminNav email={session.email} role={session.role} />
       <main className="lg:pl-64">
         <div className="mx-auto max-w-6xl px-4 py-5 sm:px-8 sm:py-8">{children}</div>
       </main>

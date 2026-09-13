@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { getAllSettings, saveSetting } from "@/lib/settings";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireRole } from "@/lib/requireAdmin";
 import { AppSettings } from "@/data/defaults";
 
 export const runtime = "nodejs";
@@ -12,7 +12,7 @@ export async function GET() {
 }
 
 export async function PUT(req: NextRequest) {
-  const auth = await requireAdmin();
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const body = await req.json();
   const allowed: (keyof AppSettings)[] = ["pricing", "shipping", "contact", "branding", "home", "seo"];
