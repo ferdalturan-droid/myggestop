@@ -47,6 +47,7 @@ export default function AdminLogin() {
         <input className="input" type="password" value={password} onChange={(e) => setPassword(e.target.value)} required />
         {error && <p className="mt-3 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
         <button disabled={loading} className="btn-primary mt-6 w-full disabled:opacity-60">{loading ? "Logger ind..." : "Log ind"}</button>
+        <a href="/admin/glemt-adgangskode" className="mt-4 block text-center text-sm text-brand-ink2/60 hover:underline">Glemt adgangskode?</a>
       </form>
     </div>
   );

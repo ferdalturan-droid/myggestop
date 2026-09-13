@@ -32,7 +32,7 @@ export default function OrderForm({
   const [formError, setFormError] = useState<string | null>(null);
 
   const [submitting, setSubmitting] = useState(false);
-  const [result, setResult] = useState<{ orderNumber: string } | null>(null);
+  const [result, setResult] = useState<{ leadNumber: string } | null>(null);
   const [error, setError] = useState<string | null>(null);
 
   const lineOf = (it: { productId: string; widthMm: number; heightMm: number; colorId: string }) => {
@@ -97,7 +97,7 @@ export default function OrderForm({
       });
       const data = await res.json();
       if (!res.ok) throw new Error(data.error || "Noget gik galt");
-      setResult({ orderNumber: data.orderNumber });
+      setResult({ leadNumber: data.leadNumber });
       window.scrollTo({ top: 0, behavior: "smooth" });
     } catch (err: any) { setError(err.message); } finally { setSubmitting(false); }
   }
@@ -109,9 +109,9 @@ export default function OrderForm({
     return (
       <div className="card p-8 text-center sm:p-12">
         <span className="mx-auto grid h-16 w-16 place-items-center rounded-full bg-brand-green/15 text-brand-green"><IconCheck className="h-9 w-9" /></span>
-        <h2 className="h-title mt-6 text-3xl">Tak for din bestilling!</h2>
-        <p className="mt-3 text-brand-cream2/85">Dit ordrenummer er <strong className="text-brand-blue">{result.orderNumber}</strong>.</p>
-        <p className="mx-auto mt-3 max-w-md text-brand-cream2/75">Vi har sendt en bekræftelse med PDF til din e-mail. Dette er en uforpligtende anmodning — vi kontakter dig hurtigst muligt vedrørende endelig pris, levering og evt. montering.</p>
+        <h2 className="h-title mt-6 text-3xl">Tak for din forespørgsel!</h2>
+        <p className="mt-3 text-brand-cream2/85">Dit referencenummer er <strong className="text-brand-blue">{result.leadNumber}</strong>.</p>
+        <p className="mx-auto mt-3 max-w-md text-brand-cream2/75">Vi har sendt en bekræftelse med PDF til din e-mail. Dette er en uforpligtende forespørgsel — vi kontakter dig hurtigst muligt vedrørende opmåling, endelig pris, levering og evt. montering.</p>
         <a href="/" className="btn-primary mt-8">Tilbage til forsiden</a>
       </div>
     );

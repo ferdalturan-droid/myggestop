@@ -27,6 +27,8 @@ model AdminUser {
   passwordHash String
   name         String   @default("Administrator")
   role         Role     @default(COORDINATOR)
+  resetToken       String?   @unique // FASE 3: "glemt adgangskode"-flow
+  resetTokenExpiry DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
 }

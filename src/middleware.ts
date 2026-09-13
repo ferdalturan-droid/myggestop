@@ -4,8 +4,10 @@ import { isPathAllowedForRole, defaultHomeForRole } from "@/lib/roles";
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
-  // beskyt admin-sider og admin-api, men ikke login-siden eller login-api
-  const isAdminPage = pathname.startsWith("/admin") && pathname !== "/admin/login";
+  // beskyt admin-sider og admin-api, men ikke login-siden eller
+  // "glemt adgangskode"-flowet, som netop skal virke UDEN en session
+  const PUBLIC_ADMIN_PATHS = ["/admin/login", "/admin/glemt-adgangskode", "/admin/nulstil-adgangskode"];
+  const isAdminPage = pathname.startsWith("/admin") && !PUBLIC_ADMIN_PATHS.includes(pathname);
   if (isAdminPage) {
     const session = await getSessionFromRequest(req);
     if (!session) {

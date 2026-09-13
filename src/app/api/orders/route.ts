@@ -20,6 +20,13 @@ interface ItemPayload {
   comment?: string;
 }
 
+// FASE 3 (§7.4/§10.6): hjemmesidens bestillingsformular opretter nu et
+// Lead (stage NYT_LEAD) + forventede Measurement-raekker MED kundens egne
+// mål udfyldt - IKKE en Order direkte. Ordren opstaar foerst naar
+// koordinatoren har koert leadet igennem pipelinen og forfremmer det
+// (§6.1). Prisberegningen (pricing.ts) er uaendret - den bruges her kun
+// til at vise kunden et estimat i PDF/e-mail, ikke til at oprette en
+// rigtig ordre-total.
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
@@ -64,11 +71,18 @@ export async function POST(req: NextRequest) {
 
     const wantsInstallation = !!body.wantsInstallation;
     const totals = calcOrderTotals(computed.map((x) => x.line), wantsInstallation, config);
-    const orderNumber = await nextOrderNumber();
+    const leadNumber = await nextOrderNumber();
 
-    const order = await prisma.order.create({
+    const productSummary = Array.from(
+      computed.reduce((m, x) => m.set(x.product.name, (m.get(x.product.name) || 0) + 1), new Map<string, number>())
+    )
+      .map(([navn, antal]) => (antal > 1 ? `${navn} x${antal}` : navn))
+      .join(", ");
+
+    const lead = await prisma.lead.create({
       data: {
-        orderNumber,
+        leadNumber,
+        stage: "NYT_LEAD",
         firstName: c.firstName,
         lastName: c.lastName,
         phone: c.phone,
@@ -76,31 +90,53 @@ export async function POST(req: NextRequest) {
         address: c.address,
         postalCode: c.postalCode,
         city: c.city,
-        wantsInstallation,
-        note: body.note || "",
-        productsTotal: totals.productsTotal,
-        installationTotal: totals.installationTotal,
-        estimatedTotal: totals.estimatedTotal,
-        items: {
-          create: computed.map((x) => ({
-            productId: x.product.id,
+        source: "Hjemmeside",
+        productSummary,
+        note: (body.note || "") + (wantsInstallation ? "\n[Ønsker montering]" : ""),
+        measurements: {
+          create: computed.map((x, i) => ({
+            itemNumber: i + 1,
             roomName: x.it.roomName || "",
-            productName: x.product.name,
+            productType: x.product.name,
             widthMm: x.width,
             heightMm: x.height,
             colorName: x.color?.name || "",
-            comment: x.it.comment || "",
-            isDoubleDoor: x.line.isDoubleDoor,
-            areaSqm: x.line.areaSqm,
-            lineTotal: x.line.lineTotal
+            comment: x.it.comment || ""
           }))
         }
-      },
-      include: { items: true }
+      }
     });
 
-    // Generer PDF + send emails (best-effort)
-    const pdfOrder: PdfOrder = { ...order, status: order.status } as any;
+    // Byg et PDF/e-mail-venligt objekt (samme form som en Order) af det
+    // kunden lige har indtastet - der oprettes ingen rigtig Order endnu.
+    const pdfOrder: PdfOrder = {
+      orderNumber: leadNumber,
+      status: "NY",
+      createdAt: lead.createdAt,
+      firstName: c.firstName,
+      lastName: c.lastName,
+      phone: c.phone,
+      email: c.email,
+      address: c.address,
+      postalCode: c.postalCode,
+      city: c.city,
+      wantsInstallation,
+      note: body.note || "",
+      productsTotal: totals.productsTotal,
+      installationTotal: totals.installationTotal,
+      estimatedTotal: totals.estimatedTotal,
+      items: computed.map((x) => ({
+        roomName: x.it.roomName || "",
+        productName: x.product.name,
+        widthMm: x.width,
+        heightMm: x.height,
+        colorName: x.color?.name || "",
+        comment: x.it.comment || "",
+        isDoubleDoor: x.line.isDoubleDoor,
+        areaSqm: x.line.areaSqm,
+        lineTotal: x.line.lineTotal
+      }))
+    };
     const branding: PdfBranding = {
       companyName: settings.contact.companyName,
       phone: settings.contact.phone,
@@ -120,28 +156,28 @@ export async function POST(req: NextRequest) {
     }
 
     const attachments = pdfBuffer
-      ? [{ filename: `Nordica-${orderNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
+      ? [{ filename: `Nordica-${leadNumber}.pdf`, content: pdfBuffer, contentType: "application/pdf" }]
       : undefined;
 
     // Send e-mails (await, saa serverless-funktionen naar at sende foer den afsluttes)
     await Promise.allSettled([
       sendMail({
-        to: order.email,
-        subject: `Tak for din bestilling – ${orderNumber} | Nordica`,
+        to: lead.email,
+        subject: `Vi har modtaget din forespørgsel – ${leadNumber} | Nordica`,
         html: customerEmailHtml(pdfOrder, branding),
         attachments
       }),
       sendMail({
         to: settings.contact.adminEmail,
-        subject: `Ny ordre ${orderNumber} – ${order.firstName} ${order.lastName}`,
+        subject: `Nyt lead ${leadNumber} – ${lead.firstName} ${lead.lastName}`,
         html: adminEmailHtml(pdfOrder),
         attachments
       })
     ]);
 
-    return NextResponse.json({ ok: true, orderNumber, orderId: order.id, totals });
+    return NextResponse.json({ ok: true, leadNumber, leadId: lead.id, totals });
   } catch (e: any) {
-    console.error("Order POST fejl:", e);
+    console.error("Lead POST fejl:", e);
     return NextResponse.json({ error: e?.message || "Serverfejl" }, { status: 500 });
   }
 }

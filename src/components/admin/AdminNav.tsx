@@ -7,6 +7,7 @@ import type { Role } from "@prisma/client";
 
 const LINKS = [
   { href: "/admin", label: "Oversigt" },
+  { href: "/admin/leads", label: "Leads" },
   { href: "/admin/ordrer", label: "Ordrer" },
   { href: "/admin/imalat", label: "Produktionsberegner" },
   { href: "/admin/faerdig", label: "Færdig" },
@@ -14,10 +15,6 @@ const LINKS = [
   { href: "/admin/produkter", label: "Produkter" },
   { href: "/admin/priser", label: "Priser & gebyrer" },
   { href: "/admin/farver", label: "Farver" },
-  { href: "/admin/galleri", label: "Galleri & videoer" },
-  { href: "/admin/indhold", label: "Forside-indhold" },
-  { href: "/admin/seo", label: "SEO" },
-  { href: "/admin/indstillinger", label: "Kontakt & logo" },
   { href: "/admin/brugere", label: "Brugere" },
   { href: "/admin/konto", label: "Konto" }
 ];

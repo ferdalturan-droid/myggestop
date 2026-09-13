@@ -6,13 +6,17 @@ import { ORDER_STATUS_LABELS } from "@/lib/types";
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [total, ny, behandling, afsluttet, recent, sum] = await Promise.all([
+  const [total, ny, behandling, afsluttet, recent, sum, nyeLeads] = await Promise.all([
     prisma.order.count(),
     prisma.order.count({ where: { status: "NY" } }),
     prisma.order.count({ where: { status: "UNDER_BEHANDLING" } }),
     prisma.order.count({ where: { status: "AFSLUTTET" } }),
     prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 6, include: { items: true } }),
-    prisma.order.aggregate({ _sum: { estimatedTotal: true } })
+    prisma.order.aggregate({ _sum: { estimatedTotal: true } }),
+    // FASE 3 (§10.6): siden webformularen nu opretter et Lead i stedet
+    // for en Order, skal nye henvendelser vaere synlige et sted -
+    // ellers overses de naar de forsvinder fra "Ordrer"-listen.
+    prisma.lead.findMany({ where: { stage: "NYT_LEAD" }, orderBy: { createdAt: "desc" }, take: 8 })
   ]);
 
   const stats = [
@@ -40,6 +44,26 @@ export default async function AdminDashboard() {
         <p className="text-sm text-slate-300">Samlet estimeret ordreværdi</p>
         <p className="mt-1 text-3xl font-extrabold text-brand-green">{formatDKK(sum._sum.estimatedTotal || 0)}</p>
       </div>
+
+      {nyeLeads.length > 0 && (
+        <div className="mt-8 rounded-xl2 border border-brand-line bg-white shadow-card">
+          <div className="flex items-center justify-between border-b border-brand-line px-6 py-4">
+            <h2 className="font-bold text-brand-ink">Nye leads der venter ({nyeLeads.length})</h2>
+            <Link href="/admin/leads" className="text-sm font-semibold text-brand-blue hover:underline">Se alle</Link>
+          </div>
+          <div className="divide-y divide-brand-line">
+            {nyeLeads.map((l) => (
+              <Link key={l.id} href={`/admin/leads/${l.id}`} className="flex items-center justify-between px-6 py-4 hover:bg-brand-mist">
+                <div>
+                  <p className="font-semibold text-brand-ink">{l.leadNumber} · {l.firstName} {l.lastName}</p>
+                  <p className="text-sm text-brand-ink2/60">{l.phone} · {l.source}{l.productSummary ? ` · ${l.productSummary}` : ""}</p>
+                </div>
+                <span className="rounded-full bg-brand-mist px-3 py-1 text-xs font-semibold text-brand-ink2">Nyt lead</span>
+              </Link>
+            ))}
+          </div>
+        </div>
+      )}
 
       <div className="mt-8 rounded-xl2 border border-brand-line bg-white shadow-card">
         <div className="flex items-center justify-between border-b border-brand-line px-6 py-4">

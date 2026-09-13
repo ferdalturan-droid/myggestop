@@ -55,9 +55,9 @@ function summary(order: PdfOrder): string {
 
 export function customerEmailHtml(order: PdfOrder, b: PdfBranding): string {
   return shell(
-    `Tak for din bestilling, ${esc(order.firstName)}!`,
-    `<p style="color:#16263a;line-height:1.6">Vi har modtaget din anmodning med ordrenummer <strong style="color:#a3801e">${order.orderNumber}</strong>.
-    Dette er en <strong>uforpligtende anmodning</strong> — vi kontakter dig hurtigst muligt vedrørende endelig pris, levering og evt. montering.</p>
+    `Vi har modtaget din forespørgsel, ${esc(order.firstName)}!`,
+    `<p style="color:#16263a;line-height:1.6">Din forespørgsel er registreret med referencenummer <strong style="color:#a3801e">${order.orderNumber}</strong>.
+    Dette er en <strong>uforpligtende forespørgsel</strong> — vi kontakter dig hurtigst muligt vedrørende opmåling, endelig pris, levering og evt. montering.</p>
     ${summary(order)}
     <p style="color:#16263a;line-height:1.6"><strong>Fragt:</strong> ${esc(b.shippingText)}</p>
     <p style="color:#16263a;line-height:1.6">Du finder en PDF med hele din ordre vedhæftet denne mail.</p>
@@ -69,8 +69,8 @@ export function customerEmailHtml(order: PdfOrder, b: PdfBranding): string {
 
 export function adminEmailHtml(order: PdfOrder): string {
   return shell(
-    `Ny ordre: ${order.orderNumber}`,
-    `<p style="color:#16263a;line-height:1.6">Der er kommet en ny bestilling via hjemmesiden.</p>
+    `Nyt lead: ${order.orderNumber}`,
+    `<p style="color:#16263a;line-height:1.6">Der er kommet en ny forespørgsel via hjemmesiden — se den under Leads i admin.</p>
     <div style="margin:12px 0;padding:16px;background:#f5f8fb;border-radius:12px;color:#16263a;font-size:13px;line-height:1.7">
       <strong>${esc(order.firstName)} ${esc(order.lastName)}</strong><br>
       Tlf: ${esc(order.phone)} · ${esc(order.email)}<br>
