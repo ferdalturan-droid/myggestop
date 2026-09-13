@@ -1,6 +1,7 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 import { useSearchParams } from "next/navigation";
+import { TUR_LABEL as SHARED_TUR_LABEL } from "@/lib/calcOptions";
 
 type Tur = "SINEKLIK" | "PERDE" | "KOMBI";
 type Sys = "1,9" | "2,8";
@@ -21,7 +22,9 @@ interface Part { label: string; qty: number; len?: number; kind: "cut" | "count"
 const DEF_RATES = { tek19: 400, tek28: 450, dub19: 500, dub28: 550 };
 const DEF_GARDIN_RATE = 400;
 
-const TUR_LABEL: Record<Tur, string> = { SINEKLIK: "Myggenet", PERDE: "Gardin", KOMBI: "Myggenet & Plisser" };
+// RUNDE 2 (§11.3): genbruger samme label-map som OpmaalingList/LeadDetail,
+// definér ikke to gange - selve beregningen/UI'en herunder er uændret.
+const TUR_LABEL: Record<Tur, string> = SHARED_TUR_LABEL as Record<Tur, string>;
 
 function dims(r: Row) {
   const en = parseFloat(r.en.replace(",", ".")) || 0, boy = parseFloat(r.boy.replace(",", ".")) || 0, adet = Math.max(1, parseInt(r.adet) || 1);

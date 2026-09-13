@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
+import { promoteLeadToOrder } from "@/lib/promoteLead";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,6 +31,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (typeof b[f] === "string") data[f] = b[f];
   }
   if (typeof b.quotePriceDkk === "number") data.quotePriceDkk = b.quotePriceDkk;
+  if (typeof b.expectedMeasuringWeekLabel === "string") data.expectedMeasuringWeekLabel = b.expectedMeasuringWeekLabel;
+  if (b.measuredAt === true) data.measuredAt = new Date(); // §6.2a/§11.2: eksplicit signering, aldrig automatisk
+  const blivBekraeftetNu = b.stage === "BEKRAEFTET" && existing.stage !== "BEKRAEFTET";
   if (b.stage && LEAD_STAGES.includes(b.stage)) {
     data.stage = b.stage;
     // §6.1: BEKRAEFTET er grænsen mellem Lead og Order - saet confirmedAt
@@ -37,7 +41,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     if (b.stage === "BEKRAEFTET" && !existing.confirmedAt) data.confirmedAt = new Date();
   }
 
-  const lead = await prisma.lead.update({ where: { id: params.id }, data });
+  // RUNDE 2 (§11.6): forfremmelsen sker nu i SAMME transaktion som selve
+  // stage-skiftet til BEKRAEFTET - intet lead kan staa "bekraeftet uden
+  // ordre" i mere end et oejeblik. Den gamle, bruger-trykbare "Forfrem"-
+  // knap er fjernet fra UI'en (route'n /promote bevares som internt
+  // sikkerhedsnet, kaldes ikke laengere herfra).
+  const lead = await prisma.$transaction(async (tx: any) => {
+    const updated = await tx.lead.update({ where: { id: params.id }, data });
+    if (blivBekraeftetNu) await promoteLeadToOrder(tx as any, params.id);
+    return updated;
+  });
   return NextResponse.json({ lead });
 }
 

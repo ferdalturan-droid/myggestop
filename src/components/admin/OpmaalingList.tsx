@@ -1,6 +1,5 @@
 "use client";
 import { useEffect, useState } from "react";
-import { harReelMaaling } from "@/lib/leadStatus";
 
 export default function OpmaalingList() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -35,7 +34,7 @@ export default function OpmaalingList() {
       {!loading && leads.length === 0 && <div className="rounded-xl border border-brand-line bg-white p-8 text-center text-brand-ink2/60">Ingen opmålinger at udføre lige nu.</div>}
       <div className="space-y-4">
         {leads.map((l) => {
-          const done = harReelMaaling(l.measurements || []);
+          const done = !!l.measuredAt; // RUNDE 2 (§11.2): eksplicit signering, ikke udfyldte tal
           return (
             <div key={l.id} className="rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
               <div className="mb-3 flex flex-wrap items-center justify-between gap-2">

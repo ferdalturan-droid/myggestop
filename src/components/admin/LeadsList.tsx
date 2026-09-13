@@ -95,7 +95,7 @@ export default function LeadsList() {
             </div>
             <div className="flex items-center gap-2">
               {l.order && <span className="rounded bg-brand-green/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">Forfremmet: {l.order.orderNumber}</span>}
-              <span className="rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">{deriveLeadStatusLabel(l.stage, l.measurements || [])}</span>
+              <span className="rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">{deriveLeadStatusLabel(l.stage, l.measuredAt)}</span>
             </div>
           </Link>
         ))}

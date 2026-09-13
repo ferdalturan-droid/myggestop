@@ -65,6 +65,16 @@ model Lead {
   quotePriceDkk  Float?
   confirmedAt    DateTime?
 
+  // RUNDE 2 (§3.2/§6.2/§11.2): to-trins opmålingsbooking + eksplicit
+  // opmålings-signering. expectedMeasuringWeekLabel bruges KUN mens der
+  // endnu ikke er fundet en reel slot; expectedMeasuringDate saettes naar
+  // en Appointment (type=MAALING) rent faktisk er booket. measuredAt er
+  // den EKSPLICITTE "faerdig opmaalt"-markering fra installatoeren -
+  // driver deriveLeadStatus, IKKE tilstedevaerelsen af udfyldte maal.
+  expectedMeasuringDate      DateTime?
+  expectedMeasuringWeekLabel String?
+  measuredAt                 DateTime?
+
   createdAt      DateTime  @default(now())
   updatedAt      DateTime  @updatedAt
 
@@ -296,7 +306,9 @@ enum Resource {
 model Appointment {
   id        String   @id @default(cuid())
   day       String   // "2026-05-12"
-  time      String   // "17:00"
+  time      String?  // "17:00" - RUNDE 2: nullable, saa en fri kalenderpost
+                      // (ingen Lead/Order, se §Q6) kan oprettes uden et tidspunkt.
+                      // randevuAl()/den gamle flade liste saetter stadig altid tid.
   customer  String
   phone     String   @default("")
   address   String   @default("")

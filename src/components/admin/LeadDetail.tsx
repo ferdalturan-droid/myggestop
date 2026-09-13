@@ -1,17 +1,19 @@
 "use client";
 import { useEffect, useState } from "react";
-import { useRouter } from "next/navigation";
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, deriveLeadStatusLabel } from "@/lib/leadStatus";
+import { TUR_OPTIONS, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
+
+const BLANK_M = { roomName: "", tur: "SINEKLIK", sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1", colorName: "", comment: "" };
 
 export default function LeadDetail({ id }: { id: string }) {
-  const router = useRouter();
   const [lead, setLead] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState("");
-  const [newM, setNewM] = useState({ roomName: "", productType: "", colorName: "", comment: "" });
+  const [newM, setNewM] = useState<any>(BLANK_M);
   const [appt, setAppt] = useState({ day: "", time: "" });
+  const [uge, setUge] = useState("");
   const [apptMsg, setApptMsg] = useState<string | null>(null);
 
   async function load() {
@@ -22,6 +24,7 @@ export default function LeadDetail({ id }: { id: string }) {
       if (res.ok) {
         setLead(d.lead);
         setQuote(d.lead.quotePriceDkk != null ? String(d.lead.quotePriceDkk) : "");
+        setUge(d.lead.expectedMeasuringWeekLabel || "");
       }
     } catch {}
     setLoading(false);
@@ -33,17 +36,25 @@ export default function LeadDetail({ id }: { id: string }) {
     const res = await fetch(`/api/leads/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify(data) });
     const d = await res.json();
     if (!res.ok) { setError(d.error || "Kunne ikke gemme."); return; }
-    setLead((prev: any) => ({ ...prev, ...d.lead }));
+    // RUNDE 2 (§11.6): et stadieskifte til BEKRAEFTET kan have forfremmet
+    // leadet i samme kald - genindlaes altid fuldt, saa order-relationen
+    // (og evt. fejl) altid afspejles med det samme.
+    await load();
     setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 1800);
   }
 
   async function saetStage(stage: string) { await patch({ stage }); }
   async function gemTilbud() { await patch({ quotePriceDkk: Number(quote) || 0 }); }
+  async function markerOpmaalingFaerdig() { await patch({ measuredAt: true }); }
+  async function gemUgeEstimat() { await patch({ expectedMeasuringWeekLabel: uge }); }
 
   async function tilfoejMaal(e: React.FormEvent) {
     e.preventDefault();
-    const res = await fetch(`/api/leads/${id}/measurements`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(newM) });
-    if (res.ok) { setNewM({ roomName: "", productType: "", colorName: "", comment: "" }); load(); }
+    const res = await fetch(`/api/leads/${id}/measurements`, {
+      method: "POST", headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ ...newM, productType: newM.tur, adet: Number(newM.adet) || 1 })
+    });
+    if (res.ok) { setNewM(BLANK_M); load(); }
   }
 
   async function opdaterMaal(measurementId: string, data: any) {
@@ -66,25 +77,18 @@ export default function LeadDetail({ id }: { id: string }) {
     load();
   }
 
-  async function forfrem() {
-    setError(null);
-    const res = await fetch(`/api/leads/${id}/promote`, { method: "POST" });
-    const d = await res.json();
-    if (!res.ok) { setError(d.error || "Kunne ikke forfremme."); return; }
-    router.push(`/admin/ordrer/${d.order.id}`);
-  }
-
   if (loading) return <p className="text-brand-ink2/60">Indlæser...</p>;
   if (!lead) return <p className="text-red-600">Lead ikke fundet.</p>;
 
   const stageIdx = LEAD_STAGE_ORDER.indexOf(lead.stage);
+  const maalingAppt = (lead.appointments || []).find((a: any) => a.type === "MAALING");
 
   return (
     <div>
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-extrabold text-brand-ink">{lead.leadNumber} · {lead.firstName} {lead.lastName}</h1>
-          <p className="mt-1 text-sm text-brand-ink2/65">{deriveLeadStatusLabel(lead.stage, lead.measurements || [])} · Kilde: {lead.source || "-"}</p>
+          <p className="mt-1 text-sm text-brand-ink2/65">{deriveLeadStatusLabel(lead.stage, lead.measuredAt)} · Kilde: {lead.source || "-"}</p>
         </div>
         {lead.order && <a href={`/admin/ordrer/${lead.order.id}`} className="btn-secondary py-2 text-sm">Se ordre {lead.order.orderNumber} →</a>}
       </div>
@@ -120,62 +124,95 @@ export default function LeadDetail({ id }: { id: string }) {
           </div>
         </div>
 
-        {/* Tilbud + forfrem */}
+        {/* Tilbud - forfremmelse sker nu automatisk (§11.6) */}
         <div className="rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
           <h2 className="font-bold text-brand-ink">Tilbud</h2>
           <div className="mt-3 flex items-center gap-2">
-            <input className="input" type="number" placeholder="Pris i kr." value={quote} onChange={(e) => setQuote(e.target.value)} />
-            <button onClick={gemTilbud} className="btn-secondary py-2 text-sm">Gem pris</button>
+            <input className="input" type="number" placeholder="Pris i kr." value={quote} onChange={(e) => setQuote(e.target.value)} disabled={!!lead.order} />
+            <button onClick={gemTilbud} disabled={!!lead.order} className="btn-secondary py-2 text-sm disabled:opacity-40">Gem pris</button>
           </div>
           <div className="mt-5 border-t border-brand-line pt-4">
             {lead.order ? (
-              <p className="text-sm text-brand-ink2/70">Allerede forfremmet til ordre <strong>{lead.order.orderNumber}</strong>.</p>
+              <p className="text-sm text-brand-ink2/70">Forfremmet automatisk til ordre <strong>{lead.order.orderNumber}</strong> da leadet blev bekræftet.</p>
             ) : (
-              <>
-                <button onClick={forfrem} disabled={lead.stage !== "BEKRAEFTET"} className="btn-primary w-full disabled:opacity-40">Forfrem til ordre</button>
-                {lead.stage !== "BEKRAEFTET" && <p className="mt-2 text-xs text-brand-ink2/55">Kun muligt når leadet er markeret Bekræftet.</p>}
-              </>
+              <p className="text-xs text-brand-ink2/55">Når leadet markeres <b>Bekræftet</b> ovenfor, oprettes ordren automatisk med det samme — intet ekstra klik nødvendigt.</p>
             )}
           </div>
         </div>
       </div>
 
-      {/* Opmålingsaftale */}
+      {/* Opmålingsaftale - to-trins flow, §6.2 */}
       <div className="mb-6 rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
-        <h2 className="font-bold text-brand-ink">Opmålingsaftale</h2>
-        {(lead.appointments || []).filter((a: any) => a.type === "MAALING").map((a: any) => (
-          <p key={a.id} className="mt-2 text-sm text-brand-ink2/80">{a.day} kl. {a.time} — {a.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</p>
-        ))}
-        <form onSubmit={bookOpmaaling} className="mt-3 flex flex-wrap items-end gap-3">
-          <label className="block"><span className="label">Dato</span><input type="date" className="input py-2 text-sm" required value={appt.day} onChange={(e) => setAppt({ ...appt, day: e.target.value })} /></label>
-          <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" required value={appt.time} onChange={(e) => setAppt({ ...appt, time: e.target.value })} /></label>
-          <button className="btn-primary py-2.5 text-sm">Book opmåling</button>
-        </form>
+        <div className="flex flex-wrap items-center justify-between gap-2">
+          <h2 className="font-bold text-brand-ink">Opmåling</h2>
+          {lead.stage === "OPMAALING_BOOKET" && !lead.measuredAt && (
+            <button onClick={markerOpmaalingFaerdig} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">
+              Markér opmåling færdig
+            </button>
+          )}
+          {lead.measuredAt && <span className="rounded-full bg-brand-green/15 px-3 py-1 text-xs font-semibold text-brand-greendark">Opmålt {new Date(lead.measuredAt).toLocaleDateString("da-DK")}</span>}
+        </div>
+
+        {maalingAppt ? (
+          <p className="mt-2 text-sm text-brand-ink2/80">{maalingAppt.day}{maalingAppt.time ? ` kl. ${maalingAppt.time}` : ""} — {maalingAppt.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</p>
+        ) : lead.expectedMeasuringWeekLabel ? (
+          <p className="mt-2 text-sm text-brand-ink2/70">Uge-estimat givet til kunden: <b>{lead.expectedMeasuringWeekLabel}</b> — ingen konkret tid booket endnu.</p>
+        ) : (
+          <p className="mt-2 text-sm text-brand-ink2/55">Ingen aftale eller uge-estimat endnu.</p>
+        )}
+
+        <div className="mt-4 grid gap-4 sm:grid-cols-2">
+          <form onSubmit={bookOpmaaling} className="flex flex-wrap items-end gap-3">
+            <label className="block"><span className="label">Dato</span><input type="date" className="input py-2 text-sm" required value={appt.day} onChange={(e) => setAppt({ ...appt, day: e.target.value })} /></label>
+            <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" required value={appt.time} onChange={(e) => setAppt({ ...appt, time: e.target.value })} /></label>
+            <button className="btn-primary py-2.5 text-sm">Book konkret tid</button>
+          </form>
+          <div className="flex flex-wrap items-end gap-3">
+            <label className="block flex-1"><span className="label">Uge-estimat (§6.2: hvis kalenderen er presset)</span><input className="input py-2 text-sm" placeholder="fx Uge 39" value={uge} onChange={(e) => setUge(e.target.value)} /></label>
+            <button onClick={gemUgeEstimat} className="btn-secondary py-2.5 text-sm">Gem estimat</button>
+          </div>
+        </div>
         {apptMsg && <p className="mt-2 text-sm font-medium text-brand-ink2/80">{apptMsg}</p>}
       </div>
 
-      {/* Måletagning */}
+      {/* Måletagning - fulde beregner-felter, §11.3 */}
       <div className="mt-6 rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
         <h2 className="font-bold text-brand-ink">Mål (forventede / reelle)</h2>
-        <p className="mt-1 text-xs text-brand-ink2/55">Opret forventede linjer uden mål når opmåling bookes — udfyld bredde/højde når det reelle mål findes.</p>
+        <p className="mt-1 text-xs text-brand-ink2/55">Opret forventede linjer uden mål når opmåling bookes — udfyld bredde/højde når det reelle mål findes. Kun en eksplicit "Markér opmåling færdig" ovenfor gør leadet Opmålt.</p>
 
         <div className="mt-4 space-y-2">
-          {(lead.measurements || []).map((m: any) => (
-            <div key={m.id} className="grid grid-cols-2 gap-2 rounded-lg bg-brand-mist/50 p-3 text-sm sm:grid-cols-6 sm:items-center">
-              <span className="font-semibold text-brand-ink">#{m.itemNumber} {m.roomName}</span>
-              <span className="text-brand-ink2/70">{m.productType}</span>
-              <input className="input py-1" placeholder="Bredde mm" defaultValue={m.widthMm ?? ""} onBlur={(e) => opdaterMaal(m.id, { widthMm: e.target.value })} />
-              <input className="input py-1" placeholder="Højde mm" defaultValue={m.heightMm ?? ""} onBlur={(e) => opdaterMaal(m.id, { heightMm: e.target.value })} />
-              <span className="text-brand-ink2/70">{m.colorName}</span>
-              <button onClick={() => sletMaal(m.id)} className="text-right text-red-400 hover:text-red-600">Slet</button>
-            </div>
-          ))}
+          {(lead.measurements || []).map((m: any) => {
+            const rel = felterRelevanteForTur(m.tur || "SINEKLIK");
+            return (
+              <div key={m.id} className="grid grid-cols-2 gap-2 rounded-lg bg-brand-mist/50 p-3 text-sm sm:grid-cols-9 sm:items-center">
+                <span className="font-semibold text-brand-ink">#{m.itemNumber} {m.roomName}</span>
+                <select className="input py-1" defaultValue={m.tur || "SINEKLIK"} onChange={(e) => opdaterMaal(m.id, { tur: e.target.value })}>
+                  {TUR_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+                </select>
+                {rel.sys && <select className="input py-1" defaultValue={m.sys || "1,9"} onChange={(e) => opdaterMaal(m.id, { sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select>}
+                {rel.tip && <select className="input py-1" defaultValue={m.tip || "TEK"} onChange={(e) => opdaterMaal(m.id, { tip: e.target.value })}>{TIP_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+                {rel.layout && <select className="input py-1" defaultValue={m.layout || "YANA"} onChange={(e) => opdaterMaal(m.id, { layout: e.target.value })}>{LAYOUT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+                {rel.kanat && <select className="input py-1" defaultValue={m.kanat || "HAREKETLI"} onChange={(e) => opdaterMaal(m.id, { kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+                <input className="input py-1" placeholder="Antal" defaultValue={m.adet ?? 1} onBlur={(e) => opdaterMaal(m.id, { adet: Number(e.target.value) || 1 })} />
+                <input className="input py-1" placeholder="Bredde mm" defaultValue={m.widthMm ?? ""} onBlur={(e) => opdaterMaal(m.id, { widthMm: e.target.value })} />
+                <input className="input py-1" placeholder="Højde mm" defaultValue={m.heightMm ?? ""} onBlur={(e) => opdaterMaal(m.id, { heightMm: e.target.value })} />
+                <button onClick={() => sletMaal(m.id)} className="text-right text-red-400 hover:text-red-600">Slet</button>
+              </div>
+            );
+          })}
           {(!lead.measurements || lead.measurements.length === 0) && <p className="text-sm text-brand-ink2/55">Ingen linjer endnu.</p>}
         </div>
 
-        <form onSubmit={tilfoejMaal} className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-5">
+        <form onSubmit={tilfoejMaal} className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-9">
           <input className="input" placeholder="Rum" value={newM.roomName} onChange={(e) => setNewM({ ...newM, roomName: e.target.value })} />
-          <input className="input" placeholder="Produkttype" value={newM.productType} onChange={(e) => setNewM({ ...newM, productType: e.target.value })} />
+          <select className="input" value={newM.tur} onChange={(e) => setNewM({ ...newM, tur: e.target.value })}>
+            {TUR_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
+          </select>
+          {felterRelevanteForTur(newM.tur).sys && <select className="input" value={newM.sys} onChange={(e) => setNewM({ ...newM, sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select>}
+          {felterRelevanteForTur(newM.tur).tip && <select className="input" value={newM.tip} onChange={(e) => setNewM({ ...newM, tip: e.target.value })}>{TIP_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+          {felterRelevanteForTur(newM.tur).layout && <select className="input" value={newM.model} onChange={(e) => setNewM({ ...newM, model: e.target.value })}>{LAYOUT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+          {felterRelevanteForTur(newM.tur).kanat && <select className="input" value={newM.kanat} onChange={(e) => setNewM({ ...newM, kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
+          <input className="input" placeholder="Antal" value={newM.adet} onChange={(e) => setNewM({ ...newM, adet: e.target.value.replace(/[^0-9]/g, "") })} />
           <input className="input" placeholder="Farve" value={newM.colorName} onChange={(e) => setNewM({ ...newM, colorName: e.target.value })} />
           <input className="input" placeholder="Kommentar" value={newM.comment} onChange={(e) => setNewM({ ...newM, comment: e.target.value })} />
           <button className="btn-secondary text-sm">+ Tilføj linje</button>
