@@ -94,12 +94,14 @@ export default function ImalatCalc() {
   const [doneKeys, setDoneKeys] = useState<string[]>([]);
   const [openUid, setOpenUid] = useState<number | null>(null);
   const [openDoneUids, setOpenDoneUids] = useState<number[]>([]);
+  // RUNDE 3: rates/gardinRate er nu READ-ONLY her - hentes fra
+  // /api/imalat-rates (nedenfor) og bruges kun til at BEREGNE priser.
+  // Selve redigeringen af priserne er flyttet til Priser & gebyrer
+  // (Coordinator-only), saa der ikke laengere er to steder priser kan
+  // aendres (§"vedrørende pris skal administreres et sted").
   const [rates, setRates] = useState(DEF_RATES);
   const [gardinRate, setGardinRate] = useState(DEF_GARDIN_RATE);
-  const [showRates, setShowRates] = useState(false);
   const [saved, setSaved] = useState<any[]>([]); const [msg, setMsg] = useState<string | null>(null);
-  const [tarih, setTarih] = useState(""); const [saat, setSaat] = useState("");
-  const [appts, setAppts] = useState<any[]>([]); const [apptMsg, setApptMsg] = useState<{ t: string; ok: boolean } | null>(null);
   const [orderId, setOrderId] = useState<string | null>(null);
   const [orderNumber, setOrderNumber] = useState<string | null>(null);
   const [recId, setRecId] = useState<number | null>(null);
@@ -123,8 +125,6 @@ export default function ImalatCalc() {
       loadOrderBound(orderBoundId);
     } else {
       try {
-        const rt = JSON.parse(localStorage.getItem("imalat_rates") || "null"); if (rt) setRates({ ...DEF_RATES, ...rt });
-        const gr = parseFloat(localStorage.getItem("perde_rate") || ""); if (gr > 0) setGardinRate(gr);
         const openRec = JSON.parse(localStorage.getItem("imalat_open_record") || "null");
         const imp = JSON.parse(localStorage.getItem("imalat_import") || "null");
         if (openRec && openRec.rows?.length) {
@@ -144,7 +144,7 @@ export default function ImalatCalc() {
           if (cur && cur.rows?.length) {
             setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || "");
             setRows(cur.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
-            setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || "");
+            setDoneKeys(cur.doneKeys || []);
             setOrderId(cur.orderId || null); setOrderNumber(cur.orderNumber || null); setRecId(cur.recId || null); setSourceOrderId(cur.sourceOrderId || null);
             setMonteringOn(!!cur.monteringOn); setRabatInput(cur.rabat ? String(cur.rabat) : "");
           }
@@ -269,8 +269,8 @@ export default function ImalatCalc() {
   const rabat = Math.max(0, parseInt(rabatInput) || 0);
   useEffect(() => {
     if (orderBoundId) return; // FASE 6: ordre-koblet session bruger ikke localStorage-udkastet
-    localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat }));
-  }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat]);
+    localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat }));
+  }, [musteri, tel, adres, rows, doneKeys, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat]);
 
   // Autogemmer stille i baggrunden (fx når "Færdig" markeres), saa man ikke er tvunget til at
   // trykke "Gem" for at ændringen overlever et sidesskift. Opretter/opdaterer kun linjen i
@@ -312,15 +312,6 @@ export default function ImalatCalc() {
     return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [rows, monteringOn, rabat, obLoaded]);
-  useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
-  useEffect(() => {
-    localStorage.setItem("imalat_rates", JSON.stringify(rates));
-    if (ratesLoadedRef.current) fetch("/api/imalat-rates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "SINEKLIK", value: rates }) }).catch(() => {});
-  }, [rates]);
-  useEffect(() => {
-    localStorage.setItem("perde_rate", String(gardinRate));
-    if (gardinRateLoadedRef.current) fetch("/api/imalat-rates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "PERDE", value: gardinRate }) }).catch(() => {});
-  }, [gardinRate]);
 
   const mygRateOf = (r: Row) => r.tip === "TEK" ? (r.sys === "1,9" ? rates.tek19 : rates.tek28) : (r.sys === "1,9" ? rates.dub19 : rates.dub28);
   function colorSurchargeOf(r: Row) { const col = colors.find((cc) => cc.name === r.farve); return col && !col.isStandard ? col.surchargePerSqm : 0; }
@@ -473,18 +464,6 @@ export default function ImalatCalc() {
   function afslut(id: number) { const n = saved.map((s) => (s.id === id ? { ...s, finished: true } : s)); setSaved(n); gemPaaServer(n); }
   function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setOrderNumber(null); setRecId(null); setSourceOrderId(null); setOrderMsg(null); setOpenDoneUids([]); setMonteringOn(false); setRabatInput(""); setShowRabat(false); } }
 
-  async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
-  async function randevuAl() {
-    if (!musteri.trim()) { setApptMsg({ t: "Angiv kundens navn først.", ok: false }); return; }
-    if (!tarih || !saat) { setApptMsg({ t: "Vælg dato og klokkeslæt.", ok: false }); return; }
-    const res = await fetch("/api/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ day: tarih, time: saat, customer: musteri, phone: tel, address: adres }) });
-    const d = await res.json().catch(() => ({}));
-    if (res.status === 409) { setApptMsg({ t: `⚠ ${tarih} ${saat} OPTAGET — ${d.conflict?.customer || ""}`, ok: false }); return; }
-    if (!res.ok) { setApptMsg({ t: d.error || "Fejl", ok: false }); return; }
-    setApptMsg({ t: "Aftale booket ✓", ok: true }); await loadAppts(); setTimeout(() => setApptMsg(null), 4000);
-  }
-  async function randevuSil(id: string) { if (!confirm("Skal aftalen slettes?")) return; await fetch(`/api/appointments/${id}`, { method: "DELETE" }); await loadAppts(); }
-
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
     const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${TUR_LABEL[r.tur]}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
@@ -514,10 +493,6 @@ export default function ImalatCalc() {
     win.document.close();
   }
 
-  const RateInp = ({ v, on, lbl }: { v: number; on: (v: number) => void; lbl: string }) => (
-    <label className="block"><span className="label">{lbl}</span><input className="input py-1.5 text-sm" inputMode="numeric" value={v} onChange={(e) => on(parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0)} /></label>
-  );
-
   // FASE 6: ordre-koblet session - vent til rigtige data er hentet foer
   // beregneren vises, saa der ikke et kort glimt vises en tom/forkert side.
   if (orderBoundId && !obLoaded) {
@@ -540,27 +515,11 @@ export default function ImalatCalc() {
           </p>
         </div>
         <div className="flex items-center gap-2">
-          <button onClick={() => setShowRates((s) => !s)} className="btn-secondary py-2 text-sm">Priser</button>
           {!orderBoundId && <button onClick={yeni} className="btn-secondary py-2 text-sm">Ny</button>}
           <button onClick={yazdir} className="btn-secondary py-2 text-sm">Udskriv / PDF</button>
           <button onClick={kaydet} className="btn-primary py-2 text-sm">Gem</button>
         </div>
       </div>
-
-      {showRates && (
-        <div className="mb-4 rounded-xl border border-brand-line bg-brand-mist/50 p-4">
-          <p className="mb-2 text-sm font-semibold text-brand-ink">Myggenet — priser (kr/m²)</p>
-          <div className="grid gap-3 sm:grid-cols-4">
-            <RateInp v={rates.tek19} on={(v) => setRates({ ...rates, tek19: v })} lbl="Enkelt 1,9" />
-            <RateInp v={rates.tek28} on={(v) => setRates({ ...rates, tek28: v })} lbl="Enkelt 2,8" />
-            <RateInp v={rates.dub19} on={(v) => setRates({ ...rates, dub19: v })} lbl="Dobbelt 1,9" />
-            <RateInp v={rates.dub28} on={(v) => setRates({ ...rates, dub28: v })} lbl="Dobbelt 2,8" />
-          </div>
-          <p className="mb-2 mt-4 text-sm font-semibold text-brand-ink">Gardin — pris (kr/m²)</p>
-          <div className="max-w-[200px]"><RateInp v={gardinRate} on={setGardinRate} lbl="Gardinpris" /></div>
-          <p className="mt-2 text-xs text-brand-ink2/55">m² = (bredde og højde rundes op til 50 cm) → m² × kr/m² × antal. "Myggenet & Plisser" beregnes som dobbelt myggenet-pris. Moms 25% tillægges.</p>
-        </div>
-      )}
 
       <div className="mb-4 grid gap-3 sm:grid-cols-3">
         <label className="block"><span className="label">Kunde</span><input className="input" value={musteri} onChange={(e) => setMusteri(e.target.value)} placeholder="Kundens navn" readOnly={!!orderBoundId} /></label>
@@ -569,25 +528,10 @@ export default function ImalatCalc() {
       </div>
       {orderBoundId && <p className="mb-4 -mt-2 text-xs text-brand-ink2/45">Kundeoplysninger redigeres på selve ordren eller leadet.</p>}
 
-      <div className="mb-4 rounded-xl border border-brand-line bg-brand-mist/40 p-3">
-        <div className="flex flex-wrap items-end gap-3">
-          <label className="block"><span className="label">Monteringsdato</span><input type="date" className="input py-2 text-sm" value={tarih} onChange={(e) => setTarih(e.target.value)} /></label>
-          <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" value={saat} onChange={(e) => setSaat(e.target.value)} /></label>
-          <button onClick={randevuAl} className="btn-primary py-2.5 text-sm">Book aftale</button>
-          {apptMsg && <span className={`pb-2 text-sm font-semibold ${apptMsg.ok ? "text-brand-greendark" : "text-red-600"}`}>{apptMsg.t}</span>}
-        </div>
-        {appts.length > 0 && (
-          <div className="mt-3 space-y-1">
-            <p className="text-xs font-semibold uppercase tracking-wide text-brand-ink2/55">Aftaler ({appts.length})</p>
-            {appts.map((a) => (
-              <div key={a.id} className="flex items-center justify-between rounded-lg bg-white px-3 py-1.5 text-sm">
-                <span><b className="text-brand-ink">{a.day} · {a.time}</b> <span className="text-brand-ink2/70">— {a.customer}{a.phone ? " · " + a.phone : ""}</span></span>
-                <button onClick={() => randevuSil(a.id)} className="text-red-400 hover:text-red-600">×</button>
-              </div>
-            ))}
-          </div>
-        )}
-      </div>
+      {/* RUNDE 3: monteringsdato/klokkeslæt/aftale-booking fjernet herfra -
+          det administreres af koordinator via kalenderen (§"denne
+          information administreres af koordinator og at det gøres et
+          andet sted"). */}
       {msg && <div className="mb-1 text-sm font-medium text-brand-greendark">{msg}</div>}
       {autoMsg && <div className="mb-1 text-xs text-brand-ink2/45">{autoMsg}</div>}
       {orderMsg && <div className="mb-3 text-sm font-medium text-brand-bluedark">{orderMsg}</div>}
