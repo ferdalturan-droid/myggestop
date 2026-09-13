@@ -11,8 +11,12 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
+  // RUNDE 3: en lead der er markeret "opmåling færdig" skal forsvinde fra
+  // Installatørens aktive koe (§"opmålingslisten skal ikke indeholde ordre
+  // der er målt") - den kører videre i pipelinen med status "Opmålt",
+  // synlig for Coordinator via Leads-listen/dashboardet.
   const leads = await prisma.lead.findMany({
-    where: { stage: "OPMAALING_BOOKET" },
+    where: { stage: "OPMAALING_BOOKET", measuredAt: null },
     select: {
       id: true, leadNumber: true, firstName: true, lastName: true, phone: true,
       address: true, postalCode: true, city: true, note: true,

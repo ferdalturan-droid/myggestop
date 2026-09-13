@@ -183,8 +183,11 @@ export async function POST(req: NextRequest) {
 }
 
 // GET (admin): liste med sogning/filter
+// RUNDE 3: rettet - Installer har adgang til /admin/ordrer-SIDEN (roles.ts),
+// men denne rute var stadig COORDINATOR-only, saa listen reelt aldrig
+// kunne indlaeses for ham. Samme rettighed som /api/orders/[id] (Gruppe 2).
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(["COORDINATOR"]);
+  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
