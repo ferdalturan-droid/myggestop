@@ -139,12 +139,28 @@ export default function ImalatCalc() {
     return [...seen.values(), ...noOrder].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 50);
   }
 
+  // Rydder op i ældre duplikater fra den tidligere "Gem"-fejl: samme kunde + samme antal
+  // linjer gemt flere gange inden for et døgn er praktisk talt altid det samme job gemt
+  // ved en fejl — behold kun den nyeste af disse.
+  function isNearDup(a: any, b: any) {
+    if ((a.musteri || "").trim().toLowerCase() !== (b.musteri || "").trim().toLowerCase()) return false;
+    if ((a.rows?.length || 0) !== (b.rows?.length || 0)) return false;
+    return Math.abs((a.id || 0) - (b.id || 0)) < 24 * 60 * 60 * 1000;
+  }
+  function dedupeNearDuplicates(items: any[]) {
+    const sorted = [...items].sort((a, b) => (b.id || 0) - (a.id || 0));
+    const kept: any[] = [];
+    for (const it of sorted) { if (!kept.some((k) => isNearDup(k, it))) kept.push(it); }
+    return kept;
+  }
+  function cleanSaved(items: any[]) { return dedupeNearDuplicates(dedupeByOrderId(items)); }
+
   async function loadSaved() {
     try {
       const res = await fetch("/api/imalat-records?type=UNIFIED");
       const d = await res.json();
       if (d.items && d.items.length > 0) {
-        const clean = dedupeByOrderId(d.items);
+        const clean = cleanSaved(d.items);
         setSaved(clean);
         if (clean.length !== d.items.length) gemPaaServer(clean);
         return;
@@ -158,7 +174,7 @@ export default function ImalatCalc() {
       ]);
       const sItems = (sRes.items || []).map((it: any) => ({ ...it, rows: (it.rows || []).map((r: any) => ({ ...r, tur: r.tur || "SINEKLIK" })) }));
       const pItems = (pRes.items || []).map((it: any) => ({ ...it, rows: (it.rows || []).map((r: any) => ({ ...r, tur: r.tur || "PERDE" })) }));
-      const merged = dedupeByOrderId([...sItems, ...pItems]);
+      const merged = cleanSaved([...sItems, ...pItems]);
       setSaved(merged);
       if (merged.length > 0) gemPaaServer(merged);
     } catch {
