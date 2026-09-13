@@ -5,7 +5,7 @@ import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, deriveLeadStatusLabel } from "@/li
 
 const TABS = [{ key: "", label: "Alle" }, ...LEAD_STAGE_ORDER.map((s) => ({ key: s, label: LEAD_STAGE_LABELS[s] }))];
 
-const blank = { firstName: "", lastName: "", phone: "", email: "", address: "", postalCode: "", city: "", source: "Telefon", productSummary: "", note: "" };
+const blank = { firstName: "", lastName: "", phone: "", email: "", address: "", postalCode: "", city: "", source: "Telefon", productSummary: "", note: "", quotePriceDkk: "", bekraeftNu: false };
 
 export default function LeadsList() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -30,6 +30,14 @@ export default function LeadsList() {
   async function submit(e: React.FormEvent) {
     e.preventDefault();
     setError(null);
+    // RUNDE 2 (§11.5): "bekræft med det samme" opretter leadet direkte som
+    // BEKRAEFTET + en pris, hvilket forfremmer det til en ordre i samme
+    // kald (§11.6) - giv en tydelig fejl fremfor en ordre til 0 kr., hvis
+    // prisen mangler.
+    if (form.bekraeftNu && !form.quotePriceDkk) {
+      setError("Angiv en pris for at bekræfte leadet med det samme.");
+      return;
+    }
     setSaving(true);
     try {
       const res = await fetch("/api/leads", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(form) });
@@ -72,8 +80,26 @@ export default function LeadsList() {
           </div>
           <div className="sm:col-span-2"><label className="label">Hvad efterspørger kunden?</label><input className="input" value={form.productSummary} onChange={(e) => setForm({ ...form, productSummary: e.target.value })} placeholder="F.eks. 3 myggenet, 1 plisségardin" /></div>
           <div className="sm:col-span-2"><label className="label">Note</label><textarea className="input min-h-[70px]" value={form.note} onChange={(e) => setForm({ ...form, note: e.target.value })} /></div>
+
+          {/* RUNDE 2 (§11.5): kend allerede prisen og vil bekræfte med det
+              samme (fx et gennemarbejdet telefonsalg)? Så oprettes leadet
+              direkte som Bekræftet, hvilket forfremmer det til en ordre i
+              samme kald (§11.6) - springer hele den almindelige pipeline
+              over med vilje, kun til brug når det reelt er aftalt. */}
+          <div className="sm:col-span-2 rounded-lg border border-dashed border-brand-line bg-brand-mist/30 p-3">
+            <label className="flex items-center gap-2 text-sm font-medium text-brand-ink">
+              <input type="checkbox" checked={form.bekraeftNu} onChange={(e) => setForm({ ...form, bekraeftNu: e.target.checked })} />
+              Bekræft med det samme (aftale + pris kendt allerede)
+            </label>
+            {form.bekraeftNu && (
+              <label className="mt-2 block max-w-xs"><span className="label">Pris i kr.</span>
+                <input className="input" type="number" required value={form.quotePriceDkk} onChange={(e) => setForm({ ...form, quotePriceDkk: e.target.value })} />
+              </label>
+            )}
+          </div>
+
           {error && <p className="sm:col-span-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
-          <button disabled={saving} className="btn-primary sm:col-span-2 disabled:opacity-60">{saving ? "Opretter..." : "Opret lead"}</button>
+          <button disabled={saving} className="btn-primary sm:col-span-2 disabled:opacity-60">{saving ? "Opretter..." : form.bekraeftNu ? "Opret og bekræft lead" : "Opret lead"}</button>
         </form>
       )}
 
