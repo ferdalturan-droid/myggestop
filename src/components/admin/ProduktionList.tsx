@@ -1,10 +1,16 @@
 "use client";
 import { useEffect, useState } from "react";
 
+// RUNDE 4 (§G5): "i gang" og "klar" er nu tydelige, envejs-handlinger med
+// en kort bekræftelse ("soft validation") - når en handling er udført,
+// låses den (vises som en færdig-tilstand) i stedet for en knap man kan
+// trykke på igen. Kun Koordinator kan fortryde en fejlagtig markering
+// (se OrderStageControl.tsx på selve ordre-siden).
 export default function ProduktionList({ role }: { role?: string } = {}) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
+  const erKoordinator = role === "COORDINATOR";
 
   async function load() {
     setLoading(true);
@@ -17,10 +23,18 @@ export default function ProduktionList({ role }: { role?: string } = {}) {
   }
   useEffect(() => { load(); }, []);
 
+  async function markerIGang(id: string) {
+    if (!confirm("Markér ordren som i gang? Koordinator kan se dette med det samme.")) return;
+    const res = await fetch(`/api/produktion/${id}/start`, { method: "POST" });
+    if (res.ok) { setMsg("Markeret I gang ✓"); setTimeout(() => setMsg(null), 2000); load(); }
+    else { const d = await res.json().catch(() => ({})); setMsg(d.error || "Kunne ikke markere i gang."); setTimeout(() => setMsg(null), 3000); }
+  }
+
   async function markerKlar(id: string) {
-    await fetch(`/api/produktion/${id}/klar`, { method: "POST" });
-    setMsg("Markeret Klar ✓"); setTimeout(() => setMsg(null), 2000);
-    load();
+    if (!confirm("Markér ordren som klar i produktion? Den bliver herefter synlig for installation, og kan ikke ændres af dig igen.")) return;
+    const res = await fetch(`/api/produktion/${id}/klar`, { method: "POST" });
+    if (res.ok) { setMsg("Markeret Klar ✓"); setTimeout(() => setMsg(null), 2000); load(); }
+    else { const d = await res.json().catch(() => ({})); setMsg(d.error || "Kunne ikke markere klar."); setTimeout(() => setMsg(null), 3000); }
   }
 
   return (
@@ -41,6 +55,8 @@ export default function ProduktionList({ role }: { role?: string } = {}) {
             <div>
               <span className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</span>
               <span className="ml-2 text-brand-ink2/55">{o.items?.length || 0} produkt(er) · {o.city}</span>
+              {o.productionStartedAt && !o.readyAt && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">I gang</span>}
+              {o.readyAt && <span className="ml-2 rounded-full bg-brand-greendark/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">Klar ✓</span>}
             </div>
             <div className="flex items-center gap-2">
               {/* RUNDE 4 (§G4): ingen separat "skub til beregner"-knap
@@ -51,7 +67,15 @@ export default function ProduktionList({ role }: { role?: string } = {}) {
                   hvis nogen har brug for det - se linket i beregneren. */}
               <a href={`/admin/imalat?orderId=${o.id}`} className="text-brand-greendark hover:underline">Åbn</a>
               <a href={`/admin/ordrer/${o.id}`} className="text-brand-blue hover:underline">Ordredetaljer</a>
-              <button onClick={() => markerKlar(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Marker Klar</button>
+              {!o.readyAt && !o.productionStartedAt && (
+                <button onClick={() => markerIGang(o.id)} className="rounded-full border border-brand-line px-3 py-1 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist">I gang</button>
+              )}
+              {!o.readyAt && (
+                <button onClick={() => markerKlar(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Marker Klar</button>
+              )}
+              {o.readyAt && erKoordinator && (
+                <span className="text-xs text-brand-ink2/40">Fortryd på ordresiden ved fejl</span>
+              )}
             </div>
           </div>
         ))}

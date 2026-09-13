@@ -11,6 +11,11 @@ const LINKS = [
   { href: "/admin/kalender", label: "Kalender" },
   { href: "/admin/opmaaling", label: "Opmåling" },
   { href: "/admin/ordrer", label: "Ordrer" },
+  // RUNDE 4 (§G6): separat Koordinator-only side til at vedligeholde
+  // ordre-status samlet ét sted (betalt/anmeldt + fortryd ved fejl) -
+  // isPathAllowedForRole giver kun Koordinator adgang (ikke tilføjet til
+  // BUILDER_PREFIXES/INSTALLER_PREFIXES), saa linket vises automatisk kun for ham.
+  { href: "/admin/ordrestatus", label: "Ordrestatus" },
   { href: "/admin/produktion", label: "Produktionskø" },
   { href: "/admin/installation", label: "Installation" },
   { href: "/admin/imalat", label: "Produktionsberegner" },

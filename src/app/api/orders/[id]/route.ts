@@ -38,6 +38,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   // moment" ved at en PRODUKTION-aftale automatisk oprettes paa hans
   // kalender - samme transaktion, saa den aldrig kan mangle.
   const sendesTilProduktionNu = body.stage === "I_PRODUKTION" && existing.stage !== "I_PRODUKTION";
+  // RUNDE 4 (§G6): "Markér betalt"/"Markér anmeldt" er nu KUN en
+  // Koordinator-handling - ingen andre roller maa se eller saette dette.
+  if (body.stage && ["BETALT", "ANMELDT"].includes(body.stage) && auth.session.role !== "COORDINATOR") {
+    return NextResponse.json({ error: "Kun Koordinator kan markere betalt/anmeldt." }, { status: 403 });
+  }
   if (body.stage && ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"].includes(body.stage)) data.stage = body.stage;
   // RUNDE 2 (Q4/§6.7): saettes typisk sammen med stage->I_PRODUKTION fra
   // "Send til produktion"-knappen, men accepteres ogsaa separat.

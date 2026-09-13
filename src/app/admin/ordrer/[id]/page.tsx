@@ -133,6 +133,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 stage={order.stage}
                 readyAt={order.readyAt ? order.readyAt.toISOString() : null}
                 installedAt={order.installedAt ? order.installedAt.toISOString() : null}
+                role={session?.role}
               />
             </div>
           ) : (

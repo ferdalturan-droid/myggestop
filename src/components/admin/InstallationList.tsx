@@ -17,9 +17,13 @@ export default function InstallationList() {
   }
   useEffect(() => { load(); }, []);
 
+  // RUNDE 4 (§G5): soft validation (bekræft foer markering) + faktisk
+  // fejlvisning i stedet for at antage succes.
   async function markerInstalleret(id: string) {
-    await fetch(`/api/installation/${id}/installeret`, { method: "POST" });
-    setMsg("Markeret Installeret ✓"); setTimeout(() => setMsg(null), 2000);
+    if (!confirm("Markér ordren som installeret hos kunden? Dette kan herefter kun fortrydes af Koordinator.")) return;
+    const res = await fetch(`/api/installation/${id}/installeret`, { method: "POST" });
+    if (res.ok) { setMsg("Markeret Installeret ✓"); setTimeout(() => setMsg(null), 2000); }
+    else { const d = await res.json().catch(() => ({})); setMsg(d.error || "Kunne ikke markere installeret."); setTimeout(() => setMsg(null), 3000); }
     load();
   }
 

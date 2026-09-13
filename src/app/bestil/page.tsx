@@ -49,8 +49,7 @@ export default async function BestilPage() {
               <ol className="mt-3 space-y-2 text-sm text-brand-cream2/80">
                 <li>1. Udfyld dine oplysninger.</li>
                 <li>2. Tilføj produkter med mål pr. rum.</li>
-                <li>3. Vælg montering eller levering.</li>
-                <li>4. Send — du far en PDF-bekraeftelse pa mail.</li>
+                <li>3. Send — du far en PDF-bekraeftelse pa mail (montering er altid inkluderet).</li>
               </ol>
             </div>
           </aside>

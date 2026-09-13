@@ -9,34 +9,64 @@ import { deriveOrderStageLabel } from "@/lib/orderStage";
 // modsat Bekræftet->Order som er et udledeligt faktum (§11.6). Klar/
 // Installeret er FORTSAT rene datoer, aldrig et stadie-valg (§6.3,
 // uændret). Betalt/Anmeldt er Coordinators afsluttende handlinger.
+//
+// RUNDE 4 (§G5/§G6): proces-rækkefølgen er nu en reel regel, ikke kun en
+// visuel antydning - "man først flytter en opgave til produktion, og
+// derefter kan flytte til installeringsfasen. Begge ting kan ikke ske
+// samtidigt". Og: "Klar" er reelt Byggerens handling (sættes normalt fra
+// Produktionskøen), "Installeret" er Installatørens - denne side viser nu
+// kun de knapper der giver mening for DEN rolle der ser den, hver
+// markering kræver en kort bekræftelse ("soft validation"), og når den er
+// sat, låses den (vises som en færdig-tilstand, ikke en knap man kan
+// trykke på igen) - kun Koordinator kan fortryde en fejlagtig markering.
 export default function OrderStageControl({
-  orderId, stage, readyAt, installedAt
-}: { orderId: string; stage: string; readyAt: string | null; installedAt: string | null }) {
+  orderId, stage, readyAt, installedAt, role
+}: { orderId: string; stage: string; readyAt: string | null; installedAt: string | null; role?: string }) {
   const router = useRouter();
   const [s, setS] = useState(stage);
   const [ready, setReady] = useState(readyAt);
   const [installed, setInstalled] = useState(installedAt);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
+  const [err, setErr] = useState<string | null>(null);
   const [estDato, setEstDato] = useState("");
   const [estUge, setEstUge] = useState("");
+  const erKoordinator = role === "COORDINATOR";
 
   async function saetStage(next: string, extra: any = {}) {
     setSaving(true);
+    setErr(null);
     const res = await fetch(`/api/orders/${orderId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stage: next, ...extra }) });
     setSaving(false);
     if (res.ok) { setS(next); setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 1800); router.refresh(); }
+    else { const d = await res.json().catch(() => ({})); setErr(d.error || "Kunne ikke gemme."); }
   }
 
   async function markerKlar() {
-    const res = await fetch(`/api/produktion/${orderId}/klar`, { method: ready ? "DELETE" : "POST" });
+    if (!confirm("Markér ordren som klar i produktion? Den bliver herefter synlig for installation.")) return;
+    setErr(null);
+    const res = await fetch(`/api/produktion/${orderId}/klar`, { method: "POST" });
     const d = await res.json();
-    if (res.ok) { setReady(ready ? null : d.order.readyAt); router.refresh(); }
+    if (res.ok) { setReady(d.order.readyAt); router.refresh(); } else setErr(d.error || "Kunne ikke markere klar.");
+  }
+  async function fortrydKlar() {
+    if (!confirm("Fortryd 'Klar'? Brug kun dette ved en fejlregistrering.")) return;
+    const res = await fetch(`/api/produktion/${orderId}/klar`, { method: "DELETE" });
+    const d = await res.json();
+    if (res.ok) { setReady(null); router.refresh(); }
   }
   async function markerInstalleret() {
-    const res = await fetch(`/api/installation/${orderId}/installeret`, { method: installed ? "DELETE" : "POST" });
+    if (!confirm("Markér ordren som installeret hos kunden?")) return;
+    setErr(null);
+    const res = await fetch(`/api/installation/${orderId}/installeret`, { method: "POST" });
     const d = await res.json();
-    if (res.ok) { setInstalled(installed ? null : d.order.installedAt); router.refresh(); }
+    if (res.ok) { setInstalled(d.order.installedAt); router.refresh(); } else setErr(d.error || "Kunne ikke markere installeret.");
+  }
+  async function fortrydInstalleret() {
+    if (!confirm("Fortryd 'Installeret'? Brug kun dette ved en fejlregistrering.")) return;
+    const res = await fetch(`/api/installation/${orderId}/installeret`, { method: "DELETE" });
+    const d = await res.json();
+    if (res.ok) { setInstalled(null); router.refresh(); }
   }
 
   const visning = deriveOrderStageLabel({ stage: s, readyAt: ready, installedAt: installed });
@@ -64,27 +94,50 @@ export default function OrderStageControl({
       )}
 
       {s === "I_PRODUKTION" && (
-        <div className="flex flex-wrap gap-2">
-          <button onClick={markerKlar} className={`rounded-full px-3 py-1.5 text-xs font-semibold ${ready ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>
-            {ready ? `Klar ✓ (${new Date(ready).toLocaleDateString("da-DK")})` : "Marker Klar"}
-          </button>
-          <button onClick={markerInstalleret} disabled={!ready} className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${installed ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>
-            {installed ? `Installeret ✓ (${new Date(installed).toLocaleDateString("da-DK")})` : "Marker Installeret"}
-          </button>
+        <div className="space-y-2">
+          {/* RUNDE 4 (§G5): "Klar" er Byggerens handling (sættes normalt
+              fra Produktionskøen) - her vises den kun som Koordinatorens
+              mulighed for selv at markere/rette den, IKKE til Installatør. */}
+          {ready ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-brand-greendark px-3 py-1.5 text-xs font-semibold text-white">Klar ✓ ({new Date(ready).toLocaleDateString("da-DK")})</span>
+              {erKoordinator && <button onClick={fortrydKlar} className="text-xs font-medium text-red-500 hover:underline">Fortryd (kun ved fejl)</button>}
+            </div>
+          ) : erKoordinator ? (
+            <button onClick={markerKlar} className="rounded-full border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist">Marker Klar</button>
+          ) : (
+            <p className="text-xs text-brand-ink2/50">Afventer at byggeren markerer ordren klar i produktion.</p>
+          )}
+
+          {installed ? (
+            <div className="flex flex-wrap items-center gap-2">
+              <span className="rounded-full bg-brand-greendark px-3 py-1.5 text-xs font-semibold text-white">Installeret ✓ ({new Date(installed).toLocaleDateString("da-DK")})</span>
+              {erKoordinator && <button onClick={fortrydInstalleret} className="text-xs font-medium text-red-500 hover:underline">Fortryd (kun ved fejl)</button>}
+            </div>
+          ) : (
+            (erKoordinator || role === "INSTALLER") && (
+              <button onClick={markerInstalleret} disabled={!ready} title={!ready ? "Ordren skal være markeret klar i produktion først" : undefined} className="rounded-full border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist disabled:opacity-40">
+                Marker Installeret
+              </button>
+            )
+          )}
         </div>
       )}
 
-      {(s === "I_PRODUKTION" || s === "BETALT" || s === "ANMELDT") && installed && (
+      {/* RUNDE 4 (§G6): "Markér betalt"/"Markér anmeldt" er nu KUN synligt
+          og brugbart for Koordinator - ingen andre roller. */}
+      {erKoordinator && (s === "I_PRODUKTION" || s === "BETALT" || s === "ANMELDT") && installed && (
         <div className="mt-3 flex flex-wrap gap-2 border-t border-brand-line pt-3">
-          <button disabled={saving || s !== "I_PRODUKTION"} onClick={() => saetStage("BETALT")} className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${s === "BETALT" || s === "ANMELDT" ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>
+          <button disabled={saving || s !== "I_PRODUKTION"} onClick={() => { if (confirm("Markér ordren som betalt?")) saetStage("BETALT"); }} className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${s === "BETALT" || s === "ANMELDT" ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>
             {s === "BETALT" || s === "ANMELDT" ? "Betalt ✓" : "Markér betalt"}
           </button>
-          <button disabled={saving || s !== "BETALT"} onClick={() => saetStage("ANMELDT")} className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${s === "ANMELDT" ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>
+          <button disabled={saving || s !== "BETALT"} onClick={() => { if (confirm("Markér ordren som anmeldt?")) saetStage("ANMELDT"); }} className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${s === "ANMELDT" ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>
             {s === "ANMELDT" ? "Anmeldt ✓" : "Markér anmeldt"}
           </button>
         </div>
       )}
       {msg && <p className="mt-2 text-sm font-medium text-brand-greendark">{msg}</p>}
+      {err && <p className="mt-2 text-sm font-medium text-red-600">{err}</p>}
     </div>
   );
 }
