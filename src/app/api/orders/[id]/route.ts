@@ -33,6 +33,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: any = {};
   if (body.status && ORDER_STATUS_ORDER.includes(body.status)) data.status = body.status;
   // FASE 4 (§3.3/§6.5): produktionsstadie - separat fra den gamle status.
+  // RUNDE 3: naar stadiet netop NU skifter til I_PRODUKTION ("Send til
+  // produktion"), skal ordren "dukke op med detaljer for byggeren i samme
+  // moment" ved at en PRODUKTION-aftale automatisk oprettes paa hans
+  // kalender - samme transaktion, saa den aldrig kan mangle.
+  const sendesTilProduktionNu = body.stage === "I_PRODUKTION" && existing.stage !== "I_PRODUKTION";
   if (body.stage && ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"].includes(body.stage)) data.stage = body.stage;
   // RUNDE 2 (Q4/§6.7): saettes typisk sammen med stage->I_PRODUKTION fra
   // "Send til produktion"-knappen, men accepteres ogsaa separat.
@@ -69,7 +74,26 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.estimatedTotal = existing.productsTotal + installationTotal;
   }
 
-  const order = await prisma.order.update({ where: { id: params.id }, data, include: { items: true } });
+  const order = await prisma.$transaction(async (tx: any) => {
+    const updated = await tx.order.update({ where: { id: params.id }, data, include: { items: true } });
+    if (sendesTilProduktionNu) {
+      const antalProdukter = updated.items.length;
+      await tx.appointment.create({
+        data: {
+          day: data.estReadyDate ? data.estReadyDate.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
+          time: null,
+          customer: `${updated.firstName} ${updated.lastName}`,
+          phone: updated.phone,
+          address: `${updated.address}, ${updated.postalCode} ${updated.city}`,
+          note: antalProdukter > 0 ? `${antalProdukter} produkt(er) at bygge` : "",
+          type: "PRODUKTION",
+          resource: "BUILDER",
+          orderId: updated.id
+        }
+      });
+    }
+    return updated;
+  });
   return NextResponse.json({ order });
 }
 

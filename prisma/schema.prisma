@@ -207,6 +207,11 @@ model Order {
   estReadyDate        DateTime?
   estReadyWeekLabel   String?
   promisedInstallDate DateTime?
+  // RUNDE 3: Byggerens eget "i gang"-tryk direkte fra kalenderen - rent
+  // informativt (gate'r intet), saa Coordinator kan se om en ordre reelt
+  // er paabegyndt i vaerkstedet, ikke kun at den ligger i koeen. readyAt
+  // er fortsat den egentlige "faerdig i produktion"-kendsgerning.
+  productionStartedAt DateTime?
   readyAt             DateTime?
   installedAt         DateTime?
   paymentStatus       String     @default("IKKE_SENDT") // IKKE_SENDT | SENDT | BETALT
@@ -291,6 +296,13 @@ model OrderCounter {
 enum AppointmentType {
   MAALING
   INSTALLATION
+  // RUNDE 3: to nye opgavetyper til kalenderens "+ Ny aftale" (kun
+  // Coordinator maa oprette). PRODUKTION oprettes automatisk paa Byggerens
+  // kalender naar en ordre sendes til produktion. ORDRE er en generisk,
+  // ordre-koblet paamindelse/opgave Coordinator selv opretter (fx "ring
+  // kunde om betaling") - ikke bundet til Bygger/Installatoer.
+  PRODUKTION
+  ORDRE
 }
 
 enum AppointmentStatus {

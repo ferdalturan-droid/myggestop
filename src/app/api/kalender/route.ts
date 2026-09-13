@@ -5,27 +5,40 @@ import { requireRole } from "@/lib/requireAdmin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// FASE 5 (§10.8): minimal, dagsgrupperet kalendervisning - ikke et fuldt
-// visuelt kalender-gitter. Viser BAADE de gamle frie ImalatCalc-aftaler
-// (uden type/resource) og de nye Lead/Order-koblede.
-export async function GET() {
-  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
+// FASE 5 (§10.8) / RUNDE 3: dagsgrupperet kalendervisning. Alle tre roller
+// maa nu se kalenderen, men serveren begraenser SELV hvad hver rolle faar
+// tilbage (§"Outlook-stil separat adgang" - Coordinator ser alt, Bygger/
+// Installatoer ser kun deres egen ressource) - dette er den reelle
+// haandhaevelse, ikke kun en UI-visning der kan omgaas.
+export async function GET(req: NextRequest) {
+  const auth = await requireRole(["COORDINATOR", "BUILDER", "INSTALLER"]);
   if (!auth.ok) return auth.response;
+  const where: any = {};
+  if (auth.session.role === "BUILDER") where.resource = "BUILDER";
+  else if (auth.session.role === "INSTALLER") where.resource = "INSTALLER";
+  else {
+    // Coordinator kan valgfrit filtrere paa ressource client-side (fanerne
+    // i UI'en), men understoetter ogsaa et query-param for fuldstaendighed.
+    const resource = req.nextUrl.searchParams.get("resource");
+    if (resource === "BUILDER" || resource === "INSTALLER") where.resource = resource;
+  }
   const items = await prisma.appointment.findMany({
+    where,
     orderBy: [{ day: "asc" }, { time: "asc" }],
-    include: { lead: { select: { leadNumber: true } }, order: { select: { orderNumber: true } } }
+    include: {
+      lead: { select: { leadNumber: true, id: true, _count: { select: { measurements: true } } } },
+      order: { select: { orderNumber: true, id: true, readyAt: true, productionStartedAt: true, _count: { select: { items: true } } } }
+    }
   });
   return NextResponse.json({ items });
 }
 
-// RUNDE 2 (Q5/Q6): fuld CRUD direkte paa kalendersiden. En aftale kan
-// (valgfrit) kobles til et Lead ELLER en Order via search-pickeren
-// (/api/kalender/search) - eller oprettes helt fri uden nogen reference
-// (Q6: "ja, tilladt - deltager bare ikke i cutoff-logikken", som allerede
-// filtrerer paa type: { not: null }, saa en fri post uden type er
-// automatisk udenfor den logik uden yderligere kode).
+// RUNDE 3: kun Coordinator maa oprette en aftale ("Kun koordinator kan
+// oprette" - eksplicit bruger-instruktion). Bygger/Installatoer faar
+// aftaler enten via automatik (§"Send til produktion" -> PRODUKTION-
+// aftale) eller ved at Coordinator selv booker Opmåling/Installation.
 export async function POST(req: NextRequest) {
-  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const b = await req.json().catch(() => ({}));
   if (!b.day || !String(b.day).trim()) return NextResponse.json({ error: "Dato mangler." }, { status: 400 });

@@ -19,7 +19,12 @@ import type { Role } from "@prisma/client";
 // (se den rute). Builder kan stadig AABNE ?orderId=-visningen (GET), men
 // et forsoeg paa at gemme bliver afvist af API'et - server-haandhaevet,
 // ikke kun en skjult knap.
-const BUILDER_PREFIXES = ["/admin/imalat", "/admin/faerdig", "/admin/afsluttede", "/admin/produktion"];
+// RUNDE 3: Builder faar nu ogsaa sin egen kalendervisning (skema for i
+// dag/i morgen/ugen, read-only bortset fra sit eget "i gang"/"faerdig"-
+// tryk paa produktionsopgaver) - /api/kalender begraenser server-side,
+// hvad han rent faktisk faar tilbage (kun hans egne ressource-koblede
+// aftaler), saa denne rute-adgang alene giver ham ikke andres kalender.
+const BUILDER_PREFIXES = ["/admin/imalat", "/admin/faerdig", "/admin/afsluttede", "/admin/produktion", "/admin/kalender"];
 
 // INSTALLER: samme som Builder, plus opmaalings- og installationslisten,
 // den samlede produktion+installation-visning (Q8), og - RUNDE 2 - fuld

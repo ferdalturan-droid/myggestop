@@ -12,7 +12,9 @@ export const dynamic = "force-dynamic";
 // SMAL, minimal visning (kun det der skal bruges til at booke en aftale),
 // tilgængelig for begge roller der maa bruge kalenderen.
 export async function GET(req: NextRequest) {
-  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
+  // RUNDE 3: kun Coordinator opretter/redigerer aftaler, saa kun han skal
+  // bruge søge-pickeren.
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const q = req.nextUrl.searchParams.get("q")?.trim() || "";
   if (q.length < 2) return NextResponse.json({ results: [] });

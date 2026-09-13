@@ -5,11 +5,11 @@ import { requireRole } from "@/lib/requireAdmin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// RUNDE 2 (Q5): redigering/sletning af en enkelt kalenderaftale direkte
-// fra kalendersiden - samme roller som resten af kalenderen (§Q5: "ja til
-// det hele" for begge de roller der i forvejen maa se /admin/kalender).
+// RUNDE 3: redigering/sletning er nu Coordinator-only ("alt info kan kun
+// opdateres af koordinator" - overstyrer Runde 2/Q5's bredere svar, som
+// blev givet foer denne mere detaljerede rollefordeling).
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   const existing = await prisma.appointment.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
@@ -38,7 +38,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 }
 
 export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
+  const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
   await prisma.appointment.delete({ where: { id: params.id } });
   return NextResponse.json({ ok: true });

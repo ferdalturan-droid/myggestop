@@ -19,27 +19,41 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   return NextResponse.json({ lead });
 }
 
+// RUNDE 3: Installatøren skal kunne trykke "Markér opmåling færdig" fra
+// sin egen Opmålingsliste - det virkede reelt ALDRIG, fordi hele denne
+// rute var COORDINATOR-only, saa hans PATCH blev stille afvist (403) uden
+// nogen synlig fejl i UI'en (§ brugerens rapport: "der sker intet"). Nu
+// tilladt for begge roller, men FELT-niveauet er stadig laast: Installer
+// maa kun saette measuredAt (hans eget, eksplicitte "faerdig maalt"-
+// faktum, §11.2) - alt andet (pris, stadie, kundeoplysninger) forbliver
+// udelukkende Coordinators, jf. "alt info kan kun opdateres af koordinator".
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR"]);
+  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
+  const erKoordinator = auth.session.role === "COORDINATOR";
   const b = await req.json().catch(() => ({}));
   const existing = await prisma.lead.findUnique({ where: { id: params.id } });
   if (!existing) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
 
   const data: any = {};
-  for (const f of ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "source", "productSummary", "note"] as const) {
-    if (typeof b[f] === "string") data[f] = b[f];
+  let blivBekraeftetNu = false;
+  if (erKoordinator) {
+    for (const f of ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "source", "productSummary", "note"] as const) {
+      if (typeof b[f] === "string") data[f] = b[f];
+    }
+    if (typeof b.quotePriceDkk === "number") data.quotePriceDkk = b.quotePriceDkk;
+    if (typeof b.expectedMeasuringWeekLabel === "string") data.expectedMeasuringWeekLabel = b.expectedMeasuringWeekLabel;
+    blivBekraeftetNu = b.stage === "BEKRAEFTET" && existing.stage !== "BEKRAEFTET";
+    if (b.stage && LEAD_STAGES.includes(b.stage)) {
+      data.stage = b.stage;
+      // §6.1: BEKRAEFTET er grænsen mellem Lead og Order - saet confirmedAt
+      // foerste gang stadiet naas, driver senere koe-raekkefoelge (§3.6).
+      if (b.stage === "BEKRAEFTET" && !existing.confirmedAt) data.confirmedAt = new Date();
+    }
   }
-  if (typeof b.quotePriceDkk === "number") data.quotePriceDkk = b.quotePriceDkk;
-  if (typeof b.expectedMeasuringWeekLabel === "string") data.expectedMeasuringWeekLabel = b.expectedMeasuringWeekLabel;
-  if (b.measuredAt === true) data.measuredAt = new Date(); // §6.2a/§11.2: eksplicit signering, aldrig automatisk
-  const blivBekraeftetNu = b.stage === "BEKRAEFTET" && existing.stage !== "BEKRAEFTET";
-  if (b.stage && LEAD_STAGES.includes(b.stage)) {
-    data.stage = b.stage;
-    // §6.1: BEKRAEFTET er grænsen mellem Lead og Order - saet confirmedAt
-    // foerste gang stadiet naas, driver senere koe-raekkefoelge (§3.6).
-    if (b.stage === "BEKRAEFTET" && !existing.confirmedAt) data.confirmedAt = new Date();
-  }
+  // §6.2a/§11.2: eksplicit signering, aldrig automatisk - tilladt for
+  // BEGGE roller (Installer saetter den selv, Coordinator kan rette den).
+  if (b.measuredAt === true) data.measuredAt = new Date();
 
   // RUNDE 2 (§11.6): forfremmelsen sker nu i SAMME transaktion som selve
   // stage-skiftet til BEKRAEFTET - intet lead kan staa "bekraeftet uden
