@@ -17,8 +17,10 @@ export const dynamic = "force-dynamic";
 export async function POST() {
   const auth = await requireRole(["COORDINATOR"]);
   if (!auth.ok) return auth.response;
+  // "Montering" og "Rabat" er BEVIDST 0×0 mm (faste gebyr-/rabatlinjer,
+  // ikke produkter) - de maa ALDRIG rammes af denne oprydning.
   const ghosts = await prisma.orderItem.findMany({
-    where: { widthMm: 0, heightMm: 0, lineTotal: { gt: 0 } },
+    where: { widthMm: 0, heightMm: 0, lineTotal: { gt: 0 }, productName: { notIn: ["Montering", "Rabat"] } },
     select: { id: true, orderId: true, productName: true, lineTotal: true }
   });
   if (ghosts.length === 0) return NextResponse.json({ deleted: 0, items: [] });

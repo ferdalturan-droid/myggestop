@@ -15,10 +15,12 @@ export default async function OrderDetail({ params }: { params: { id: string } }
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true, appointments: true } });
   if (!order) notFound();
   // RUNDE 4 (§G1 - "bullet proof"): et OrderItem uden reelle mål (0×0 mm)
-  // er per definition ikke et rigtigt produkt - vis det aldrig, uanset
-  // hvordan det skulle være opstået. Roden til hvordan de opstod er rettet
-  // i promoteLead.ts, men dette er et ekstra visningslag mod gengangere.
-  const visteItems = order.items.filter((it: any) => !(it.widthMm === 0 && it.heightMm === 0));
+  // er per definition ikke et rigtigt PRODUKT - vis det aldrig, uanset
+  // hvordan det skulle være opstået. "Montering"/"Rabat" er BEVIDST 0×0 mm
+  // (faste gebyr-/rabatlinjer) og skal undtages fra dette filter. Roden
+  // til hvordan spøgelseslinjerne opstod er rettet i promoteLead.ts,
+  // dette er et ekstra visningslag mod gengangere.
+  const visteItems = order.items.filter((it: any) => it.productName === "Montering" || it.productName === "Rabat" || !(it.widthMm === 0 && it.heightMm === 0));
 
   // RUNDE 2 (§11.1/Gruppe 2): "builder ser ordre+detaljer, alt der er
   // noedvendigt, read-only - kun installer/coordinator maa redigere ordren"
