@@ -1,3 +1,3 @@
-import ImalatShell from "@/components/admin/ImalatShell";
+import ImalatCalc from "@/components/admin/ImalatCalc";
 export const dynamic = "force-dynamic";
-export default function Page() { return <ImalatShell />; }
+export default function Page() { return <ImalatCalc />; }

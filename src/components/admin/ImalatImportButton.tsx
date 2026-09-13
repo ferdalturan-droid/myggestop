@@ -11,34 +11,15 @@ export default function ImalatImportButton({ musteri, tel, adres, orderId, items
   }
 
   function go() {
-    const sineklikItems = items.filter((it) => !isPerde(it.productName));
-    const perdeItems = items.filter((it) => isPerde(it.productName));
-
-    if (sineklikItems.length > 0) {
-      const rows = sineklikItems.map((it) => ({
-        sys: "1,9", tip: "TEK", model: "YANA", adet: "1",
+    const rows = items.map((it) => {
+      const tur = isPerde(it.productName) ? "PERDE" : "SINEKLIK";
+      return {
+        tur, sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1",
         en: String(it.widthMm / 10).replace(".", ","),
         boy: String(it.heightMm / 10).replace(".", ",")
-      }));
-      localStorage.setItem("imalat_import", JSON.stringify({ musteri, tel: tel || "", adres: adres || "", rows, sourceOrderId: orderId || null }));
-    }
-
-    if (perdeItems.length > 0) {
-      const rows = perdeItems.map((it) => ({
-        kanat: "HAREKETLI", adet: "1",
-        en: String(it.widthMm / 10).replace(".", ","),
-        boy: String(it.heightMm / 10).replace(".", ",")
-      }));
-      localStorage.setItem("perde_import", JSON.stringify({ musteri, tel: tel || "", adres: adres || "", rows, sourceOrderId: orderId || null }));
-    }
-
-    // Vis fanen der matcher ordren: hvis der kun er gardin-varer, åbn Gardin-fanen.
-    if (perdeItems.length > 0 && sineklikItems.length === 0) {
-      localStorage.setItem("imalat_mode", "PERDE");
-    } else if (sineklikItems.length > 0) {
-      localStorage.setItem("imalat_mode", "SINEKLIK");
-    }
-
+      };
+    });
+    localStorage.setItem("imalat_import", JSON.stringify({ musteri, tel: tel || "", adres: adres || "", rows, sourceOrderId: orderId || null }));
     router.push("/admin/imalat");
   }
 

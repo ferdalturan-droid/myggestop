@@ -1,8 +1,11 @@
 "use client";
 import { useEffect, useMemo, useRef, useState } from "react";
 
+type Tur = "SINEKLIK" | "PERDE" | "KOMBI";
 type Sys = "1,9" | "2,8";
 type Tip = "TEK" | "DUBLE";
+type Kanat = "HAREKETLI" | "SABIT";
+
 const TEK: Record<Sys, any> = { "1,9": { y5: 3.5, y6: 5.5, y7: 5.8, y8: 4, y9: 2.2, y12: 20, y13: 15 }, "2,8": { y5: 4, y6: 7.2, y7: 7.7, y8: 4.6, y9: 1.6, y12: 20, y13: 15 } };
 const DUB: Record<Sys, any> = { "1,9": { y5: 3.7, y6: 5.7, y7: 5.8, y8: 4, y9: 2.2, y12: 54, y13: 5 }, "2,8": { y5: 4, y6: 7.2, y7: 7.5, y8: 4, y9: 2, y12: 52.5, y13: 5 } };
 const ceil = (x: number) => Math.ceil(Math.round(x * 1e9) / 1e9);
@@ -10,17 +13,21 @@ const f = (n: number) => (!isFinite(n) ? "-" : (Math.round(n * 100) / 100).toStr
 const ceilHalf = (x: number) => (x <= 0 ? 0 : Math.ceil((x - 1e-9) * 2) / 2);
 const kr = (n: number) => (Math.round(n * 100) / 100).toLocaleString("da-DK", { minimumFractionDigits: 2, maximumFractionDigits: 2 }) + " kr";
 
-interface Row { uid: number; sys: Sys; tip: Tip; model: "YANA" | "AŞAĞI"; adet: string; en: string; boy: string; farve: string; done?: boolean; }
+interface Row { uid: number; tur: Tur; sys: Sys; tip: Tip; model: "YANA" | "AŞAĞI"; kanat: Kanat; adet: string; en: string; boy: string; farve: string; done?: boolean; }
 let c = 1;
-const blank = (): Row => ({ uid: c++, sys: "1,9", tip: "TEK", model: "YANA", adet: "1", en: "", boy: "", farve: "", done: false });
-interface Part { label: string; qty: number; len?: number; kind: "cut" | "count" | "pile"; sys: Sys }
+const blank = (tur: Tur = "SINEKLIK"): Row => ({ uid: c++, tur, sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1", en: "", boy: "", farve: "", done: false });
+interface Part { label: string; qty: number; len?: number; kind: "cut" | "count" | "pile"; sys: string }
 const DEF_RATES = { tek19: 400, tek28: 450, dub19: 500, dub28: 550 };
+const DEF_GARDIN_RATE = 400;
+
+const TUR_LABEL: Record<Tur, string> = { SINEKLIK: "Myggenet", PERDE: "Gardin", KOMBI: "Myggenet & Plisser" };
 
 function dims(r: Row) {
   const en = parseFloat(r.en.replace(",", ".")) || 0, boy = parseFloat(r.boy.replace(",", ".")) || 0, adet = Math.max(1, parseInt(r.adet) || 1);
   return { en, boy, adet };
 }
-function parts(r: Row): Part[] | null {
+
+function mygParts(r: Row): Part[] | null {
   const { en, boy, adet } = dims(r);
   if (en <= 0 || boy <= 0) return null;
   const out: Part[] = [];
@@ -38,14 +45,41 @@ function parts(r: Row): Part[] | null {
   }
   return out;
 }
-const ORDER = ["RAMME BREDDE", "RAMME HØJDE", "FLØJ", "NET HØJDE", "BÅND", "PLISSE STRIMMEL", "MAGNET", "SNOR", "PLISSE SÆT"];
+
+function gardinParts(r: Row): Part[] | null {
+  const { en, boy, adet } = dims(r);
+  if (en <= 0 || boy <= 0) return null;
+  const off = r.kanat === "HAREKETLI" ? 0.4 : 2;
+  const perdeEn = en - off, alumProfil = en - off, serit = en - off;
+  const pile = boy / 2.2, alumAdet = 2 * adet, seritAdet = adet * 2, ipBoy = en + boy + 35;
+  const out: Part[] = [];
+  const P = (label: string, qty: number, len: number | undefined, kind: Part["kind"]) => out.push({ label, qty, len, kind, sys: "GARDIN" });
+  P("GARDIN BREDDE", adet, perdeEn, "cut");
+  P("ALUMINIUM PROFIL", alumAdet, alumProfil, "cut");
+  P("SELVKLÆBENDE STRIMMEL", seritAdet, serit, "cut");
+  P("SNOR", adet, ipBoy, "cut");
+  P("PILEANTAL", adet, pile, "pile");
+  return out;
+}
+
+function partsFor(r: Row): Part[] | null {
+  if (r.tur === "SINEKLIK") return mygParts(r);
+  if (r.tur === "PERDE") return gardinParts(r);
+  const a = mygParts(r), b = gardinParts(r);
+  if (!a && !b) return null;
+  return [...(a || []), ...(b || [])];
+}
+
+const ORDER = ["RAMME BREDDE", "RAMME HØJDE", "FLØJ", "NET HØJDE", "BÅND", "PLISSE STRIMMEL", "MAGNET", "SNOR", "PLISSE SÆT", "GARDIN BREDDE", "ALUMINIUM PROFIL", "SELVKLÆBENDE STRIMMEL", "PILEANTAL"];
 
 export default function ImalatCalc() {
   const [musteri, setMusteri] = useState(""); const [tel, setTel] = useState(""); const [adres, setAdres] = useState("");
   const [rows, setRows] = useState<Row[]>([blank()]);
+  const [lastTur, setLastTur] = useState<Tur>("SINEKLIK");
   const [doneKeys, setDoneKeys] = useState<string[]>([]);
   const [openUid, setOpenUid] = useState<number | null>(null);
   const [rates, setRates] = useState(DEF_RATES);
+  const [gardinRate, setGardinRate] = useState(DEF_GARDIN_RATE);
   const [showRates, setShowRates] = useState(false);
   const [saved, setSaved] = useState<any[]>([]); const [msg, setMsg] = useState<string | null>(null);
   const [tarih, setTarih] = useState(""); const [saat, setSaat] = useState("");
@@ -55,55 +89,106 @@ export default function ImalatCalc() {
   const [orderMsg, setOrderMsg] = useState<string | null>(null);
   const [colors, setColors] = useState<{ id: string; name: string; surchargePerSqm: number; isStandard: boolean }[]>([]);
   const ratesLoadedRef = useRef(false);
+  const gardinRateLoadedRef = useRef(false);
 
   useEffect(() => {
     try {
       const rt = JSON.parse(localStorage.getItem("imalat_rates") || "null"); if (rt) setRates({ ...DEF_RATES, ...rt });
+      const gr = parseFloat(localStorage.getItem("perde_rate") || ""); if (gr > 0) setGardinRate(gr);
       const imp = JSON.parse(localStorage.getItem("imalat_import") || "null");
-      if (imp && imp.rows?.length) { setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || ""); setRows(imp.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setSourceOrderId(imp.sourceOrderId || null); setOrderId(null); localStorage.removeItem("imalat_import"); }
-      else { const cur = JSON.parse(localStorage.getItem("imalat_current") || "null"); if (cur && cur.rows?.length) { setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || ""); setRows(cur.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || ""); setOrderId(cur.orderId || null); setSourceOrderId(cur.sourceOrderId || null); } }
+      if (imp && imp.rows?.length) {
+        setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || "");
+        setRows(imp.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
+        setSourceOrderId(imp.sourceOrderId || null); setOrderId(null);
+        localStorage.removeItem("imalat_import");
+      } else {
+        const cur = JSON.parse(localStorage.getItem("imalat_current") || "null");
+        if (cur && cur.rows?.length) {
+          setMusteri(cur.musteri || ""); setTel(cur.tel || ""); setAdres(cur.adres || "");
+          setRows(cur.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
+          setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || "");
+          setOrderId(cur.orderId || null); setSourceOrderId(cur.sourceOrderId || null);
+        }
+      }
     } catch {}
-    fetch("/api/imalat-records?type=SINEKLIK").then((r) => r.json()).then((d) => setSaved(d.items || [])).catch(() => {
-      try { setSaved(JSON.parse(localStorage.getItem("imalat_saved") || "[]")); } catch {}
-    });
-    fetch("/api/imalat-rates").then((r) => r.json()).then((d) => { if (d.sineklik) setRates({ ...DEF_RATES, ...d.sineklik }); }).finally(() => { ratesLoadedRef.current = true; });
+    loadSaved();
+    fetch("/api/imalat-rates").then((r) => r.json()).then((d) => {
+      if (d.sineklik) setRates({ ...DEF_RATES, ...d.sineklik });
+      if (typeof d.perde === "number") setGardinRate(d.perde);
+    }).finally(() => { ratesLoadedRef.current = true; gardinRateLoadedRef.current = true; });
     fetch("/api/colors").then((r) => r.json()).then((d) => setColors(d.colors || [])).catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
+
+  async function loadSaved() {
+    try {
+      const res = await fetch("/api/imalat-records?type=UNIFIED");
+      const d = await res.json();
+      if (d.items && d.items.length > 0) { setSaved(d.items); return; }
+    } catch {}
+    // Migrering: de gamle Myggenet- og Gardin-lister samles én gang til den nye fælles liste.
+    try {
+      const [sRes, pRes] = await Promise.all([
+        fetch("/api/imalat-records?type=SINEKLIK").then((r) => r.json()).catch(() => ({ items: [] })),
+        fetch("/api/imalat-records?type=PERDE").then((r) => r.json()).catch(() => ({ items: [] }))
+      ]);
+      const sItems = (sRes.items || []).map((it: any) => ({ ...it, rows: (it.rows || []).map((r: any) => ({ ...r, tur: r.tur || "SINEKLIK" })) }));
+      const pItems = (pRes.items || []).map((it: any) => ({ ...it, rows: (it.rows || []).map((r: any) => ({ ...r, tur: r.tur || "PERDE" })) }));
+      const merged = [...sItems, ...pItems].sort((a, b) => (b.id || 0) - (a.id || 0)).slice(0, 50);
+      setSaved(merged);
+      if (merged.length > 0) gemPaaServer(merged);
+    } catch {
+      try { setSaved(JSON.parse(localStorage.getItem("imalat_saved_unified") || "[]")); } catch {}
+    }
+  }
+
   useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, sourceOrderId]);
   useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
   useEffect(() => {
     localStorage.setItem("imalat_rates", JSON.stringify(rates));
     if (ratesLoadedRef.current) fetch("/api/imalat-rates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "SINEKLIK", value: rates }) }).catch(() => {});
   }, [rates]);
+  useEffect(() => {
+    localStorage.setItem("perde_rate", String(gardinRate));
+    if (gardinRateLoadedRef.current) fetch("/api/imalat-rates", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "PERDE", value: gardinRate }) }).catch(() => {});
+  }, [gardinRate]);
 
-  const rateOf = (r: Row) => r.tip === "TEK" ? (r.sys === "1,9" ? rates.tek19 : rates.tek28) : (r.sys === "1,9" ? rates.dub19 : rates.dub28);
-  function colorSurchargeOf(r: Row) { const col = colors.find((c) => c.name === r.farve); return col && !col.isStandard ? col.surchargePerSqm : 0; }
+  const mygRateOf = (r: Row) => r.tip === "TEK" ? (r.sys === "1,9" ? rates.tek19 : rates.tek28) : (r.sys === "1,9" ? rates.dub19 : rates.dub28);
+  function colorSurchargeOf(r: Row) { const col = colors.find((cc) => cc.name === r.farve); return col && !col.isStandard ? col.surchargePerSqm : 0; }
   function priceOf(r: Row) {
     const { en, boy, adet } = dims(r); if (en <= 0 || boy <= 0) return null;
     const area = (en / 100) * (boy / 100); const m2 = ceilHalf(area);
     const colorPerSqm = colorSurchargeOf(r);
-    const price = m2 * (rateOf(r) + colorPerSqm) * adet;
-    return { area, m2, price, colorSurcharge: m2 * colorPerSqm * adet };
+    if (r.tur === "PERDE") {
+      const price = m2 * (gardinRate + colorPerSqm) * adet;
+      return { area, m2, price, colorSurcharge: m2 * colorPerSqm * adet };
+    }
+    const mygPrice = m2 * (mygRateOf(r) + colorPerSqm) * adet;
+    if (r.tur === "KOMBI") {
+      return { area, m2, price: mygPrice * 2, colorSurcharge: m2 * colorPerSqm * adet * 2 };
+    }
+    return { area, m2, price: mygPrice, colorSurcharge: m2 * colorPerSqm * adet };
   }
 
   const upd = (uid: number, p: Partial<Row>) => setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
-  const add = () => setRows((rs) => [...rs, blank()]);
-  const del = (uid: number) => { if (confirm("Skal dette vindue slettes?")) setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : [blank()])); };
+  const setTur = (uid: number, tur: Tur) => { setLastTur(tur); upd(uid, { tur }); };
+  const add = () => setRows((rs) => [...rs, blank(lastTur)]);
+  const del = (uid: number) => { if (confirm("Skal denne linje slettes?")) setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : [blank(lastTur)])); };
   const toggleKey = (k: string) => setDoneKeys((d) => (d.includes(k) ? d.filter((x) => x !== k) : [...d, k]));
 
   const liste = useMemo(() => {
-    const cut: Record<string, { sys: Sys; label: string; len: number; qty: number }> = {}; const cnt: Record<string, number> = {};
-    for (const r of rows) { const ps = parts(r); if (!ps) continue; for (const p of ps) {
+    const cut: Record<string, { sys: string; label: string; len: number; qty: number }> = {}; const cnt: Record<string, number> = {};
+    for (const r of rows) { const ps = partsFor(r); if (!ps) continue; for (const p of ps) {
       if (p.kind === "cut" && p.len !== undefined) { const k = `${p.sys}|${p.label}|${p.len.toFixed(2)}`; cut[k] = cut[k] || { sys: p.sys, label: p.label, len: p.len, qty: 0 }; cut[k].qty += p.qty; }
       else if (p.kind === "count") { const k = `${p.sys}|${p.label}`; cnt[k] = (cnt[k] || 0) + p.qty; } } }
     const arr = Object.values(cut).sort((a, b) => a.sys.localeCompare(b.sys) || ORDER.indexOf(a.label) - ORDER.indexOf(b.label) || a.len - b.len);
-    const counts = Object.entries(cnt).map(([k, v]) => ({ sys: k.split("|")[0] as Sys, label: k.split("|")[1], qty: v }));
+    const counts = Object.entries(cnt).map(([k, v]) => ({ sys: k.split("|")[0], label: k.split("|")[1], qty: v }));
     return { arr, counts };
   }, [rows]);
 
-  const totals = useMemo(() => { let ara = 0; for (const r of rows) { const p = priceOf(r); if (p) ara += p.price; } return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rates]);
+  const totals = useMemo(() => { let ara = 0; for (const r of rows) { const p = priceOf(r); if (p) ara += p.price; } return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rates, gardinRate, colors]);
 
-  function gemPaaServer(n: any[]) { fetch("/api/imalat-records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "SINEKLIK", items: n }) }).catch(() => {}); localStorage.setItem("imalat_saved", JSON.stringify(n)); }
+  function gemPaaServer(n: any[]) { fetch("/api/imalat-records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "UNIFIED", items: n }) }).catch(() => {}); localStorage.setItem("imalat_saved_unified", JSON.stringify(n)); }
 
   function buildOrderItems() {
     const out: any[] = [];
@@ -113,36 +198,55 @@ export default function ImalatCalc() {
       const widthMm = Math.round((parseFloat(r.en.replace(",", ".")) || 0) * 10);
       const heightMm = Math.round((parseFloat(r.boy.replace(",", ".")) || 0) * 10);
       const perUnit = pr.price / adet;
-      const comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"}`;
-      for (let n = 0; n < adet; n++) out.push({ productName: "Standard Myggenet", widthMm, heightMm, colorName: r.farve || "", comment, lineTotal: perUnit });
+      let productName = "Standard Myggenet"; let comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"}`;
+      if (r.tur === "PERDE") { productName = "Plissegardin"; comment = `Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`; }
+      else if (r.tur === "KOMBI") { productName = "Myggenet & Plisser"; comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"} + Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`; }
+      for (let n = 0; n < adet; n++) out.push({ productName, widthMm, heightMm, colorName: r.farve || "", comment, lineTotal: perUnit });
     }
     return out;
   }
 
-  async function gemSomOrdre() {
-    if (sourceOrderId) return; // allerede en rigtig ordre — opret ikke en ny
+  // Gemmer/opdaterer ordren og returnerer den gældende orderId, saa den korrekte reference
+  // gemmes sammen med jobbet — undgaar en ny (duplikeret) ordre, næste gang der trykkes Gem.
+  async function gemSomOrdre(): Promise<string | null> {
+    if (sourceOrderId) return orderId;
     const items = buildOrderItems();
-    if (items.length === 0) return;
+    if (items.length === 0) return orderId;
     try {
       const res = await fetch("/api/orders/manual", {
         method: "POST", headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ musteri: musteri.trim(), tel, adres, items, orderId: orderId || undefined })
       });
       const d = await res.json();
-      if (res.ok && d.orderId) { setOrderId(d.orderId); setOrderMsg(`Gemt i Ordrer ✓ (${d.orderNumber})`); setTimeout(() => setOrderMsg(null), 4000); }
+      if (res.ok && d.orderId) {
+        setOrderId(d.orderId);
+        setOrderMsg(`Gemt i Ordrer ✓ (${d.orderNumber})`); setTimeout(() => setOrderMsg(null), 4000);
+        return d.orderId;
+      }
     } catch {}
+    return orderId;
   }
 
-  function kaydet() {
+  async function kaydet() {
     if (!musteri.trim()) { setMsg("Angiv kundens navn."); setTimeout(() => setMsg(null), 2000); return; }
-    const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId, sourceOrderId };
-    const next = [rec, ...saved].slice(0, 50); setSaved(next); gemPaaServer(next);
-    gemSomOrdre();
+    // Vent på at ordren er gemt/opdateret FØR jobbet gemmes i listen, saa vi kender den
+    // rigtige orderId — ellers gemmes en forældet id, og næste "Gem" opretter en ny ordre.
+    const resolvedOrderId = await gemSomOrdre();
+    const rec = { id: Date.now(), musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId: resolvedOrderId, sourceOrderId };
+    const next = [rec, ...saved].slice(0, 50);
+    setSaved(next); gemPaaServer(next);
+    setOrderId(resolvedOrderId);
     setMsg("Gemt ✓"); setTimeout(() => setMsg(null), 2000);
   }
-  function yukle(rec: any) { setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || ""); setRows(rec.rows.map((r: any) => ({ ...blank(), ...r, uid: c++ }))); setDoneKeys(rec.doneKeys || []); setOrderId(rec.orderId || null); setSourceOrderId(rec.sourceOrderId || null); window.scrollTo({ top: 0, behavior: "smooth" }); }
+
+  function yukle(rec: any) {
+    setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || "");
+    setRows(rec.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
+    setDoneKeys(rec.doneKeys || []); setOrderId(rec.orderId || null); setSourceOrderId(rec.sourceOrderId || null);
+    window.scrollTo({ top: 0, behavior: "smooth" });
+  }
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); }
-  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank()]); setDoneKeys([]); setOrderId(null); setSourceOrderId(null); setOrderMsg(null); } }
+  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setSourceOrderId(null); setOrderMsg(null); } }
 
   async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
   async function randevuAl() {
@@ -158,12 +262,13 @@ export default function ImalatCalc() {
 
   function yazdir() {
     const win = window.open("", "_blank", "width=900,height=1000"); if (!win) return;
-    const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${r.sys}</td><td>${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
+    const wr = rows.map((r, i) => { const pr = priceOf(r); return `<tr><td>${i + 1}</td><td>${TUR_LABEL[r.tur]}</td><td>${r.adet}</td><td>${r.en}×${r.boy}</td><td>${r.farve || "-"}</td><td>${pr ? f(pr.m2) + " m²" : "-"}</td><td>${pr ? kr(pr.price) : "-"}</td></tr>`; }).join("");
     const kl = liste.arr.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>${f(p.len)}</td><td>${p.qty} stk.</td></tr>`).join("") + liste.counts.map((p) => `<tr><td>${p.sys}</td><td>${p.label}</td><td>-</td><td>${p.qty} stk.</td></tr>`).join("");
     const winHtml = rows.map((r, i) => {
-      const ps = parts(r); const pr = priceOf(r);
+      const ps = partsFor(r); const pr = priceOf(r);
       if (!ps) return "";
-      const title = `Vindue ${i + 1} — ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} ${r.sys} · ${r.en}×${r.boy} cm${r.farve ? ` · ${r.farve}` : ""}${pr ? ` · ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}`;
+      const detail = r.tur === "PERDE" ? `Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}` : r.tur === "KOMBI" ? `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}` : `${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} ${r.sys}`;
+      const title = `Linje ${i + 1} — ${TUR_LABEL[r.tur]} · ${detail} · ${r.en}×${r.boy} cm${r.farve ? ` · ${r.farve}` : ""}${pr ? ` · ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}`;
       const partsHtml = ps.map((p) => {
         const val = p.kind === "pile" ? `${f(p.len!)} lag` : p.kind === "count" ? `${p.qty} stk.` : `${p.qty} stk. × ${f(p.len!)} cm`;
         return `<div class="part"><span>${p.label}</span><span>${val}</span></div>`;
@@ -171,21 +276,21 @@ export default function ImalatCalc() {
       return `<div class="win"><h3>${title}</h3><div class="grid2">${partsHtml}</div></div>`;
     }).join("");
     win.document.write(`<!doctype html><html lang="da"><head><meta charset="utf-8"><title>Arbejdsseddel - ${musteri || ""}</title>
-    <style>body{font-family:Arial,sans-serif;color:#111;padding:28px;max-width:800px;margin:0 auto}h2{font-size:15px;margin:22px 0 8px;text-transform:uppercase;color:#3f9c12}.head{display:flex;justify-content:space-between;border-bottom:3px solid #11241c;padding-bottom:12px}.brand{font-weight:800;font-size:24px}.brand span{color:#5cc524}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f1f5f3;font-size:11px;color:#555}.tot{margin-top:14px;width:auto;float:right}.tot td{border:none;padding:3px 10px}.win{margin-top:14px;border:1px solid #d7e0da;border-radius:8px;padding:12px 14px;break-inside:avoid;page-break-inside:avoid}.win h3{margin:0 0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.02em;color:#555;font-weight:700}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.part{display:flex;justify-content:space-between;background:#f7f9f8;border-radius:6px;padding:6px 10px;font-size:13px}.part span:first-child{color:#667}.part span:last-child{font-weight:700}@media print{button{display:none}}</style></head><body>
-    <div class="head"><div><div class="brand">MYGGE<span>STOP</span></div><div style="font-size:13px;color:#555">ARBEJDSSEDDEL</div></div>
+    <style>body{font-family:Arial,sans-serif;color:#111;padding:28px;max-width:800px;margin:0 auto}h2{font-size:15px;margin:22px 0 8px;text-transform:uppercase;color:#a3801e}.head{display:flex;justify-content:space-between;border-bottom:3px solid #0b0a08;padding-bottom:12px}.brand{font-weight:800;font-size:24px;letter-spacing:.04em}.brand span{color:#d4af37}table{width:100%;border-collapse:collapse;font-size:13px;margin-top:4px}th,td{border:1px solid #ccc;padding:6px 8px;text-align:left}th{background:#f1f5f3;font-size:11px;color:#555}.tot{margin-top:14px;width:auto;float:right}.tot td{border:none;padding:3px 10px}.win{margin-top:14px;border:1px solid #d7e0da;border-radius:8px;padding:12px 14px;break-inside:avoid;page-break-inside:avoid}.win h3{margin:0 0 10px;font-size:11.5px;text-transform:uppercase;letter-spacing:.02em;color:#555;font-weight:700}.grid2{display:grid;grid-template-columns:1fr 1fr;gap:8px}.part{display:flex;justify-content:space-between;background:#f7f9f8;border-radius:6px;padding:6px 10px;font-size:13px}.part span:first-child{color:#667}.part span:last-child{font-weight:700}@media print{button{display:none}}</style></head><body>
+    <div class="head"><div><div class="brand">NORD<span>ICA</span></div><div style="font-size:13px;color:#555">ARBEJDSSEDDEL</div></div>
     <div style="text-align:right;font-size:13px"><b>${musteri || "-"}</b><br>${tel || ""}<br>${adres || ""}<br>${new Date().toLocaleString("da-DK")}</div></div>
-    <h2>Vinduer & pris</h2><table><thead><tr><th>#</th><th>System</th><th>Type</th><th>Antal</th><th>Mål cm</th><th>Farve</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
+    <h2>Linjer & pris</h2><table><thead><tr><th>#</th><th>Type</th><th>Antal</th><th>Mål cm</th><th>Farve</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
     <table class="tot"><tr><td>Subtotal:</td><td style="text-align:right"><b>${kr(totals.ara)}</b></td></tr><tr><td>Moms 25%:</td><td style="text-align:right">${kr(totals.moms)}</td></tr><tr><td><b>Total i alt:</b></td><td style="text-align:right"><b>${kr(totals.dahil)}</b></td></tr></table>
     <div style="clear:both"></div>
-    <h2>Detaljer pr. vindue</h2>
+    <h2>Detaljer pr. linje</h2>
     ${winHtml}
     <h2>Skæreliste (i alt)</h2><table><thead><tr><th>System</th><th>Del</th><th>Mål (cm)</th><th>Antal</th></tr></thead><tbody>${kl}</tbody></table>
-    <p style="margin-top:24px"><button onclick="window.print()" style="padding:10px 20px;background:#3f9c12;color:#fff;border:none;border-radius:8px;cursor:pointer">Udskriv / Gem som PDF</button></p></body></html>`);
+    <p style="margin-top:24px"><button onclick="window.print()" style="padding:10px 20px;background:#a3801e;color:#fff;border:none;border-radius:8px;cursor:pointer">Udskriv / Gem som PDF</button></p></body></html>`);
     win.document.close();
   }
 
-  const RateInp = ({ k, lbl }: { k: keyof typeof rates; lbl: string }) => (
-    <label className="block"><span className="label">{lbl}</span><input className="input py-1.5 text-sm" inputMode="numeric" value={rates[k]} onChange={(e) => setRates({ ...rates, [k]: parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0 })} /></label>
+  const RateInp = ({ v, on, lbl }: { v: number; on: (v: number) => void; lbl: string }) => (
+    <label className="block"><span className="label">{lbl}</span><input className="input py-1.5 text-sm" inputMode="numeric" value={v} onChange={(e) => on(parseFloat(e.target.value.replace(/[^0-9.]/g, "")) || 0)} /></label>
   );
 
   return (
@@ -197,9 +302,16 @@ export default function ImalatCalc() {
 
       {showRates && (
         <div className="mb-4 rounded-xl border border-brand-line bg-brand-mist/50 p-4">
-          <p className="mb-2 text-sm font-semibold text-brand-ink">Priser (kr/m²)</p>
-          <div className="grid gap-3 sm:grid-cols-4"><RateInp k="tek19" lbl="Enkelt 1,9" /><RateInp k="tek28" lbl="Enkelt 2,8" /><RateInp k="dub19" lbl="Dobbelt 1,9" /><RateInp k="dub28" lbl="Dobbelt 2,8" /></div>
-          <p className="mt-2 text-xs text-brand-ink2/55">m² = (bredde og højde rundes op til 50 cm) → m² × kr/m² × antal. Moms 25% tillægges.</p>
+          <p className="mb-2 text-sm font-semibold text-brand-ink">Myggenet — priser (kr/m²)</p>
+          <div className="grid gap-3 sm:grid-cols-4">
+            <RateInp v={rates.tek19} on={(v) => setRates({ ...rates, tek19: v })} lbl="Enkelt 1,9" />
+            <RateInp v={rates.tek28} on={(v) => setRates({ ...rates, tek28: v })} lbl="Enkelt 2,8" />
+            <RateInp v={rates.dub19} on={(v) => setRates({ ...rates, dub19: v })} lbl="Dobbelt 1,9" />
+            <RateInp v={rates.dub28} on={(v) => setRates({ ...rates, dub28: v })} lbl="Dobbelt 2,8" />
+          </div>
+          <p className="mb-2 mt-4 text-sm font-semibold text-brand-ink">Gardin — pris (kr/m²)</p>
+          <div className="max-w-[200px]"><RateInp v={gardinRate} on={setGardinRate} lbl="Gardinpris" /></div>
+          <p className="mt-2 text-xs text-brand-ink2/55">m² = (bredde og højde rundes op til 50 cm) → m² × kr/m² × antal. "Myggenet & Plisser" beregnes som dobbelt myggenet-pris. Moms 25% tillægges.</p>
         </div>
       )}
 
@@ -234,7 +346,7 @@ export default function ImalatCalc() {
 
       <div className="space-y-3">
         {rows.map((r, i) => {
-          const ps = parts(r); const open = openUid === r.uid; const pr = priceOf(r);
+          const ps = partsFor(r); const open = openUid === r.uid; const pr = priceOf(r);
           return (
             <div key={r.uid} className={`rounded-xl border border-brand-line ${r.done ? "bg-green-50/60" : "bg-white"}`}>
               <div className="flex items-center justify-between gap-2 px-3 pt-2.5">
@@ -245,27 +357,46 @@ export default function ImalatCalc() {
                   <button onClick={() => del(r.uid)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button>
                 </div>
               </div>
-              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-7">
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">System</span><select className="input py-2 text-sm" value={r.sys} onChange={(e) => upd(r.uid, { sys: e.target.value as Sys })}><option>1,9</option><option>2,8</option></select></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Type</span><select className="input py-2 text-sm" value={r.tip} onChange={(e) => upd(r.uid, { tip: e.target.value as Tip })}><option value="TEK">Enkelt</option><option value="DUBLE">Dobbelt</option></select></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Model</span><select className="input py-2 text-sm" value={r.model} disabled={r.tip === "DUBLE"} onChange={(e) => upd(r.uid, { model: e.target.value as any })}><option value="YANA">Side</option><option value="AŞAĞI">Ned</option></select></label>
+              <div className="grid grid-cols-2 gap-2 px-3 py-2.5 sm:grid-cols-8">
+                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Type</span>
+                  <select className="input py-2 text-sm font-semibold" value={r.tur} onChange={(e) => setTur(r.uid, e.target.value as Tur)}>
+                    <option value="SINEKLIK">Myggenet</option>
+                    <option value="PERDE">Gardin</option>
+                    <option value="KOMBI">Myggenet & Plisser</option>
+                  </select>
+                </label>
+                {r.tur !== "PERDE" && (
+                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">System</span><select className="input py-2 text-sm" value={r.sys} onChange={(e) => upd(r.uid, { sys: e.target.value as Sys })}><option>1,9</option><option>2,8</option></select></label>
+                )}
+                {r.tur !== "PERDE" && (
+                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Net-type</span><select className="input py-2 text-sm" value={r.tip} onChange={(e) => upd(r.uid, { tip: e.target.value as Tip })}><option value="TEK">Enkelt</option><option value="DUBLE">Dobbelt</option></select></label>
+                )}
+                {r.tur !== "PERDE" && (
+                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Model</span><select className="input py-2 text-sm" value={r.model} disabled={r.tip === "DUBLE"} onChange={(e) => upd(r.uid, { model: e.target.value as any })}><option value="YANA">Side</option><option value="AŞAĞI">Ned</option></select></label>
+                )}
+                {r.tur !== "SINEKLIK" && (
+                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Fløj</span><select className="input py-2 text-sm" value={r.kanat} onChange={(e) => upd(r.uid, { kanat: e.target.value as Kanat })}><option value="HAREKETLI">Bevægelig</option><option value="SABIT">Fast</option></select></label>
+                )}
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Antal</span><input className="input py-2 text-sm" inputMode="numeric" value={r.adet} onChange={(e) => upd(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Bredde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.en} onChange={(e) => upd(r.uid, { en: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Højde (cm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.boy} onChange={(e) => upd(r.uid, { boy: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
                 <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span>
                   <select className="input py-2 text-sm" value={r.farve} onChange={(e) => upd(r.uid, { farve: e.target.value })}>
                     <option value="">Standard</option>
-                    {colors.map((c) => (
-                      <option key={c.id} value={c.name}>{c.name}{!c.isStandard && c.surchargePerSqm > 0 ? ` (+${c.surchargePerSqm} kr/m²)` : ""}</option>
+                    {colors.map((cc) => (
+                      <option key={cc.id} value={cc.name}>{cc.name}{!cc.isStandard && cc.surchargePerSqm > 0 ? ` (+${cc.surchargePerSqm} kr/m²)` : ""}</option>
                     ))}
                   </select>
                 </label>
               </div>
               {open && ps && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
-                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">Vindue {i + 1} — {r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} {r.sys} · {r.en}×{r.boy} cm {r.farve ? `· ${r.farve}` : ""} {pr ? `· ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}</p>
+                  <p className="mb-2 text-xs font-semibold uppercase tracking-wide text-brand-ink2/60">
+                    Linje {i + 1} — {TUR_LABEL[r.tur]} · {r.en}×{r.boy} cm {r.farve ? `· ${r.farve}` : ""} {pr ? `· ${f(pr.area)} m² → ${f(pr.m2)} m² · ${kr(pr.price)}` : ""}
+                    {r.tur === "KOMBI" && <span className="ml-1 text-brand-ink2/45">(2× myggenet-pris)</span>}
+                  </p>
                   <div className="grid gap-1.5 text-sm sm:grid-cols-2">
-                    {ps.map((p) => (<div key={p.label} className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">{p.label}</span><span className="font-semibold text-brand-ink">{p.kind === "pile" ? `${f(p.len!)} lag` : p.kind === "count" ? `${p.qty} stk.` : `${p.qty} stk. × ${f(p.len!)} cm`}</span></div>))}
+                    {ps.map((p, idx) => (<div key={p.label + idx} className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">{p.label}</span><span className="font-semibold text-brand-ink">{p.kind === "pile" ? `${f(p.len!)} lag` : p.kind === "count" ? `${p.qty} stk.` : `${p.qty} stk. × ${f(p.len!)} cm`}</span></div>))}
                     <div className="flex justify-between rounded bg-white px-3 py-1.5"><span className="text-brand-ink2/70">FARVE</span><span className="font-semibold text-brand-ink">{r.farve || "Standard"}{pr && pr.colorSurcharge > 0 ? ` (+${kr(pr.colorSurcharge)})` : ""}</span></div>
                   </div>
                 </div>
@@ -275,7 +406,7 @@ export default function ImalatCalc() {
         })}
       </div>
       <div className="mt-3 flex gap-2">
-        <button onClick={add} className="btn-secondary flex-1 border-dashed py-2 text-sm">+ Tilføj vindue</button>
+        <button onClick={add} className="btn-secondary flex-1 border-dashed py-2 text-sm">+ Tilføj linje</button>
       </div>
 
       {totals.ara > 0 && (
@@ -306,7 +437,7 @@ export default function ImalatCalc() {
         <div className="mt-8"><h2 className="mb-3 text-lg font-bold text-brand-ink">Gemte ordrer</h2>
           <div className="space-y-2">{saved.map((s) => (
             <div key={s.id} className="flex items-center justify-between rounded-xl border border-brand-line bg-white px-4 py-2.5 text-sm">
-              <div><span className="font-semibold text-brand-ink">{s.musteri}</span> <span className="text-brand-ink2/55">· {s.rows.length} vinduer · {s.date}</span></div>
+              <div><span className="font-semibold text-brand-ink">{s.musteri}</span> <span className="text-brand-ink2/55">· {s.rows.length} linjer · {s.date}</span></div>
               <div className="flex gap-3"><button onClick={() => yukle(s)} className="font-medium text-brand-greendark hover:underline">Åbn</button><button onClick={() => sil(s.id)} className="text-red-400 hover:text-red-600">Slet</button></div>
             </div>))}
           </div>
