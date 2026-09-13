@@ -6,16 +6,25 @@ import { ORDER_STATUS_ORDER } from "@/lib/types";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// RUNDE 2 (Gruppe 2): GET er read-only og aabnes for alle tre roller -
+// Builder skal kunne se "alt hvad han skal bruge" paa sin ordres
+// detaljeside (§11.1/processen). Selve redigeringen (PATCH) og sletning
+// forbliver begraenset, se nedenfor.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR"]);
+  const auth = await requireRole(["COORDINATOR", "INSTALLER", "BUILDER"]);
   if (!auth.ok) return auth.response;
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true } });
   if (!order) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
   return NextResponse.json({ order });
 }
 
+// RUNDE 2: "kun installer/coordinator kan redigere ordren" (brugerens egen
+// procesbeskrivelse) - Installer faar nu samme redigerings-ret som
+// Coordinator (var tidligere fejlagtigt COORDINATOR-only, hvilket i praksis
+// betoed at Installer slet ikke kunne redigere en ordre). Builder er
+// bevidst IKKE med her.
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR"]);
+  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
   const body = await req.json();
   const existing = await prisma.order.findUnique({ where: { id: params.id } });

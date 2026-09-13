@@ -13,14 +13,23 @@ export const dynamic = "force-dynamic";
 // "Gemte ordrer"-liste (§10.2/§10.5) er fuldstaendig upaavirket af denne
 // rute og fortsaetter uaendret for igangvaerende, ufaerdige jobs.
 //
-// Adgang: samme roller der maa se selve Produktionsberegneren
-// (Coordinator/Builder/Installer, jf. roles.ts).
-async function auth() {
+// LAESE-adgang: alle tre roller maa se en ordres maal/pris i beregneren
+// (Builder skal kunne aabne ?orderId= og se alt hvad han skal bruge).
+async function authRead() {
   return requireRole(["COORDINATOR", "BUILDER", "INSTALLER"]);
 }
 
+// SKRIVE-adgang: RUNDE 2 (§11.1/§2 - "kun installer/coordinator kan
+// redigere ordren") - Builder maa IKKE laengere gemme aendringer i maal
+// eller pris via den ordre-koblede beregner. Han kan stadig aabne siden
+// (GET ovenfor), men et gem-forsoeg afvises her, server-side - den
+// egentlige haandhaevelse, uafhaengigt af hvad UI'en viser/skjuler.
+async function authWrite() {
+  return requireRole(["COORDINATOR", "INSTALLER"]);
+}
+
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const a = await auth();
+  const a = await authRead();
   if (!a.ok) return a.response;
   const order = await prisma.order.findUnique({
     where: { id: params.id },
@@ -58,7 +67,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
 //    de samme rows, praecis som den eksisterende PATCH /api/orders/[id]
 //    allerede goer for den manuelle flow - samme moenster, ikke ny logik.
 export async function PATCH(req: NextRequest, { params }: { params: { id: string } }) {
-  const a = await auth();
+  const a = await authWrite();
   if (!a.ok) return a.response;
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { lead: true } });
   if (!order) return NextResponse.json({ error: "Ordre ikke fundet" }, { status: 404 });

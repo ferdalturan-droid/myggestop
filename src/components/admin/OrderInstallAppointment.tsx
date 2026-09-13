@@ -2,7 +2,7 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-export default function OrderInstallAppointment({ orderId, existing }: { orderId: string; existing: { day: string; time: string; status: string }[] }) {
+export default function OrderInstallAppointment({ orderId, existing, canBook = true }: { orderId: string; existing: { day: string; time: string; status: string }[]; canBook?: boolean }) {
   const router = useRouter();
   const [day, setDay] = useState("");
   const [time, setTime] = useState("");
@@ -25,11 +25,13 @@ export default function OrderInstallAppointment({ orderId, existing }: { orderId
       {existing.map((a, i) => (
         <p key={i} className="mb-1 text-sm text-brand-ink2/80">{a.day} kl. {a.time} — {a.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</p>
       ))}
-      <form onSubmit={submit} className="mt-2 flex flex-wrap items-end gap-3">
-        <label className="block"><span className="label">Dato</span><input type="date" className="input py-2 text-sm" required value={day} onChange={(e) => setDay(e.target.value)} /></label>
-        <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" required value={time} onChange={(e) => setTime(e.target.value)} /></label>
-        <button className="btn-primary py-2.5 text-sm">Book installation</button>
-      </form>
+      {canBook && (
+        <form onSubmit={submit} className="mt-2 flex flex-wrap items-end gap-3">
+          <label className="block"><span className="label">Dato</span><input type="date" className="input py-2 text-sm" required value={day} onChange={(e) => setDay(e.target.value)} /></label>
+          <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" required value={time} onChange={(e) => setTime(e.target.value)} /></label>
+          <button className="btn-primary py-2.5 text-sm">Book installation</button>
+        </form>
+      )}
       {msg && <p className="mt-2 text-sm font-medium text-brand-ink2/80">{msg}</p>}
     </div>
   );

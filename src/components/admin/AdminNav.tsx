@@ -28,7 +28,18 @@ export default function AdminNav({ email, role }: { email: string; role: Role })
   const router = useRouter();
   const [open, setOpen] = useState(false);
   // FASE 2 (§4): Builder/Installer ser kun de sider deres rolle maa aabne.
-  const links = LINKS.filter((l) => isPathAllowedForRole(l.href, role));
+  let links = LINKS.filter((l) => isPathAllowedForRole(l.href, role));
+
+  // RUNDE 2 (Q8): kun for Installer erstattes de to separate faner
+  // "Produktionskø" og "Installation" med ét samlet menupunkt - Coordinator
+  // og Builder beholder de to separate links helt uændret, jf. brugerens
+  // eksplicitte svar: "to for Coordinator/Builder, ét samlet for Installer".
+  if (role === "INSTALLER") {
+    const uden = links.filter((l) => l.href !== "/admin/produktion" && l.href !== "/admin/installation");
+    const indsaetIndex = uden.findIndex((l) => l.href === "/admin/opmaaling") + 1;
+    uden.splice(indsaetIndex, 0, { href: "/admin/produktion-installation", label: "Produktion & installation" });
+    links = uden;
+  }
 
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
