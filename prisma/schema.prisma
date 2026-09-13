@@ -8,13 +8,98 @@ datasource db {
   url      = env("DATABASE_URL")
 }
 
+// ====== ARKITEKTUR-OMBYGNING FASE 1 ======
+// Alt herunder markeret "FASE 1" er tilfoejet additivt jf.
+// Myggestop - Arkitektur-specifikation.md. Intet eksisterende felt er
+// fjernet eller aendret i denne fase - kun nye tabeller/felter/enums
+// tilfoejet. Ingen eksisterende kode laeser/skriver dem endnu.
+
+// FASE 1 (§3.1): rollefelt paa AdminUser. Bruges foerst af middleware/API i Fase 2.
+enum Role {
+  COORDINATOR
+  BUILDER
+  INSTALLER
+}
+
 model AdminUser {
   id           String   @id @default(cuid())
   email        String   @unique
   passwordHash String
   name         String   @default("Administrator")
+  role         Role     @default(COORDINATOR)
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+}
+
+// FASE 1 (§3.2): Lead ligger foran Order. Al kunde-/kontaktdata for et
+// lead bor her. For eksisterende Order-raekker (fra foer ombygningen)
+// oprettes et tilsvarende Lead af migreringsscriptet
+// scripts/migrate-orders-to-leads.ts, jf. §7 punkt 5 og §10.3-10.5.
+enum LeadStage {
+  NYT_LEAD
+  KONTAKTET
+  OPMAALING_BOOKET
+  TILBUD_GIVET
+  BEKRAEFTET
+}
+
+model Lead {
+  id             String    @id @default(cuid())
+  leadNumber     String    @unique // fx MYG-2026-0001 - samme loebenummer som Order.orderNumber ved forfremmelse, se §3.6
+  stage          LeadStage @default(NYT_LEAD)
+
+  firstName      String
+  lastName       String
+  phone          String
+  email          String
+  address        String
+  postalCode     String
+  city           String
+
+  source         String    @default("") // "Hjemmeside", "Telefon", "Henvisning", "Migreret" osv.
+  productSummary String    @default("")
+  note           String    @default("")
+
+  quotePriceDkk  Float?
+  confirmedAt    DateTime?
+
+  createdAt      DateTime  @default(now())
+  updatedAt      DateTime  @updatedAt
+
+  measurements   Measurement[]
+  appointments   Appointment[]
+  order          Order?
+
+  @@index([stage])
+}
+
+// FASE 1 (§3.4): erstatter paa sigt den ustrukturerede JSON i Setting
+// (unified_saved_records). Bruges foerst rigtigt fra Fase 6.
+model Measurement {
+  id          String   @id @default(cuid())
+  leadId      String
+  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  itemNumber  Int
+  roomName    String   @default("")
+  productType String
+  widthMm     Int?     // NULL = forventet, endnu ikke opmaalt
+  heightMm    Int?
+  colorName   String   @default("")
+  comment     String   @default("")
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  @@index([leadId])
+}
+
+// FASE 1 (§3.3): nye OrderStage-vaerdier tilfoejet ved siden af den
+// eksisterende OrderStatus (som IKKE fjernes i denne fase - se §7/§10.1:
+// OrderForm.tsx og /admin/ordrer bruger stadig status indtil Fase 3/6).
+enum OrderStage {
+  KOE
+  I_PRODUKTION
+  BETALT
+  ANMELDT
 }
 
 // Et produkt (produkttype) som kan bestilles. Redigeres fra admin.
@@ -88,7 +173,29 @@ model Order {
   createdAt     DateTime @default(now())
   updatedAt     DateTime @updatedAt
 
+  // FASE 1 (§3.3) - additive felter til den nye Lead/Order-model.
+  // leadId er nullable indtil migreringsscriptet har koert (og indtil
+  // Fase 3, hvor nye ordrer foerst begynder at faa en reel Lead).
+  stage               OrderStage @default(KOE)
+  leadId              String?    @unique
+  lead                Lead?      @relation(fields: [leadId], references: [id])
+  estReadyDate        DateTime?
+  estReadyWeekLabel   String?
+  promisedInstallDate DateTime?
+  readyAt             DateTime?
+  installedAt         DateTime?
+  paymentStatus       String     @default("IKKE_SENDT") // IKKE_SENDT | SENDT | BETALT
+  paidAt              DateTime?
+  reviewLinkSentAt    DateTime?
+  reviewReceived      Boolean    @default(false)
+  // Ikke i spec'ens §3.3-model, men noedvendig for at kunne bevare
+  // ANNULLERET-historik uden datatab naar OrderStatus paa sigt fjernes
+  // (se §7 punkt 5 - "brug dit skoen her, men dokumentér valget").
+  cancelledAt         DateTime?
+  appointments        Appointment[]
+
   @@index([status])
+  @@index([stage])
   @@index([createdAt])
 }
 
@@ -152,6 +259,25 @@ model OrderCounter {
   count Int @default(0)
 }
 
+// FASE 1 (§3.5): nye kalenderfelter tilfoejet additivt ved siden af de
+// eksisterende (day/time/customer/phone/address/note), som stadig er
+// dem randevuAl() i ImalatCalc.tsx bruger indtil Fase 5. De nye felter
+// er alle nullable, saa eksisterende raekker forbliver gyldige.
+enum AppointmentType {
+  MAALING
+  INSTALLATION
+}
+
+enum AppointmentStatus {
+  TENTATIVE
+  CONFIRMED
+}
+
+enum Resource {
+  BUILDER
+  INSTALLER
+}
+
 model Appointment {
   id        String   @id @default(cuid())
   day       String   // "2026-05-12"
@@ -162,5 +288,15 @@ model Appointment {
   note      String   @default("")
   createdAt DateTime @default(now())
 
+  // FASE 1 - nye felter, ubrugte af eksisterende kode indtil Fase 5.
+  type      AppointmentType?
+  status    AppointmentStatus?
+  resource  Resource?
+  leadId    String?
+  lead      Lead?    @relation(fields: [leadId], references: [id])
+  orderId   String?
+  order     Order?   @relation(fields: [orderId], references: [id])
+
   @@index([day])
+  @@index([day, resource])
 }
