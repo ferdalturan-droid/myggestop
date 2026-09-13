@@ -97,6 +97,9 @@ export default function ImalatCalc() {
   const [colors, setColors] = useState<{ id: string; name: string; surchargePerSqm: number; isStandard: boolean }[]>([]);
   const ratesLoadedRef = useRef(false);
   const gardinRateLoadedRef = useRef(false);
+  const autoSaveTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+  const savedLoadedRef = useRef(false);
+  const [autoMsg, setAutoMsg] = useState<string | null>(null);
 
   useEffect(() => {
     try {
@@ -176,6 +179,7 @@ export default function ImalatCalc() {
         const clean = cleanSaved(d.items);
         setSaved(clean);
         if (clean.length !== d.items.length) gemPaaServer(clean);
+        savedLoadedRef.current = true;
         return;
       }
     } catch {}
@@ -192,11 +196,38 @@ export default function ImalatCalc() {
       if (merged.length > 0) gemPaaServer(merged);
     } catch {
       try { setSaved(JSON.parse(localStorage.getItem("imalat_saved_unified") || "[]")); } catch {}
+    } finally {
+      savedLoadedRef.current = true;
     }
   }
 
   const rabat = Math.max(0, parseInt(rabatInput) || 0);
   useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat]);
+
+  // Autogemmer stille i baggrunden (fx når "Færdig" markeres), saa man ikke er tvunget til at
+  // trykke "Gem" for at ændringen overlever et sidesskift. Opretter/opdaterer kun linjen i
+  // "Gemte ordrer"-listen — den rigtige Ordre (Ordrer-siden) oprettes stadig kun via "Gem".
+  useEffect(() => {
+    if (!musteri.trim()) return;
+    if (!savedLoadedRef.current) return; // vent til den rigtige liste er hentet fra serveren, saa vi ikke overskriver den med et ufuldstændigt udkast
+    if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current);
+    autoSaveTimer.current = setTimeout(() => {
+      setRecId((curRecId) => {
+        const id = curRecId ?? Date.now();
+        const rec = { id, musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId, orderNumber, sourceOrderId, monteringOn, rabat };
+        setSaved((prevSaved) => {
+          const exists = prevSaved.some((s) => s.id === id);
+          const next = exists ? prevSaved.map((s) => (s.id === id ? rec : s)) : [rec, ...prevSaved].slice(0, 50);
+          gemPaaServer(next);
+          return next;
+        });
+        return id;
+      });
+      setAutoMsg("Ændringer gemt automatisk ✓"); setTimeout(() => setAutoMsg(null), 1800);
+    }, 600);
+    return () => { if (autoSaveTimer.current) clearTimeout(autoSaveTimer.current); };
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [rows, doneKeys]);
   useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
   useEffect(() => {
     localStorage.setItem("imalat_rates", JSON.stringify(rates));
@@ -419,6 +450,7 @@ export default function ImalatCalc() {
         )}
       </div>
       {msg && <div className="mb-1 text-sm font-medium text-brand-greendark">{msg}</div>}
+      {autoMsg && <div className="mb-1 text-xs text-brand-ink2/45">{autoMsg}</div>}
       {orderMsg && <div className="mb-3 text-sm font-medium text-brand-bluedark">{orderMsg}</div>}
       {sourceOrderId && <div className="mb-3 text-xs text-brand-ink2/55">Denne beregning er hentet fra en eksisterende ordre — opdaterer ikke Ordrer-siden.</div>}
 
