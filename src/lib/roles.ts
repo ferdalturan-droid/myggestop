@@ -9,7 +9,7 @@ const BUILDER_PREFIXES = ["/admin/imalat", "/admin/faerdig", "/admin/afsluttede"
 
 // INSTALLER: samme som Builder (§4: "giv ham noejagtig samme adgang som
 // Builder"), plus opmaalings- og installationslisten.
-const INSTALLER_PREFIXES = [...BUILDER_PREFIXES, "/admin/opmaaling", "/admin/installation"];
+const INSTALLER_PREFIXES = [...BUILDER_PREFIXES, "/admin/opmaaling", "/admin/installation", "/admin/kalender"];
 
 function matches(pathname: string, prefixes: string[]): boolean {
   return prefixes.some((p) => pathname === p || pathname.startsWith(p + "/"));

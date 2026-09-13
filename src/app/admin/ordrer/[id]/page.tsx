@@ -5,13 +5,14 @@ import { formatDKK } from "@/lib/pricing";
 import { ORDER_STATUS_LABELS } from "@/lib/types";
 import OrderStatusControl from "@/components/admin/OrderStatusControl";
 import OrderStageControl from "@/components/admin/OrderStageControl";
+import OrderInstallAppointment from "@/components/admin/OrderInstallAppointment";
 import ImalatImportButton from "@/components/admin/ImalatImportButton";
 import OrderDeleteButton from "@/components/admin/OrderDeleteButton";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderDetail({ params }: { params: { id: string } }) {
-  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true } });
+  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true, appointments: true } });
   if (!order) notFound();
 
   return (
@@ -30,7 +31,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             tel={order.phone}
             adres={`${order.address}, ${order.postalCode} ${order.city}`}
             orderId={order.id}
-            items={order.items.map((it) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
+            items={order.items.map((it: any) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
           />
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
           <Link href={`/admin/ordrer/${order.id}/rediger`} className="btn-secondary py-2.5 text-sm">Rediger</Link>
@@ -43,7 +44,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
           <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
             <h2 className="mb-4 font-bold text-brand-ink">Produkter</h2>
             <div className="space-y-3">
-              {order.items.map((it) => (
+              {order.items.map((it: any) => (
                 <div key={it.id} className="rounded-xl border border-brand-line p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-brand-ink">{it.roomName || "—"} · {it.productName}{it.isDoubleDoor ? " (Dobbeltdør)" : ""}</span>
@@ -69,6 +70,10 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               <p className="text-sm text-brand-ink2/80">{order.note}</p>
             </div>
           )}
+          <OrderInstallAppointment
+            orderId={order.id}
+            existing={order.appointments.filter((a: any) => a.type === "INSTALLATION").map((a: any) => ({ day: a.day, time: a.time, status: a.status || "TENTATIVE" }))}
+          />
         </div>
 
         <div className="space-y-6">

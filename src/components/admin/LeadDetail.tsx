@@ -11,6 +11,8 @@ export default function LeadDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState("");
   const [newM, setNewM] = useState({ roomName: "", productType: "", colorName: "", comment: "" });
+  const [appt, setAppt] = useState({ day: "", time: "" });
+  const [apptMsg, setApptMsg] = useState<string | null>(null);
 
   async function load() {
     setLoading(true);
@@ -50,6 +52,17 @@ export default function LeadDetail({ id }: { id: string }) {
   }
   async function sletMaal(measurementId: string) {
     await fetch(`/api/leads/${id}/measurements/${measurementId}`, { method: "DELETE" });
+    load();
+  }
+
+  async function bookOpmaaling(e: React.FormEvent) {
+    e.preventDefault();
+    setApptMsg(null);
+    const res = await fetch(`/api/leads/${id}/measure-appointment`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(appt) });
+    const d = await res.json();
+    if (!res.ok) { setApptMsg(`⚠ ${d.error}`); return; }
+    setApptMsg("Opmåling booket ✓");
+    setAppt({ day: "", time: "" });
     load();
   }
 
@@ -125,6 +138,20 @@ export default function LeadDetail({ id }: { id: string }) {
             )}
           </div>
         </div>
+      </div>
+
+      {/* Opmålingsaftale */}
+      <div className="mb-6 rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
+        <h2 className="font-bold text-brand-ink">Opmålingsaftale</h2>
+        {(lead.appointments || []).filter((a: any) => a.type === "MAALING").map((a: any) => (
+          <p key={a.id} className="mt-2 text-sm text-brand-ink2/80">{a.day} kl. {a.time} — {a.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</p>
+        ))}
+        <form onSubmit={bookOpmaaling} className="mt-3 flex flex-wrap items-end gap-3">
+          <label className="block"><span className="label">Dato</span><input type="date" className="input py-2 text-sm" required value={appt.day} onChange={(e) => setAppt({ ...appt, day: e.target.value })} /></label>
+          <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" required value={appt.time} onChange={(e) => setAppt({ ...appt, time: e.target.value })} /></label>
+          <button className="btn-primary py-2.5 text-sm">Book opmåling</button>
+        </form>
+        {apptMsg && <p className="mt-2 text-sm font-medium text-brand-ink2/80">{apptMsg}</p>}
       </div>
 
       {/* Måletagning */}
