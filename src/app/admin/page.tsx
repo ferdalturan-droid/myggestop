@@ -1,16 +1,21 @@
 import Link from "next/link";
 import { prisma } from "@/lib/prisma";
 import { formatDKK } from "@/lib/pricing";
-import { ORDER_STATUS_LABELS } from "@/lib/types";
+import { deriveOrderStageLabel } from "@/lib/orderStage";
 
 export const dynamic = "force-dynamic";
 
 export default async function AdminDashboard() {
-  const [total, ny, behandling, afsluttet, recent, sum, nyeLeads] = await Promise.all([
+  // RUNDE 2 (§12.1): KPI-kortene talte tidligere efter den gamle, frie
+  // OrderStatus (NY/UNDER_BEHANDLING/AFSLUTTET) - et felt der reelt ikke
+  // afspejler produktionspipelinen laengere (OrderStage gør). Tael derfor
+  // efter stage i stedet, saa tallene stemmer overens med Produktionskø/
+  // Installation/Ordrer-siderne.
+  const [total, ikoe, iProduktion, afsluttet, recent, sum, nyeLeads] = await Promise.all([
     prisma.order.count(),
-    prisma.order.count({ where: { status: "NY" } }),
-    prisma.order.count({ where: { status: "UNDER_BEHANDLING" } }),
-    prisma.order.count({ where: { status: "AFSLUTTET" } }),
+    prisma.order.count({ where: { stage: "KOE" } }),
+    prisma.order.count({ where: { stage: "I_PRODUKTION" } }),
+    prisma.order.count({ where: { stage: { in: ["BETALT", "ANMELDT"] } } }),
     prisma.order.findMany({ orderBy: { createdAt: "desc" }, take: 6, include: { items: true } }),
     prisma.order.aggregate({ _sum: { estimatedTotal: true } }),
     // FASE 3 (§10.6): siden webformularen nu opretter et Lead i stedet
@@ -21,9 +26,9 @@ export default async function AdminDashboard() {
 
   const stats = [
     { label: "Ordrer i alt", value: total },
-    { label: "Nye ordrer", value: ny },
-    { label: "Under behandling", value: behandling },
-    { label: "Afsluttede", value: afsluttet }
+    { label: "I kø", value: ikoe },
+    { label: "I produktion", value: iProduktion },
+    { label: "Betalt & anmeldt", value: afsluttet }
   ];
 
   return (
@@ -80,7 +85,7 @@ export default async function AdminDashboard() {
               </div>
               <div className="text-right">
                 <p className="font-bold text-brand-ink">{formatDKK(o.estimatedTotal)}</p>
-                <p className="text-xs text-brand-ink2/60">{ORDER_STATUS_LABELS[o.status]}</p>
+                <p className="text-xs text-brand-ink2/60">{deriveOrderStageLabel({ stage: o.stage, readyAt: o.readyAt, installedAt: o.installedAt })}</p>
               </div>
             </Link>
           ))}

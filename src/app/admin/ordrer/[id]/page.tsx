@@ -3,9 +3,7 @@ import { notFound } from "next/navigation";
 import { prisma } from "@/lib/prisma";
 import { getSession } from "@/lib/auth";
 import { formatDKK } from "@/lib/pricing";
-import { ORDER_STATUS_LABELS } from "@/lib/types";
 import { deriveOrderStageLabel } from "@/lib/orderStage";
-import OrderStatusControl from "@/components/admin/OrderStatusControl";
 import OrderStageControl from "@/components/admin/OrderStageControl";
 import OrderInstallAppointment from "@/components/admin/OrderInstallAppointment";
 import ImalatImportButton from "@/components/admin/ImalatImportButton";
@@ -29,6 +27,11 @@ export default async function OrderDetail({ params }: { params: { id: string } }
   // only paa API-niveau, jf. /api/orders/[id] DELETE) - vis derfor kun
   // knappen naar den reelt vil virke.
   const canDelete = session?.role === "COORDINATOR";
+  // RUNDE 2 (§12.1): den gamle, frie OrderStatus (Ny/Under behandling/...)
+  // er fjernet fra denne side - OrderStage (afledt her) er nu den eneste
+  // status en ordre viser, saa der ikke findes to statusfelter der kan
+  // sige to forskellige ting om samme ordre.
+  const stageLabel = deriveOrderStageLabel({ stage: order.stage, readyAt: order.readyAt ? order.readyAt.toISOString() : null, installedAt: order.installedAt ? order.installedAt.toISOString() : null });
 
   return (
     <div>
@@ -37,7 +40,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
         <div>
           <h1 className="text-2xl font-extrabold text-brand-ink">{order.orderNumber}</h1>
           <p className="text-sm text-brand-ink2/60">
-            Oprettet {new Date(order.createdAt).toLocaleString("da-DK")} · Status: {ORDER_STATUS_LABELS[order.status]}
+            Oprettet {new Date(order.createdAt).toLocaleString("da-DK")} · {stageLabel}
           </p>
         </div>
         <div className="flex gap-2">
@@ -111,29 +114,22 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             </dl>
           </div>
           {canEdit ? (
-            <>
-              <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
-                <OrderStatusControl orderId={order.id} current={order.status} />
-              </div>
-              <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
-                <OrderStageControl
-                  orderId={order.id}
-                  stage={order.stage}
-                  readyAt={order.readyAt ? order.readyAt.toISOString() : null}
-                  installedAt={order.installedAt ? order.installedAt.toISOString() : null}
-                />
-              </div>
-            </>
+            <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
+              <OrderStageControl
+                orderId={order.id}
+                stage={order.stage}
+                readyAt={order.readyAt ? order.readyAt.toISOString() : null}
+                installedAt={order.installedAt ? order.installedAt.toISOString() : null}
+              />
+            </div>
           ) : (
             // Builder: read-only status-spejl, ingen knapper - han saetter
             // "Klar" fra sin egen Produktionskø-side (§11.1/processen), ikke
-            // her. Se dog med det samme praecis samme udledte stadie som
-            // Coordinator/Installer ser, saa der ikke opstaar tvivl.
+            // her. Stadiet staar allerede i headeren ovenfor, men gentages
+            // her tydeligt i samme layout Coordinator/Installer ser.
             <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
               <p className="mb-1 text-sm font-medium text-brand-ink2">Produktionsstadie</p>
-              <p className="text-base font-bold text-brand-ink">
-                {deriveOrderStageLabel({ stage: order.stage, readyAt: order.readyAt ? order.readyAt.toISOString() : null, installedAt: order.installedAt ? order.installedAt.toISOString() : null })}
-              </p>
+              <p className="text-base font-bold text-brand-ink">{stageLabel}</p>
             </div>
           )}
         </div>

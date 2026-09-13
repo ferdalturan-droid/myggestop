@@ -2,33 +2,37 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatDKK } from "@/lib/pricing";
-import { ORDER_STATUS_LABELS, ORDER_STATUS_ORDER } from "@/lib/types";
+import { ORDER_STAGE_LABELS, deriveOrderStageLabel } from "@/lib/orderStage";
 
-const STATUS_COLOR: Record<string, string> = {
-  NY: "bg-blue-100 text-blue-700",
-  UNDER_BEHANDLING: "bg-amber-100 text-amber-700",
-  TILBUD_SENDT: "bg-violet-100 text-violet-700",
-  AFVENTER_KUNDE: "bg-orange-100 text-orange-700",
-  AFSLUTTET: "bg-green-100 text-green-700",
-  ANNULLERET: "bg-red-100 text-red-700"
+// RUNDE 2 (§12.1): filter/farver bygger nu paa den reelle produktions-
+// pipeline (OrderStage + readyAt/installedAt), ikke den gamle frie
+// OrderStatus, som ikke laengere afspejler hvor en ordre reelt er.
+const STAGE_ORDER = ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"] as const;
+const STAGE_COLOR: Record<string, string> = {
+  "I kø": "bg-blue-100 text-blue-700",
+  "I produktion": "bg-amber-100 text-amber-700",
+  Klar: "bg-violet-100 text-violet-700",
+  Installeret: "bg-teal-100 text-teal-700",
+  Betalt: "bg-green-100 text-green-700",
+  Anmeldt: "bg-green-100 text-green-700"
 };
 
 export default function OrdersTable() {
   const [orders, setOrders] = useState<any[]>([]);
   const [q, setQ] = useState("");
-  const [status, setStatus] = useState("");
+  const [stage, setStage] = useState("");
   const [loading, setLoading] = useState(true);
 
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (q) params.set("q", q);
-    if (status) params.set("status", status);
+    if (stage) params.set("stage", stage);
     const res = await fetch("/api/orders?" + params.toString());
     const d = await res.json();
     setOrders(d.orders || []);
     setLoading(false);
-  }, [q, status]);
+  }, [q, stage]);
 
   useEffect(() => {
     const t = setTimeout(load, 250);
@@ -43,7 +47,7 @@ export default function OrdersTable() {
   }
 
   function exportCsv() {
-    const headers = ["Ordrenr", "Dato", "Navn", "Email", "Telefon", "By", "Postnr", "Montering", "Status", "Estimeret total"];
+    const headers = ["Ordrenr", "Dato", "Navn", "Email", "Telefon", "By", "Postnr", "Montering", "Produktionsstadie", "Estimeret total"];
     const rows = orders.map((o) => [
       o.orderNumber,
       new Date(o.createdAt).toLocaleDateString("da-DK"),
@@ -53,7 +57,7 @@ export default function OrdersTable() {
       o.city,
       o.postalCode,
       o.wantsInstallation ? "Ja" : "Nej",
-      ORDER_STATUS_LABELS[o.status],
+      deriveOrderStageLabel({ stage: o.stage, readyAt: o.readyAt, installedAt: o.installedAt }),
       String(o.estimatedTotal).replace(".", ",")
     ]);
     const csv = [headers, ...rows].map((r) => r.map((c) => `"${String(c).replace(/"/g, '""')}"`).join(";")).join("\n");
@@ -75,10 +79,10 @@ export default function OrdersTable() {
           value={q}
           onChange={(e) => setQ(e.target.value)}
         />
-        <select className="input max-w-[200px]" value={status} onChange={(e) => setStatus(e.target.value)}>
-          <option value="">Alle statusser</option>
-          {ORDER_STATUS_ORDER.map((s) => (
-            <option key={s} value={s}>{ORDER_STATUS_LABELS[s]}</option>
+        <select className="input max-w-[200px]" value={stage} onChange={(e) => setStage(e.target.value)}>
+          <option value="">Alle stadier</option>
+          {STAGE_ORDER.map((s) => (
+            <option key={s} value={s}>{ORDER_STAGE_LABELS[s]}</option>
           ))}
         </select>
         <button onClick={exportCsv} className="btn-ghost ml-auto py-2.5 text-sm">Eksporter CSV</button>
@@ -94,7 +98,7 @@ export default function OrdersTable() {
                 <th className="px-4 py-3">By</th>
                 <th className="px-4 py-3">Produkter</th>
                 <th className="px-4 py-3">Total</th>
-                <th className="px-4 py-3">Status</th>
+                <th className="px-4 py-3">Produktionsstadie</th>
                 <th className="px-4 py-3"></th>
               </tr>
             </thead>
@@ -114,7 +118,12 @@ export default function OrdersTable() {
                     <td className="px-4 py-3">{o.city}</td>
                     <td className="px-4 py-3">{o.items.length}</td>
                     <td className="px-4 py-3 font-semibold">{formatDKK(o.estimatedTotal)}</td>
-                    <td className="px-4 py-3"><span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STATUS_COLOR[o.status]}`}>{ORDER_STATUS_LABELS[o.status]}</span></td>
+                    <td className="px-4 py-3">
+                      {(() => {
+                        const label = deriveOrderStageLabel({ stage: o.stage, readyAt: o.readyAt, installedAt: o.installedAt });
+                        return <span className={`rounded-full px-2.5 py-1 text-xs font-semibold ${STAGE_COLOR[label] || "bg-brand-mist text-brand-ink2"}`}>{label}</span>;
+                      })()}
+                    </td>
                     <td className="px-4 py-3 text-right">
                       <div className="flex items-center justify-end gap-3">
                         <Link href={`/admin/ordrer/${o.id}`} className="text-sm font-semibold text-brand-blue hover:underline">Åbn</Link>

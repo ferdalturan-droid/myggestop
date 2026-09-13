@@ -188,9 +188,11 @@ export async function GET(req: NextRequest) {
   if (!auth.ok) return auth.response;
   const { searchParams } = new URL(req.url);
   const q = searchParams.get("q")?.trim();
-  const status = searchParams.get("status")?.trim();
+  // RUNDE 2 (§12.1): filtreres nu paa den reelle produktionspipeline
+  // (OrderStage), ikke den gamle frie OrderStatus.
+  const stage = searchParams.get("stage")?.trim();
   const where: any = {};
-  if (status) where.status = status;
+  if (stage) where.stage = stage;
   if (q) {
     where.OR = [
       { orderNumber: { contains: q, mode: "insensitive" } },
