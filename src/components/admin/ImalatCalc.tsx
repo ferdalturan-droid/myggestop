@@ -298,6 +298,7 @@ export default function ImalatCalc() {
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); if (recId === id) setRecId(null); }
+  function afslut(id: number) { const n = saved.map((s) => (s.id === id ? { ...s, finished: true } : s)); setSaved(n); gemPaaServer(n); }
   function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setOrderNumber(null); setRecId(null); setSourceOrderId(null); setOrderMsg(null); setOpenDoneUids([]); } }
 
   async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
@@ -515,16 +516,24 @@ export default function ImalatCalc() {
         </div>
       )}
 
-      {saved.length > 0 && (
-        <div className="mt-8"><h2 className="mb-3 text-lg font-bold text-brand-ink">Gemte ordrer</h2>
-          <div className="space-y-2">{saved.map((s) => (
-            <div key={s.id} className={`flex items-center justify-between rounded-xl border px-4 py-2.5 text-sm ${recId === s.id ? "border-brand-greendark bg-green-50/40" : "border-brand-line bg-white"}`}>
+      {saved.filter((s) => !s.finished).length > 0 && (
+        <div className="mt-8">
+          <div className="mb-3 flex items-center justify-between">
+            <h2 className="text-lg font-bold text-brand-ink">Gemte ordrer</h2>
+            <a href="/admin/afsluttede" className="text-sm font-medium text-brand-ink2/60 hover:underline">Se afsluttede ordrer →</a>
+          </div>
+          <div className="space-y-2">{saved.filter((s) => !s.finished).map((s) => (
+            <div key={s.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-xl border px-4 py-2.5 text-sm ${recId === s.id ? "border-brand-greendark bg-green-50/40" : "border-brand-line bg-white"}`}>
               <div>
                 <span className="font-semibold text-brand-ink">{s.musteri}</span>
                 {s.orderNumber && <span className="ml-2 rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">Ordre #{s.orderNumber}</span>}
                 <span className="text-brand-ink2/55"> · {s.rows.length} linjer · {s.date}</span>
               </div>
-              <div className="flex gap-3"><button onClick={() => yukle(s)} className="font-medium text-brand-greendark hover:underline">Åbn</button><button onClick={() => sil(s.id)} className="text-red-400 hover:text-red-600">Slet</button></div>
+              <div className="flex gap-3">
+                <button onClick={() => afslut(s.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Afslut</button>
+                <button onClick={() => yukle(s)} className="font-medium text-brand-greendark hover:underline">Åbn</button>
+                <button onClick={() => sil(s.id)} className="text-red-400 hover:text-red-600">Slet</button>
+              </div>
             </div>))}
           </div>
         </div>

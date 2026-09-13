@@ -8,6 +8,7 @@ const LINKS = [
   { href: "/admin/ordrer", label: "Ordrer" },
   { href: "/admin/imalat", label: "Produktionsberegner" },
   { href: "/admin/faerdig", label: "Færdig" },
+  { href: "/admin/afsluttede", label: "Afsluttede ordrer" },
   { href: "/admin/produkter", label: "Produkter" },
   { href: "/admin/priser", label: "Priser & gebyrer" },
   { href: "/admin/farver", label: "Farver" },
