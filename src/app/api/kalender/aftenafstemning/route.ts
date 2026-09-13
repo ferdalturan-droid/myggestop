@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
+import { harReelMaaling } from "@/lib/leadStatus";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -28,7 +29,7 @@ export async function POST() {
 
   const kandidater = await prisma.appointment.findMany({
     where: { status: "TENTATIVE", day: imorgen, type: { not: null } },
-    include: { lead: true, order: true }
+    include: { lead: { include: { measurements: true } }, order: true }
   });
 
   const resultat: { id: string; type: string; customer: string; udfald: "CONFIRMED" | "FLYTTET"; nyDag?: string }[] = [];
@@ -36,8 +37,11 @@ export async function POST() {
 
   for (const a of kandidater) {
     let faktumSandt = false;
+    // §6.4: kendsgerningen for MAALING er at der reelt er taget maal
+    // (mindst een linje med baade width/height) - IKKE at aftalen blot er
+    // booket, som altid ville vaere sandt (jf. leadStatus.ts §3.2-moenster).
     if (a.type === "INSTALLATION") faktumSandt = !!a.order?.readyAt;
-    else if (a.type === "MAALING") faktumSandt = !!a.lead && a.lead.stage === "OPMAALING_BOOKET";
+    else if (a.type === "MAALING") faktumSandt = !!a.lead && harReelMaaling(a.lead.measurements);
 
     if (faktumSandt) {
       await prisma.appointment.update({ where: { id: a.id }, data: { status: "CONFIRMED" } });
