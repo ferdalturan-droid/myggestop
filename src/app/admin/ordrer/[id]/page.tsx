@@ -4,6 +4,7 @@ import { prisma } from "@/lib/prisma";
 import { formatDKK } from "@/lib/pricing";
 import { ORDER_STATUS_LABELS } from "@/lib/types";
 import OrderStatusControl from "@/components/admin/OrderStatusControl";
+import OrderStageControl from "@/components/admin/OrderStageControl";
 import ImalatImportButton from "@/components/admin/ImalatImportButton";
 import OrderDeleteButton from "@/components/admin/OrderDeleteButton";
 
@@ -83,6 +84,14 @@ export default async function OrderDetail({ params }: { params: { id: string } }
           </div>
           <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
             <OrderStatusControl orderId={order.id} current={order.status} />
+          </div>
+          <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
+            <OrderStageControl
+              orderId={order.id}
+              stage={order.stage}
+              readyAt={order.readyAt ? order.readyAt.toISOString() : null}
+              installedAt={order.installedAt ? order.installedAt.toISOString() : null}
+            />
           </div>
         </div>
       </div>

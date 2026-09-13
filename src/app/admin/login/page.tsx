@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter, useSearchParams } from "next/navigation";
+import { defaultHomeForRole } from "@/lib/roles";
 
 export default function AdminLogin() {
   const router = useRouter();
@@ -22,10 +23,9 @@ export default function AdminLogin() {
       });
       const d = await res.json();
       if (!res.ok) throw new Error(d.error || "Login fejlede");
-      // FASE 2: send Builder/Installer direkte til deres egen startside
-      // i stedet for at lade middleware bounce dem vaek fra /admin.
-      const rolleHjem = d.role === "BUILDER" || d.role === "INSTALLER" ? "/admin/imalat" : "/admin";
-      router.push(params.get("next") || rolleHjem);
+      // FASE 2: send hver rolle direkte til sin egen startside i stedet
+      // for at lade middleware bounce dem vaek fra /admin.
+      router.push(params.get("next") || defaultHomeForRole(d.role));
       router.refresh();
     } catch (err: any) {
       setError(err.message);

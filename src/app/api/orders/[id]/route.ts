@@ -23,6 +23,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   const data: any = {};
   if (body.status && ORDER_STATUS_ORDER.includes(body.status)) data.status = body.status;
+  // FASE 4 (§3.3/§6.5): produktionsstadie - separat fra den gamle status.
+  if (body.stage && ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"].includes(body.stage)) data.stage = body.stage;
   for (const f of ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "note"] as const) {
     if (typeof body[f] === "string") data[f] = body[f];
   }

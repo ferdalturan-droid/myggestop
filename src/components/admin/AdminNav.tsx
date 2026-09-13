@@ -8,7 +8,10 @@ import type { Role } from "@prisma/client";
 const LINKS = [
   { href: "/admin", label: "Oversigt" },
   { href: "/admin/leads", label: "Leads" },
+  { href: "/admin/opmaaling", label: "Opmåling" },
   { href: "/admin/ordrer", label: "Ordrer" },
+  { href: "/admin/produktion", label: "Produktionskø" },
+  { href: "/admin/installation", label: "Installation" },
   { href: "/admin/imalat", label: "Produktionsberegner" },
   { href: "/admin/faerdig", label: "Færdig" },
   { href: "/admin/afsluttede", label: "Afsluttede ordrer" },
