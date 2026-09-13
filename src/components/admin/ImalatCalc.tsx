@@ -91,6 +91,9 @@ export default function ImalatCalc() {
   const [sourceOrderId, setSourceOrderId] = useState<string | null>(null);
   const [orderMsg, setOrderMsg] = useState<string | null>(null);
   const [showListe, setShowListe] = useState(false);
+  const [monteringOn, setMonteringOn] = useState(false);
+  const [showRabat, setShowRabat] = useState(false);
+  const [rabatInput, setRabatInput] = useState("");
   const [colors, setColors] = useState<{ id: string; name: string; surchargePerSqm: number; isStandard: boolean }[]>([]);
   const ratesLoadedRef = useRef(false);
   const gardinRateLoadedRef = useRef(false);
@@ -106,6 +109,7 @@ export default function ImalatCalc() {
         setRows(openRec.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
         setDoneKeys(openRec.doneKeys || []);
         setOrderId(openRec.orderId || null); setOrderNumber(openRec.orderNumber || null); setRecId(openRec.id ?? null); setSourceOrderId(openRec.sourceOrderId || null);
+        setMonteringOn(!!openRec.monteringOn); setRabatInput(openRec.rabat ? String(openRec.rabat) : "");
         localStorage.removeItem("imalat_open_record");
       } else if (imp && imp.rows?.length) {
         setMusteri(imp.musteri || ""); setTel(imp.tel || ""); setAdres(imp.adres || "");
@@ -119,6 +123,7 @@ export default function ImalatCalc() {
           setRows(cur.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
           setDoneKeys(cur.doneKeys || []); setTarih(cur.tarih || ""); setSaat(cur.saat || "");
           setOrderId(cur.orderId || null); setOrderNumber(cur.orderNumber || null); setRecId(cur.recId || null); setSourceOrderId(cur.sourceOrderId || null);
+          setMonteringOn(!!cur.monteringOn); setRabatInput(cur.rabat ? String(cur.rabat) : "");
         }
       }
     } catch {}
@@ -190,7 +195,8 @@ export default function ImalatCalc() {
     }
   }
 
-  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId]);
+  const rabat = Math.max(0, parseInt(rabatInput) || 0);
+  useEffect(() => { localStorage.setItem("imalat_current", JSON.stringify({ musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat })); }, [musteri, tel, adres, rows, doneKeys, tarih, saat, orderId, orderNumber, recId, sourceOrderId, monteringOn, rabat]);
   useEffect(() => { fetch("/api/appointments", { cache: "no-store" }).then((r) => r.json()).then((d) => setAppts(d.items || [])).catch(() => {}); }, []);
   useEffect(() => {
     localStorage.setItem("imalat_rates", JSON.stringify(rates));
@@ -234,7 +240,18 @@ export default function ImalatCalc() {
     return { arr, counts };
   }, [rows]);
 
-  const totals = useMemo(() => { let ara = 0; for (const r of rows) { const p = priceOf(r); if (p) ara += p.price; } return { ara, moms: ara * 0.25, dahil: ara * 1.25 }; }, [rows, rates, gardinRate, colors]);
+  // Monteringsgebyr: 500 kr opstart + 100 kr pr. stk. (myggenet/gardin/kombi tælles ens).
+  const MONTERING_BASE = 500, MONTERING_PR_STK = 100;
+  const unitCount = useMemo(() => rows.reduce((s, r) => { const { en, boy, adet } = dims(r); return s + (en > 0 && boy > 0 ? adet : 0); }, 0), [rows]);
+  const monteringFee = monteringOn && unitCount > 0 ? MONTERING_BASE + MONTERING_PR_STK * unitCount : 0;
+
+  const totals = useMemo(() => {
+    let rowsSum = 0; for (const r of rows) { const p = priceOf(r); if (p) rowsSum += p.price; }
+    const ara = rowsSum + monteringFee;
+    const rabatVal = Math.min(rabat, ara);
+    const araEfter = ara - rabatVal;
+    return { ara, rabat: rabatVal, moms: araEfter * 0.25, dahil: araEfter * 1.25 };
+  }, [rows, rates, gardinRate, colors, monteringFee, rabat]);
 
   function gemPaaServer(n: any[]) { fetch("/api/imalat-records", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ type: "UNIFIED", items: n }) }).catch(() => {}); localStorage.setItem("imalat_saved_unified", JSON.stringify(n)); }
 
@@ -251,6 +268,8 @@ export default function ImalatCalc() {
       else if (r.tur === "KOMBI") { productName = "Myggenet & Plisser"; comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"} + Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`; }
       for (let n = 0; n < adet; n++) out.push({ productName, widthMm, heightMm, colorName: r.farve || "", comment, lineTotal: perUnit });
     }
+    if (monteringFee > 0) out.push({ productName: "Montering", widthMm: 0, heightMm: 0, colorName: "", comment: `${MONTERING_BASE} kr opstart + ${MONTERING_PR_STK} kr × ${unitCount} stk.`, lineTotal: monteringFee });
+    if (totals.rabat > 0) out.push({ productName: "Rabat", widthMm: 0, heightMm: 0, colorName: "", comment: "", lineTotal: -totals.rabat });
     return out;
   }
 
@@ -283,7 +302,7 @@ export default function ImalatCalc() {
     // Genbrug samme liste-id ved genåbning/gen-gem af et allerede gemt job, saa der ikke
     // oprettes en ekstra linje i "Gemte ordrer" hver gang der trykkes Gem.
     const id = recId ?? Date.now();
-    const rec = { id, musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId: resolved.orderId, orderNumber: resolved.orderNumber, sourceOrderId };
+    const rec = { id, musteri: musteri.trim(), tel, adres, date: new Date().toLocaleString("da-DK"), rows, doneKeys, orderId: resolved.orderId, orderNumber: resolved.orderNumber, sourceOrderId, monteringOn, rabat: totals.rabat };
     const next = recId != null ? saved.map((s) => (s.id === recId ? rec : s)) : [rec, ...saved].slice(0, 50);
     setSaved(next); gemPaaServer(next);
     setOrderId(resolved.orderId); setOrderNumber(resolved.orderNumber); setRecId(id);
@@ -294,12 +313,12 @@ export default function ImalatCalc() {
     setMusteri(rec.musteri || ""); setTel(rec.tel || ""); setAdres(rec.adres || "");
     setRows(rec.rows.map((r: any) => ({ ...blank(r.tur || "SINEKLIK"), ...r, uid: c++ })));
     setDoneKeys(rec.doneKeys || []); setOrderId(rec.orderId || null); setOrderNumber(rec.orderNumber || null); setRecId(rec.id ?? null); setSourceOrderId(rec.sourceOrderId || null);
-    setOpenDoneUids([]);
+    setOpenDoneUids([]); setMonteringOn(!!rec.monteringOn); setRabatInput(rec.rabat ? String(rec.rabat) : ""); setShowRabat(false);
     window.scrollTo({ top: 0, behavior: "smooth" });
   }
   function sil(id: number) { const n = saved.filter((s) => s.id !== id); setSaved(n); gemPaaServer(n); if (recId === id) setRecId(null); }
   function afslut(id: number) { const n = saved.map((s) => (s.id === id ? { ...s, finished: true } : s)); setSaved(n); gemPaaServer(n); }
-  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setOrderNumber(null); setRecId(null); setSourceOrderId(null); setOrderMsg(null); setOpenDoneUids([]); } }
+  function yeni() { if (confirm("Skal en ny tom side åbnes?")) { setMusteri(""); setTel(""); setAdres(""); setRows([blank(lastTur)]); setDoneKeys([]); setOrderId(null); setOrderNumber(null); setRecId(null); setSourceOrderId(null); setOrderMsg(null); setOpenDoneUids([]); setMonteringOn(false); setRabatInput(""); setShowRabat(false); } }
 
   async function loadAppts() { try { const r = await fetch("/api/appointments", { cache: "no-store" }); const d = await r.json(); setAppts(d.items || []); } catch {} }
   async function randevuAl() {
@@ -333,7 +352,7 @@ export default function ImalatCalc() {
     <div class="head"><div><div class="brand">NORD<span>ICA</span></div><div style="font-size:13px;color:#555">ARBEJDSSEDDEL</div></div>
     <div style="text-align:right;font-size:13px"><b>${musteri || "-"}</b><br>${tel || ""}<br>${adres || ""}<br>${new Date().toLocaleString("da-DK")}</div></div>
     <h2>Linjer & pris</h2><table><thead><tr><th>#</th><th>Type</th><th>Antal</th><th>Mål cm</th><th>Farve</th><th>m²</th><th>Pris</th></tr></thead><tbody>${wr}</tbody></table>
-    <table class="tot"><tr><td>Subtotal:</td><td style="text-align:right"><b>${kr(totals.ara)}</b></td></tr><tr><td>Moms 25%:</td><td style="text-align:right">${kr(totals.moms)}</td></tr><tr><td><b>Total i alt:</b></td><td style="text-align:right"><b>${kr(totals.dahil)}</b></td></tr></table>
+    <table class="tot"><tr><td>Subtotal:</td><td style="text-align:right"><b>${kr(totals.ara)}</b></td></tr>${monteringFee > 0 ? `<tr><td>Heraf montering:</td><td style="text-align:right">${kr(monteringFee)}</td></tr>` : ""}${totals.rabat > 0 ? `<tr><td>Rabat:</td><td style="text-align:right">−${kr(totals.rabat)}</td></tr>` : ""}<tr><td>Moms 25%:</td><td style="text-align:right">${kr(totals.moms)}</td></tr><tr><td><b>Total i alt:</b></td><td style="text-align:right"><b>${kr(totals.dahil)}</b></td></tr></table>
     <div style="clear:both"></div>
     <h2>Detaljer pr. linje</h2>
     ${winHtml}
@@ -478,15 +497,36 @@ export default function ImalatCalc() {
           );
         })}
       </div>
-      <div className="mt-3 flex gap-2">
+      <div className="mt-3 flex flex-wrap gap-2">
         <button onClick={add} className="btn-secondary flex-1 border-dashed py-2 text-sm">+ Tilføj linje</button>
+        <button
+          onClick={() => setMonteringOn((m) => !m)}
+          title={`${MONTERING_BASE} kr opstart + ${MONTERING_PR_STK} kr pr. stk.`}
+          className={`rounded-full border px-4 py-2 text-sm font-semibold transition ${monteringOn ? "border-brand-greendark bg-green-50 text-brand-greendark" : "border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}
+        >
+          {monteringOn ? `✓ Montering (${kr(monteringFee)})` : "+ Montering"}
+        </button>
       </div>
 
-      {totals.ara > 0 && (
-        <div className="mt-6 ml-auto max-w-xs rounded-xl border border-brand-line bg-white p-4 text-sm">
-          <div className="flex justify-between py-1"><span className="text-brand-ink2/70">Subtotal</span><span className="font-semibold text-brand-ink">{kr(totals.ara)}</span></div>
-          <div className="flex justify-between py-1"><span className="text-brand-ink2/70">Moms 25%</span><span className="text-brand-ink">{kr(totals.moms)}</span></div>
-          <div className="mt-1 flex justify-between border-t border-brand-line pt-2 text-base font-bold"><span>Total i alt</span><span className="text-brand-greendark">{kr(totals.dahil)}</span></div>
+      {(totals.ara > 0 || showRabat) && (
+        <div className="mt-6 ml-auto max-w-xs">
+          <div className="rounded-xl border border-brand-line bg-white p-4 text-sm">
+            <div className="flex justify-between py-1"><span className="text-brand-ink2/70">Subtotal</span><span className="font-semibold text-brand-ink">{kr(totals.ara)}</span></div>
+            {monteringFee > 0 && <div className="flex justify-between py-1"><span className="text-brand-ink2/70">— heraf montering</span><span className="text-brand-ink2/70">{kr(monteringFee)}</span></div>}
+            {totals.rabat > 0 && <div className="flex justify-between py-1"><span className="text-brand-ink2/70">Rabat</span><span className="font-semibold text-red-500">−{kr(totals.rabat)}</span></div>}
+            <div className="flex justify-between py-1"><span className="text-brand-ink2/70">Moms 25%</span><span className="text-brand-ink">{kr(totals.moms)}</span></div>
+            <div className="mt-1 flex justify-between border-t border-brand-line pt-2 text-base font-bold"><span>Total i alt</span><span className="text-brand-greendark">{kr(totals.dahil)}</span></div>
+          </div>
+          <div className="mt-1 text-right">
+            <button onClick={() => setShowRabat((s) => !s)} className="text-[11px] text-brand-ink2/30 hover:text-brand-ink2/60">Rabat</button>
+          </div>
+          {showRabat && (
+            <div className="mt-1 rounded-lg border border-dashed border-brand-line bg-brand-mist/30 p-3">
+              <label className="block"><span className="mb-1 block text-xs font-medium text-brand-ink2/60">Rabat (kr) — trækkes fra ved særaftale</span>
+                <input className="input py-1.5 text-sm" inputMode="numeric" value={rabatInput} onChange={(e) => setRabatInput(e.target.value.replace(/[^0-9]/g, ""))} placeholder="0" />
+              </label>
+            </div>
+          )}
         </div>
       )}
 
