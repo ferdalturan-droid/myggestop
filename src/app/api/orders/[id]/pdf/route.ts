@@ -7,8 +7,13 @@ import { requireRole } from "@/lib/requireAdmin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// RUNDE 5: PDF-download er en READ-only eksport af data rollen allerede
+// maa se paa selve ordre-siden (GET /api/orders/[id] er aabent for alle
+// tre roller) - der var ingen god grund til at begraense selve PDF'en til
+// KUN Coordinator. Bygger (ORDER_DETAIL_ONLY) og Installer havde begge
+// side-adgang til knappen, men fik et 403 naar de trykkede paa den.
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR"]);
+  const auth = await requireRole(["COORDINATOR", "INSTALLER", "BUILDER"]);
   if (!auth.ok) return auth.response;
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true } });
   if (!order) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });

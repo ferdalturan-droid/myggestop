@@ -4,7 +4,7 @@ import { APPT_TYPE_LABEL, APPT_TYPE_OPTIONS, APPT_TYPE_RESOURCE, RESOURCE_LABEL 
 
 const BLANK = {
   day: "", time: "", customer: "", phone: "", address: "", note: "",
-  type: "", status: "", leadId: "", orderId: "", linkLabel: ""
+  type: "", status: "", leadId: "", orderId: "", linkLabel: "", assignedUserId: ""
 };
 
 function iso(d: Date) { return d.toISOString().slice(0, 10); }
@@ -15,7 +15,7 @@ function iso(d: Date) { return d.toISOString().slice(0, 10); }
 // Ressourcen (Bygger/Installatør) udledes automatisk af opgavetypen -
 // intet separat valg, saa en Opmåling aldrig ved en fejl kan havne paa
 // Byggerens kalender.
-function AppointmentForm({ initial, onSubmit, onCancel, submitLabel }: { initial: any; onSubmit: (data: any) => Promise<void>; onCancel: () => void; submitLabel: string }) {
+function AppointmentForm({ initial, people, onSubmit, onCancel, submitLabel }: { initial: any; people: any[]; onSubmit: (data: any) => Promise<void>; onCancel: () => void; submitLabel: string }) {
   const [form, setForm] = useState({ ...BLANK, ...initial });
   const [q, setQ] = useState("");
   const [results, setResults] = useState<any[]>([]);
@@ -59,7 +59,7 @@ function AppointmentForm({ initial, onSubmit, onCancel, submitLabel }: { initial
     setSaving(true);
     try {
       // Ressourcen udledes af typen her ved gem - se APPT_TYPE_RESOURCE.
-      await onSubmit({ ...form, resource: form.type ? APPT_TYPE_RESOURCE[form.type] : null });
+      await onSubmit({ ...form, resource: form.type ? APPT_TYPE_RESOURCE[form.type] : null, assignedUserId: form.assignedUserId || null });
     } catch (err: any) {
       setError(err.message || "Kunne ikke gemme.");
     } finally {
@@ -71,14 +71,30 @@ function AppointmentForm({ initial, onSubmit, onCancel, submitLabel }: { initial
     <form onSubmit={submit} className="grid gap-3 rounded-xl2 border border-brand-line bg-white p-5 shadow-card sm:grid-cols-2">
       <div>
         <label className="label">Opgave</label>
-        <select className="input" value={form.type} onChange={(e) => setForm({ ...form, type: e.target.value })}>
+        <select className="input" value={form.type} onChange={(e) => {
+          const nyType = e.target.value;
+          const nyRessource = nyType ? APPT_TYPE_RESOURCE[nyType] : null;
+          const gammelPerson = people.find((p) => p.id === form.assignedUserId);
+          // Nulstil person-valget hvis den nye opgavetype kræver en anden
+          // rolle end den tidligere valgte person har.
+          setForm({ ...form, type: nyType, assignedUserId: nyRessource && gammelPerson?.role !== nyRessource ? "" : form.assignedUserId });
+        }}>
           <option value="">— Fri aftale (ingen opgavetype) —</option>
           {APPT_TYPE_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
         </select>
-        {form.type && APPT_TYPE_RESOURCE[form.type] && (
-          <p className="mt-1 text-xs text-brand-ink2/50">Lægges automatisk på {RESOURCE_LABEL[APPT_TYPE_RESOURCE[form.type]!]}s kalender.</p>
-        )}
       </div>
+      {/* RUNDE 5 (§"Installators (specifik person) kalender"): naar
+          opgavetypen kraever en Bygger/Installatør, SKAL en konkret,
+          navngiven person vaelges - "der er ikke et generelt 'bygger'". */}
+      {form.type && APPT_TYPE_RESOURCE[form.type] && (
+        <div>
+          <label className="label">{RESOURCE_LABEL[APPT_TYPE_RESOURCE[form.type]!]} (person) *</label>
+          <select className="input" required value={form.assignedUserId} onChange={(e) => setForm({ ...form, assignedUserId: e.target.value })}>
+            <option value="">— Vælg —</option>
+            {people.filter((p) => p.role === APPT_TYPE_RESOURCE[form.type]).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
+        </div>
+      )}
       <div>
         <label className="label">Kobl til lead/ordre (valgfrit, auto-udfylder kunde/tlf./adresse)</label>
         {form.linkLabel ? (
@@ -154,6 +170,11 @@ export default function KalenderList({ role }: { role: string }) {
   // fladliste (§"kalender skal vise schedule for i dag").
   const [range, setRange] = useState<"today" | "tomorrow" | "week" | "all">("today");
   const [resourceTab, setResourceTab] = useState<"" | "BUILDER" | "INSTALLER">("");
+  // RUNDE 5 (§"der er ikke et generelt 'bygger', hvis der er flere end 1
+  // skal de vises separat da alle har deres egne kalender"): Coordinator
+  // kan yderligere filtrere ned til én konkret navngiven person.
+  const [personTab, setPersonTab] = useState<string>("");
+  const [people, setPeople] = useState<any[]>([]);
 
   async function load() {
     setLoading(true);
@@ -165,6 +186,13 @@ export default function KalenderList({ role }: { role: string }) {
     setLoading(false);
   }
   useEffect(() => { load(); }, []);
+  useEffect(() => {
+    if (!isCoordinator) return;
+    fetch("/api/admin-users", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => setPeople((d.users || []).filter((u: any) => u.role === "BUILDER" || u.role === "INSTALLER")))
+      .catch(() => {});
+  }, [isCoordinator]);
 
   const { today, tomorrow, weekEnd } = useMemo(() => {
     const now = new Date();
@@ -175,6 +203,7 @@ export default function KalenderList({ role }: { role: string }) {
 
   const filtered = items
     .filter((a) => !resourceTab || a.resource === resourceTab)
+    .filter((a) => !personTab || a.assignedUserId === personTab)
     .filter((a) => {
       if (range === "today") return a.day === today;
       if (range === "tomorrow") return a.day === tomorrow;
@@ -294,9 +323,18 @@ export default function KalenderList({ role }: { role: string }) {
         {isCoordinator && (
           <div className="flex gap-1 rounded-full border border-brand-line bg-white p-1">
             {[{ key: "", label: "Alle" }, { key: "BUILDER", label: "Bygger" }, { key: "INSTALLER", label: "Installatør" }].map((t) => (
-              <button key={t.key} onClick={() => setResourceTab(t.key as any)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${resourceTab === t.key ? "bg-brand-ink text-white" : "text-brand-ink2 hover:bg-brand-mist"}`}>{t.label}</button>
+              <button key={t.key} onClick={() => { setResourceTab(t.key as any); setPersonTab(""); }} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${resourceTab === t.key ? "bg-brand-ink text-white" : "text-brand-ink2 hover:bg-brand-mist"}`}>{t.label}</button>
             ))}
           </div>
+        )}
+        {/* RUNDE 5: naar der er mere end 1 person i den valgte rolle, kan
+            Coordinator filtrere ned til en helt konkret navngiven person -
+            "der er ikke et generelt 'bygger'". */}
+        {isCoordinator && resourceTab && people.filter((p) => p.role === resourceTab).length > 1 && (
+          <select className="input w-auto py-1.5 text-xs" value={personTab} onChange={(e) => setPersonTab(e.target.value)}>
+            <option value="">Alle ({RESOURCE_LABEL[resourceTab]})</option>
+            {people.filter((p) => p.role === resourceTab).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
+          </select>
         )}
       </div>
 
@@ -304,7 +342,7 @@ export default function KalenderList({ role }: { role: string }) {
 
       {isCoordinator && showCreate && (
         <div className="mb-6">
-          <AppointmentForm initial={{}} submitLabel="Opret aftale" onCancel={() => setShowCreate(false)} onSubmit={opret} />
+          <AppointmentForm initial={{}} people={people} submitLabel="Opret aftale" onCancel={() => setShowCreate(false)} onSubmit={opret} />
         </div>
       )}
 
@@ -339,8 +377,10 @@ export default function KalenderList({ role }: { role: string }) {
                         day: a.day, time: a.time || "", customer: a.customer, phone: a.phone || "", address: a.address || "", note: a.note || "",
                         type: a.type || "", status: a.status || "",
                         leadId: a.leadId || "", orderId: a.orderId || "",
-                        linkLabel: a.lead ? a.lead.leadNumber : a.order ? a.order.orderNumber : ""
+                        linkLabel: a.lead ? a.lead.leadNumber : a.order ? a.order.orderNumber : "",
+                        assignedUserId: a.assignedUserId || ""
                       }}
+                      people={people}
                       submitLabel="Gem ændring"
                       onCancel={() => setEditingId(null)}
                       onSubmit={(data) => gemRedigering(a.id, data)}
@@ -352,6 +392,8 @@ export default function KalenderList({ role }: { role: string }) {
                       <span className="font-semibold text-brand-ink">{a.time ? `${a.time} · ` : ""}{a.customer}</span>
                       {a.type && <span className="ml-2 rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">{APPT_TYPE_LABEL[a.type] || a.type}</span>}
                       {a.status && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${a.status === "CONFIRMED" ? "bg-brand-green/15 text-brand-greendark" : "bg-amber-50 text-amber-700"}`}>{a.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</span>}
+                      {/* RUNDE 5: den konkrete navngivne person aftalen ligger hos - kun relevant for Coordinator at se (Bygger/Installatør ser jo allerede kun sine egne). */}
+                      {isCoordinator && a.assignedUser && <span className="ml-2 font-semibold text-brand-ink2/70">· {a.assignedUser.name}</span>}
                       {a.lead && <span className="ml-2 text-brand-ink2/55">{a.lead.leadNumber}</span>}
                       {a.order && <span className="ml-2 text-brand-ink2/55">{a.order.orderNumber}</span>}
                       {/* §"antal materialer der skal leveres" for opmåling/installering */}

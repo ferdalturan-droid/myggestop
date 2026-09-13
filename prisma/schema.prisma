@@ -31,6 +31,10 @@ model AdminUser {
   resetTokenExpiry DateTime?
   createdAt    DateTime @default(now())
   updatedAt    DateTime @updatedAt
+  // RUNDE 5: en navngiven Bygger/Installatør kan tildeles en konkret
+  // kalenderaftale ("der er ikke et generelt 'bygger', hvis der er flere
+  // end 1 skal de vises separat da alle har deres egne kalender").
+  appointments Appointment[] @relation("AssignedAppointments")
 }
 
 // FASE 1 (§3.2): Lead ligger foran Order. Al kunde-/kontaktdata for et
@@ -335,7 +339,15 @@ model Appointment {
   lead      Lead?    @relation(fields: [leadId], references: [id])
   orderId   String?
   order     Order?   @relation(fields: [orderId], references: [id])
+  // RUNDE 5 (§"Koordinator indsætter dette i Installators (specifik
+  // person) kalender"): den konkrete navngivne Bygger/Installatør aftalen
+  // er lagt hos - IKKE kun den generiske rolle (Resource). Nullable, saa
+  // ældre aftaler oprettet før dette felt fortsat er gyldige (de vises
+  // fortsat via resource-fallback, se /api/kalender).
+  assignedUserId String?
+  assignedUser   AdminUser? @relation("AssignedAppointments", fields: [assignedUserId], references: [id])
 
   @@index([day])
   @@index([day, resource])
+  @@index([assignedUserId])
 }

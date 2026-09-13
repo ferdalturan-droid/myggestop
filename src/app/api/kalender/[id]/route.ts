@@ -29,10 +29,28 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if ("leadId" in b) { data.leadId = b.leadId || null; if (b.leadId) data.orderId = null; }
   if ("orderId" in b) { data.orderId = b.orderId || null; if (b.orderId) data.leadId = null; }
 
+  // RUNDE 5: samme server-side validering som ved oprettelse - se
+  // /api/kalender POST for begrundelse.
+  if ("assignedUserId" in b) {
+    const assignedUserId = b.assignedUserId ? String(b.assignedUserId) : null;
+    if (assignedUserId) {
+      const person = await prisma.adminUser.findUnique({ where: { id: assignedUserId } });
+      if (!person) return NextResponse.json({ error: "Den valgte person findes ikke." }, { status: 400 });
+      if (person.role !== "BUILDER" && person.role !== "INSTALLER") {
+        return NextResponse.json({ error: "Aftaler kan kun tildeles en Bygger eller Installatør." }, { status: 400 });
+      }
+      const resourceEfter = "resource" in b ? b.resource : existing.resource;
+      if (resourceEfter && person.role !== resourceEfter) {
+        return NextResponse.json({ error: `Den valgte person er ${person.role === "BUILDER" ? "Bygger" : "Installatør"}, men opgaven kræver ${resourceEfter === "BUILDER" ? "Bygger" : "Installatør"}.` }, { status: 400 });
+      }
+    }
+    data.assignedUserId = assignedUserId;
+  }
+
   const item = await prisma.appointment.update({
     where: { id: params.id },
     data,
-    include: { lead: { select: { leadNumber: true } }, order: { select: { orderNumber: true } } }
+    include: { lead: { select: { leadNumber: true } }, order: { select: { orderNumber: true } }, assignedUser: { select: { id: true, name: true, role: true } } }
   });
   return NextResponse.json({ item });
 }

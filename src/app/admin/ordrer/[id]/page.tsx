@@ -8,11 +8,12 @@ import OrderStageControl from "@/components/admin/OrderStageControl";
 import OrderInstallAppointment from "@/components/admin/OrderInstallAppointment";
 import ImalatImportButton from "@/components/admin/ImalatImportButton";
 import OrderDeleteButton from "@/components/admin/OrderDeleteButton";
+import OrderCsvExport from "@/components/admin/OrderCsvExport";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderDetail({ params }: { params: { id: string } }) {
-  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true, appointments: true } });
+  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true, appointments: { include: { assignedUser: { select: { id: true, name: true } } } } } });
   if (!order) notFound();
   // RUNDE 4 (§G1 - "bullet proof"): et OrderItem uden reelle mål (0×0 mm)
   // er per definition ikke et rigtigt PRODUKT - vis det aldrig, uanset
@@ -66,6 +67,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             />
           )}
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
+          <OrderCsvExport orderNumber={order.orderNumber} items={visteItems.map((it: any) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm, lineTotal: it.lineTotal }))} />
           {canEdit && <Link href={`/admin/ordrer/${order.id}/rediger`} className="btn-secondary py-2.5 text-sm">Rediger</Link>}
           {canDelete && <OrderDeleteButton orderId={order.id} orderNumber={order.orderNumber} />}
         </div>
@@ -110,7 +112,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
           )}
           <OrderInstallAppointment
             orderId={order.id}
-            existing={order.appointments.filter((a: any) => a.type === "INSTALLATION").map((a: any) => ({ day: a.day, time: a.time, status: a.status || "TENTATIVE" }))}
+            existing={order.appointments.filter((a: any) => a.type === "INSTALLATION").map((a: any) => ({ day: a.day, time: a.time, status: a.status || "TENTATIVE", assignedUserName: a.assignedUser?.name || null }))}
             canBook={session?.role === "COORDINATOR"}
           />
         </div>

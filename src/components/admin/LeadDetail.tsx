@@ -12,9 +12,13 @@ export default function LeadDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState("");
   const [newM, setNewM] = useState<any>(BLANK_M);
-  const [appt, setAppt] = useState({ day: "", time: "" });
+  const [appt, setAppt] = useState({ day: "", time: "", assignedUserId: "" });
   const [uge, setUge] = useState("");
   const [apptMsg, setApptMsg] = useState<string | null>(null);
+  // RUNDE 5 (§"Koordinator indsætter dette i Installators (specifik
+  // person) kalender"): listen af navngivne installatører, saa aftalen
+  // lægges hos en konkret person, ikke en generisk rolle-bunke.
+  const [installatorer, setInstallatorer] = useState<any[]>([]);
 
   async function load() {
     setLoading(true);
@@ -30,6 +34,16 @@ export default function LeadDetail({ id }: { id: string }) {
     setLoading(false);
   }
   useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    fetch("/api/admin-users", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        const liste = (d.users || []).filter((u: any) => u.role === "INSTALLER");
+        setInstallatorer(liste);
+        setAppt((a) => (a.assignedUserId ? a : { ...a, assignedUserId: liste[0]?.id || "" }));
+      })
+      .catch(() => {});
+  }, []);
 
   async function patch(data: any) {
     setError(null);
@@ -77,7 +91,7 @@ export default function LeadDetail({ id }: { id: string }) {
     const d = await res.json();
     if (!res.ok) { setApptMsg(`⚠ ${d.error}`); return; }
     setApptMsg("Opmåling booket ✓");
-    setAppt({ day: "", time: "" });
+    setAppt((a) => ({ day: "", time: "", assignedUserId: a.assignedUserId }));
     load();
   }
 
@@ -158,7 +172,7 @@ export default function LeadDetail({ id }: { id: string }) {
         </div>
 
         {maalingAppt ? (
-          <p className="mt-2 text-sm text-brand-ink2/80">{maalingAppt.day}{maalingAppt.time ? ` kl. ${maalingAppt.time}` : ""} — {maalingAppt.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</p>
+          <p className="mt-2 text-sm text-brand-ink2/80">{maalingAppt.day}{maalingAppt.time ? ` kl. ${maalingAppt.time}` : ""} — {maalingAppt.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}{maalingAppt.assignedUser ? ` · ${maalingAppt.assignedUser.name}` : ""}</p>
         ) : lead.expectedMeasuringWeekLabel ? (
           <p className="mt-2 text-sm text-brand-ink2/70">Uge-estimat givet til kunden: <b>{lead.expectedMeasuringWeekLabel}</b> — ingen konkret tid booket endnu.</p>
         ) : (
@@ -167,6 +181,12 @@ export default function LeadDetail({ id }: { id: string }) {
 
         <div className="mt-4 grid gap-4 sm:grid-cols-2">
           <form onSubmit={bookOpmaaling} className="flex flex-wrap items-end gap-3">
+            <label className="block"><span className="label">Installatør *</span>
+              <select className="input py-2 text-sm" required value={appt.assignedUserId} onChange={(e) => setAppt({ ...appt, assignedUserId: e.target.value })}>
+                <option value="">— Vælg —</option>
+                {installatorer.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </label>
             <label className="block"><span className="label">Dato</span><input type="date" className="input py-2 text-sm" required value={appt.day} onChange={(e) => setAppt({ ...appt, day: e.target.value })} /></label>
             <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" required value={appt.time} onChange={(e) => setAppt({ ...appt, time: e.target.value })} /></label>
             <button className="btn-primary py-2.5 text-sm">Book konkret tid</button>

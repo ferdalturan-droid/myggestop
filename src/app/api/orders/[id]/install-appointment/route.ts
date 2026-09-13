@@ -24,8 +24,17 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const twoWeeksOut = new Date(); twoWeeksOut.setDate(twoWeeksOut.getDate() + 14);
   const advarsel = dayDate > twoWeeksOut ? "Datoen er mere end ~2 uger frem - overvej at vente med at love en konkret dag til kunden (§6.7)." : null;
 
-  const clash = await prisma.appointment.findFirst({ where: { day, time } });
-  if (clash) return NextResponse.json({ error: "Tidspunktet er allerede booket.", conflict: { customer: clash.customer } }, { status: 409 });
+  // RUNDE 5: samme begrundelse som ved opmåling - book paa en navngiven
+  // installatoer, ikke en generisk "INSTALLER"-bunke.
+  const assignedUserId = b.assignedUserId ? String(b.assignedUserId) : null;
+  if (!assignedUserId) return NextResponse.json({ error: "Vælg hvilken installatør installationen skal ligge hos." }, { status: 400 });
+  const installatoer = await prisma.adminUser.findUnique({ where: { id: assignedUserId } });
+  if (!installatoer || installatoer.role !== "INSTALLER") {
+    return NextResponse.json({ error: "Den valgte person er ikke en gyldig installatør." }, { status: 400 });
+  }
+
+  const clash = await prisma.appointment.findFirst({ where: { day, time, assignedUserId } });
+  if (clash) return NextResponse.json({ error: "Tidspunktet er allerede booket hos denne installatør.", conflict: { customer: clash.customer } }, { status: 409 });
 
   const [appointment] = await prisma.$transaction([
     prisma.appointment.create({
@@ -37,8 +46,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         type: "INSTALLATION",
         resource: "INSTALLER",
         status: "TENTATIVE",
-        orderId: order.id
-      }
+        orderId: order.id,
+        assignedUserId
+      },
+      include: { assignedUser: { select: { id: true, name: true } } }
     }),
     prisma.order.update({ where: { id: order.id }, data: { promisedInstallDate: dayDate } })
   ]);

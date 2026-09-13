@@ -8,11 +8,14 @@ export const APPT_TYPE_LABEL: Record<string, string> = {
   ORDRE: "Ordre"
 };
 
+// RUNDE 5: "Ordre" fjernet som valgbar type ("fjern 'ordre' fra kalender
+// typer" - Runde 4-instruktion, udestående til nu). APPT_TYPE_LABEL
+// beholder ORDRE, saa aeldre allerede-oprettede aftaler af denne type
+// fortsat vises korrekt, men den kan ikke laengere vaelges paa ny.
 export const APPT_TYPE_OPTIONS: [string, string][] = [
   ["MAALING", "Opmåling"],
   ["INSTALLATION", "Installation"],
-  ["PRODUKTION", "Produktion"],
-  ["ORDRE", "Ordre"]
+  ["PRODUKTION", "Produktion"]
 ];
 
 // Hver opgavetype hoerer naturligt til én ressource - saettes automatisk

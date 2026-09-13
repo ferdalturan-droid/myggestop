@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!auth.ok) return auth.response;
   const lead = await prisma.lead.findUnique({
     where: { id: params.id },
-    include: { measurements: { orderBy: { itemNumber: "asc" } }, appointments: true, order: { select: { id: true, orderNumber: true, stage: true } } }
+    include: { measurements: { orderBy: { itemNumber: "asc" } }, appointments: { include: { assignedUser: { select: { id: true, name: true } } } }, order: { select: { id: true, orderNumber: true, stage: true } } }
   });
   if (!lead) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
   return NextResponse.json({ lead });

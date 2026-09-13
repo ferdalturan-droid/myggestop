@@ -20,11 +20,22 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const time = String(b.time || "").trim();
   if (!day || !time) return NextResponse.json({ error: "Vælg dato og klokkeslæt." }, { status: 400 });
 
-  // Samme globale day+time-konflikt-tjek som det eksisterende system -
-  // i praksis peger al booking paa den samme installatoer (§3.5: MAALING
-  // og INSTALLATION er ALTID resource=INSTALLER i denne model).
-  const clash = await prisma.appointment.findFirst({ where: { day, time } });
-  if (clash) return NextResponse.json({ error: "Tidspunktet er allerede booket.", conflict: { customer: clash.customer } }, { status: 409 });
+  // RUNDE 5 (§"Koordinator indsætter dette i Installators (specifik
+  // person) kalender"): der findes flere Installatør-konti i praksis, saa
+  // en konkret navngiven person SKAL vælges her - ellers ender aftalen på
+  // en generisk "INSTALLER"-bunke ingen bestemt person reelt ser som sin
+  // egen (§"der er ikke et generelt 'bygger'").
+  const assignedUserId = b.assignedUserId ? String(b.assignedUserId) : null;
+  if (!assignedUserId) return NextResponse.json({ error: "Vælg hvilken installatør opmålingen skal ligge hos." }, { status: 400 });
+  const installatoer = await prisma.adminUser.findUnique({ where: { id: assignedUserId } });
+  if (!installatoer || installatoer.role !== "INSTALLER") {
+    return NextResponse.json({ error: "Den valgte person er ikke en gyldig installatør." }, { status: 400 });
+  }
+
+  // Konflikt-tjek er nu pr. person (to installatører kan sagtens have hver
+  // deres aftale samme dag/tidspunkt).
+  const clash = await prisma.appointment.findFirst({ where: { day, time, assignedUserId } });
+  if (clash) return NextResponse.json({ error: "Tidspunktet er allerede booket hos denne installatør.", conflict: { customer: clash.customer } }, { status: 409 });
 
   const [appointment] = await prisma.$transaction([
     prisma.appointment.create({
@@ -36,8 +47,10 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
         type: "MAALING",
         resource: "INSTALLER",
         status: "TENTATIVE",
-        leadId: lead.id
-      }
+        leadId: lead.id,
+        assignedUserId
+      },
+      include: { assignedUser: { select: { id: true, name: true } } }
     }),
     prisma.lead.update({
       where: { id: lead.id },
