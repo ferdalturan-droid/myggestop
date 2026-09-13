@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
+import { TUR_LABEL } from "@/lib/calcOptions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -111,7 +112,9 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
       if (r.measurementId) {
         ops.push(prisma.measurement.update({ where: { id: r.measurementId }, data }));
       } else {
-        ops.push(prisma.measurement.create({ data: { ...data, leadId: order.leadId, itemNumber: nextItemNumber++, productType: data.tur } }));
+        // RUNDE 4 (§G3): productType er visningsnavnet ("Myggenet"), ikke
+        // den interne "tur"-kode ("SINEKLIK") - se samme fix i LeadDetail.tsx/OpmaalingList.tsx.
+        ops.push(prisma.measurement.create({ data: { ...data, leadId: order.leadId, itemNumber: nextItemNumber++, productType: TUR_LABEL[data.tur] || data.tur } }));
       }
     }
     if (ops.length > 0) {

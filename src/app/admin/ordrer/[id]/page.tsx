@@ -14,6 +14,11 @@ export const dynamic = "force-dynamic";
 export default async function OrderDetail({ params }: { params: { id: string } }) {
   const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true, appointments: true } });
   if (!order) notFound();
+  // RUNDE 4 (§G1 - "bullet proof"): et OrderItem uden reelle mål (0×0 mm)
+  // er per definition ikke et rigtigt produkt - vis det aldrig, uanset
+  // hvordan det skulle være opstået. Roden til hvordan de opstod er rettet
+  // i promoteLead.ts, men dette er et ekstra visningslag mod gengangere.
+  const visteItems = order.items.filter((it: any) => !(it.widthMm === 0 && it.heightMm === 0));
 
   // RUNDE 2 (§11.1/Gruppe 2): "builder ser ordre+detaljer, alt der er
   // noedvendigt, read-only - kun installer/coordinator maa redigere ordren"
@@ -44,12 +49,12 @@ export default async function OrderDetail({ params }: { params: { id: string } }
           </p>
         </div>
         <div className="flex gap-2">
-          {canEdit && (order.leadId ? (
-            // FASE 6 (§8.6/§9): ordren har en rigtig Lead med Measurement-
-            // raekker - aabn beregneren ordre-koblet, saa mål/pris skrives
-            // direkte til dem (ingen "importeret snapshot").
-            <a href={`/admin/imalat?orderId=${order.id}`} className="btn-secondary py-2.5 text-sm">Til produktionsberegner</a>
-          ) : (
+          {/* RUNDE 4 (§G4): den tidligere fremtrædende "Til produktionsberegner"-
+              knap er fjernet herfra - adgang til beregneren skal ikke være
+              et separat, aktivt skub. Er ordren allerede leadet, findes
+              linket i stedet nede i "Produkter"-kortet, som en naturlig del
+              af det at redigere målene, ikke en handling for sig selv. */}
+          {canEdit && !order.leadId && (
             <ImalatImportButton
               musteri={`${order.firstName} ${order.lastName}`}
               tel={order.phone}
@@ -57,7 +62,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               orderId={order.id}
               items={order.items.map((it: any) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
             />
-          ))}
+          )}
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
           {canEdit && <Link href={`/admin/ordrer/${order.id}/rediger`} className="btn-secondary py-2.5 text-sm">Rediger</Link>}
           {canDelete && <OrderDeleteButton orderId={order.id} orderNumber={order.orderNumber} />}
@@ -67,9 +72,15 @@ export default async function OrderDetail({ params }: { params: { id: string } }
       <div className="mt-6 grid gap-6 lg:grid-cols-[1fr_300px]">
         <div className="space-y-6">
           <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
-            <h2 className="mb-4 font-bold text-brand-ink">Produkter</h2>
+            <div className="mb-4 flex items-center justify-between">
+              <h2 className="font-bold text-brand-ink">Produkter</h2>
+              {canEdit && order.leadId && (
+                <a href={`/admin/imalat?orderId=${order.id}`} className="text-sm font-semibold text-brand-greendark hover:underline">Rediger mål & pris i beregner →</a>
+              )}
+            </div>
             <div className="space-y-3">
-              {order.items.map((it: any) => (
+              {visteItems.length === 0 && <p className="text-sm text-brand-ink2/50">Ingen produkter registreret endnu.</p>}
+              {visteItems.map((it: any) => (
                 <div key={it.id} className="rounded-xl border border-brand-line p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-brand-ink">{it.roomName || "—"} · {it.productName}{it.isDoubleDoor ? " (Dobbeltdør)" : ""}</span>

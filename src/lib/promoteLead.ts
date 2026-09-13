@@ -1,4 +1,5 @@
 import { prisma } from "@/lib/prisma";
+import { TUR_LABEL } from "@/lib/calcOptions";
 
 // Prisma's transaction-client type er svaer at navngive praecist paa tvaers
 // af Prisma-versioner - "any" her paavirker ikke kald-stedernes egen typning.
@@ -28,7 +29,15 @@ export async function promoteLeadToOrder(tx: Tx, leadId: string) {
 
   const totalPris = lead.quotePriceDkk || 0;
   const linjer = lead.measurements;
-  const perLinje = linjer.length > 0 ? Math.round((totalPris / linjer.length) * 100) / 100 : 0;
+  // RUNDE 4 (§G1 - "bullet proof"): et OrderItem maa KUN oprettes for en
+  // maalingsraekke der reelt har maal - ellers deler perLinje-udregningen
+  // totalprisen ud paa ogsaa endnu-uopmaalte/tomme raekker, saa de dukker
+  // op som spoegelses-produktlinjer paa Ordre-siden med et vilkaarligt
+  // ligeligt stykke af totalprisen (fx "SINEKLIK 0×0 mm - 18 kr", set i
+  // produktionen). "items" er (jf. kommentaren ovenfor) uansett kun et
+  // DISPLAY-snapshot, saa det er trygt at udelade ugyldige raekker helt.
+  const gyldigeLinjer = linjer.filter((m: any) => m.widthMm != null && m.heightMm != null && m.widthMm > 0 && m.heightMm > 0);
+  const perLinje = gyldigeLinjer.length > 0 ? Math.round((totalPris / gyldigeLinjer.length) * 100) / 100 : 0;
 
   const order = await tx.order.create({
     data: {
@@ -48,14 +57,18 @@ export async function promoteLeadToOrder(tx: Tx, leadId: string) {
       postalCode: lead.postalCode,
       city: lead.city,
       items: {
-        create: linjer.map((m: any) => ({
+        create: gyldigeLinjer.map((m: any) => ({
           roomName: m.roomName,
-          productName: m.productType || "Standard Myggenet",
-          widthMm: m.widthMm || 0,
-          heightMm: m.heightMm || 0,
+          // Forsvar i dybden (§G3): hvis productType alligevel skulle
+          // indeholde en raa intern kode ("SINEKLIK") i stedet for et
+          // visningsnavn, oversaettes den her - roden til fejlen er rettet
+          // ved kilden (LeadDetail.tsx/OpmaalingList.tsx/production-ruten).
+          productName: TUR_LABEL[m.productType] || m.productType || "Standard Myggenet",
+          widthMm: m.widthMm,
+          heightMm: m.heightMm,
           colorName: m.colorName,
           comment: m.comment,
-          areaSqm: m.widthMm && m.heightMm ? Math.round((m.widthMm / 1000) * (m.heightMm / 1000) * 100) / 100 : 0,
+          areaSqm: Math.round((m.widthMm / 1000) * (m.heightMm / 1000) * 100) / 100,
           lineTotal: perLinje
         }))
       }

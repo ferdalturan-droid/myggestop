@@ -173,7 +173,7 @@ export default function OrdersTable() {
                     </td>
                     <td className="px-4 py-3">{o.firstName} {o.lastName}<div className="text-xs text-brand-ink2/50">{o.email}</div></td>
                     <td className="px-4 py-3">{o.city}</td>
-                    <td className="px-4 py-3">{o.items.length}</td>
+                    <td className="px-4 py-3">{o.items.filter((it: any) => !(it.widthMm === 0 && it.heightMm === 0)).length}</td>
                     <td className="px-4 py-3 font-semibold">{formatDKK(o.estimatedTotal)}</td>
                     <td className="px-4 py-3">
                       {(() => {

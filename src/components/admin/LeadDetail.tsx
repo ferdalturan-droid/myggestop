@@ -1,7 +1,7 @@
 "use client";
 import { useEffect, useState } from "react";
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, deriveLeadStatusLabel } from "@/lib/leadStatus";
-import { TUR_OPTIONS, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
+import { TUR_OPTIONS, TUR_LABEL, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
 
 const BLANK_M = { roomName: "", tur: "SINEKLIK", sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1", colorName: "", comment: "" };
 
@@ -52,7 +52,11 @@ export default function LeadDetail({ id }: { id: string }) {
     e.preventDefault();
     const res = await fetch(`/api/leads/${id}/measurements`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...newM, productType: newM.tur, adet: Number(newM.adet) || 1 })
+      // RUNDE 4 (§G3): productType er et VISNINGSNAVN ("Myggenet"), ikke den
+      // interne "tur"-kode ("SINEKLIK") - ellers lækker den tyrkiske
+      // interne værdi ud som produktnavn på ordren, når leadet forfremmes
+      // (promoteLead.ts læser netop dette felt).
+      body: JSON.stringify({ ...newM, productType: TUR_LABEL[newM.tur] || newM.tur, adet: Number(newM.adet) || 1 })
     });
     if (res.ok) { setNewM(BLANK_M); load(); }
   }

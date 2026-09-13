@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useState } from "react";
-import { TUR_OPTIONS, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
+import { TUR_OPTIONS, TUR_LABEL, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
 
 const BLANK_M = { roomName: "", tur: "SINEKLIK", sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1", colorName: "", comment: "" };
 
@@ -47,7 +47,8 @@ export default function OpmaalingList() {
     const m = newMFor(leadId);
     const res = await fetch(`/api/leads/${leadId}/measurements`, {
       method: "POST", headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ ...m, productType: m.tur, adet: Number(m.adet) || 1 })
+      // RUNDE 4 (§G3): se samme kommentar i LeadDetail.tsx - gem visningsnavn, ikke den interne "tur"-kode.
+      body: JSON.stringify({ ...m, productType: TUR_LABEL[m.tur] || m.tur, adet: Number(m.adet) || 1 })
     });
     if (res.ok) { setNewMByLead((prev) => ({ ...prev, [leadId]: BLANK_M })); load(); }
   }

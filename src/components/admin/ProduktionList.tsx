@@ -43,11 +43,14 @@ export default function ProduktionList({ role }: { role?: string } = {}) {
               <span className="ml-2 text-brand-ink2/55">{o.items?.length || 0} produkt(er) · {o.city}</span>
             </div>
             <div className="flex items-center gap-2">
-              <a href={`/admin/ordrer/${o.id}`} className="text-brand-blue hover:underline">Åbn</a>
-              {/* RUNDE 2 (§11.1): Builder maa se ordren, men ikke redigere
-                  maal/pris i den ordre-koblede beregner - kun
-                  Coordinator/Installer faar dette link. */}
-              {role !== "BUILDER" && <a href={`/admin/imalat?orderId=${o.id}`} className="text-brand-greendark hover:underline">Til beregner</a>}
+              {/* RUNDE 4 (§G4): ingen separat "skub til beregner"-knap
+                  laengere - at aabne en produktionsopgave ER at gaa i gang
+                  med at bygge den, saa "Åbn" foerer direkte til
+                  beregneren (ordre-koblet ?orderId=). Ren visning af
+                  kunde-/ordredetaljer findes fortsat paa /admin/ordrer/[id]
+                  hvis nogen har brug for det - se linket i beregneren. */}
+              <a href={`/admin/imalat?orderId=${o.id}`} className="text-brand-greendark hover:underline">Åbn</a>
+              <a href={`/admin/ordrer/${o.id}`} className="text-brand-blue hover:underline">Ordredetaljer</a>
               <button onClick={() => markerKlar(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Marker Klar</button>
             </div>
           </div>

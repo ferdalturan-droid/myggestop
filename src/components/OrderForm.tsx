@@ -22,7 +22,10 @@ export default function OrderForm({
   products, colors, config, shippingText
 }: { products: Product[]; colors: Color[]; config: PricingConfig; shippingText: string; }) {
   const [customer, setCustomer] = useState({ firstName: "", lastName: "", phone: "", email: "", address: "", postalCode: "", city: "" });
-  const [wantsInstallation, setWantsInstallation] = useState(false);
+  // RUNDE 4 (§G2): montering er ikke laengere et valg - vi arbejder kun
+  // montering-inklusivt, saa dette er nu en fast kendsgerning, ikke en
+  // brugervalgt tilstand.
+  const wantsInstallation = true;
   const [note, setNote] = useState("");
 
   const defColor = colors.find((c) => c.isStandard)?.id || colors[0]?.id || "";
@@ -210,18 +213,12 @@ export default function OrderForm({
         )}
       </section>
 
-      {/* 4. Montering & oversigt */}
+      {/* 4. Oversigt */}
       <section className="card p-6 sm:p-8">
-        <h2 className="text-xl font-bold text-brand-cream">4. Montering & oversigt</h2>
-        <div className="mt-5 grid gap-3 sm:grid-cols-2">
-          <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${wantsInstallation ? "border-brand-blue bg-brand-blue/5" : "border-brand-goldline"}`}>
-            <input type="radio" name="install" className="mt-1" checked={wantsInstallation} onChange={() => setWantsInstallation(true)} />
-            <span><span className="block font-semibold text-brand-cream">Jeg ønsker montering</span><span className="block text-sm text-brand-cream2/70">Kun København og omegn. Grundgebyr + pris pr. produkt tilføjes.</span></span>
-          </label>
-          <label className={`flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition ${!wantsInstallation ? "border-brand-blue bg-brand-blue/5" : "border-brand-goldline"}`}>
-            <input type="radio" name="install" className="mt-1" checked={!wantsInstallation} onChange={() => setWantsInstallation(false)} />
-            <span><span className="block font-semibold text-brand-cream">Kun levering</span><span className="block text-sm text-brand-cream2/70">Vi sender dine net direkte til døren i hele Danmark.</span></span>
-          </label>
+        <h2 className="text-xl font-bold text-brand-cream">4. Oversigt</h2>
+        <div className="mt-5 rounded-xl border border-brand-goldline bg-brand-blue/5 p-4">
+          <span className="block font-semibold text-brand-cream">Montering inkluderet</span>
+          <span className="block text-sm text-brand-cream2/70">Vi monterer altid dine produkter som en del af bestillingen - ingen ekstra valg nødvendigt.</span>
         </div>
 
         <div className="mt-5"><label className="label text-brand-cream2">Bemærkning til ordren (valgfri)</label><textarea className="input min-h-[90px]" value={note} onChange={(e) => setNote(e.target.value)} placeholder="Særlige ønsker, leveringsinfo m.m." /></div>
@@ -229,7 +226,7 @@ export default function OrderForm({
         <div className="mt-6 rounded-xl2 bg-brand-ink p-6 text-white">
           <div className="space-y-2 text-sm">
             <div className="flex justify-between"><span className="text-slate-300">Produkter i alt ({items.length})</span><span>{formatDKK(totals.productsTotal)}</span></div>
-            {wantsInstallation && <div className="flex justify-between"><span className="text-slate-300">Montering</span><span>{formatDKK(totals.installationTotal)}</span></div>}
+            <div className="flex justify-between"><span className="text-slate-300">Montering</span><span>{formatDKK(totals.installationTotal)}</span></div>
             <div className="flex justify-between"><span className="text-slate-300">Fragt</span><span className="text-slate-300">Efter aftale</span></div>
             <div className="mt-3 flex justify-between border-t border-white/15 pt-3 text-lg font-bold"><span>Estimeret total</span><span className="text-brand-green">{formatDKK(totals.estimatedTotal)}</span></div>
           </div>

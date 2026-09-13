@@ -35,7 +35,9 @@ export default function OrderEditForm({ order }: { order: any }) {
   const [postalCode, setPostalCode] = useState(order.postalCode || "");
   const [city, setCity] = useState(order.city || "");
   const [note, setNote] = useState(order.note || "");
-  const [wantsInstallation, setWantsInstallation] = useState(!!order.wantsInstallation);
+  // RUNDE 4 (§G2): "montering ja/nej" er fjernet som valg - vi arbejder
+  // kun montering-inklusivt, saa feltet er nu altid true (ingen UI-toggle).
+  const wantsInstallation = true;
   const [installationTotal, setInstallationTotal] = useState(String(order.installationTotal ?? "0"));
   const [items, setItems] = useState<ItemForm[]>(
     (order.items || []).length ? order.items.map(toItemForm) : [toItemForm({})]
@@ -110,9 +112,6 @@ export default function OrderEditForm({ order }: { order: any }) {
           <label className="block"><span className="label">Postnummer</span><input className="input" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} /></label>
           <label className="block"><span className="label">By</span><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></label>
         </div>
-        <label className="mt-3 flex items-center gap-2 text-sm text-brand-ink2/80">
-          <input type="checkbox" checked={wantsInstallation} onChange={(e) => setWantsInstallation(e.target.checked)} /> Ønsker montering
-        </label>
         <label className="mt-3 block max-w-[220px]"><span className="label">Montering (kr)</span><input className="input" inputMode="decimal" value={installationTotal} onChange={(e) => setInstallationTotal(e.target.value.replace(/[^0-9.,]/g, ""))} /></label>
         <label className="mt-3 block"><span className="label">Bemærkning</span><textarea className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></label>
       </div>
