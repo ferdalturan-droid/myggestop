@@ -6,7 +6,19 @@ import { useEffect, useState } from "react";
 // låses den (vises som en færdig-tilstand) i stedet for en knap man kan
 // trykke på igen. Kun Koordinator kan fortryde en fejlagtig markering
 // (se OrderStageControl.tsx på selve ordre-siden).
-export default function ProduktionList({ role }: { role?: string } = {}) {
+//
+// RUNDE 6 (§"builder... skal kunne trykke på en ordre også se alle
+// detaljer... hvordan de bygger"): "Åbn" peger nu på selve ordredetaljen
+// (som nu indeholder byggedetaljer/skæreliste), ikke længere direkte ind i
+// den skjulte Produktionsberegner - Coordinator får desuden fortsat et
+// separat redigerings-link til beregneren, da han (modsat Bygger) reelt
+// må ændre mål/pris der.
+// RUNDE 6 (§"note: Installer skal kunne se produktion... fordi de har en
+// bredere arbejdsgang"): readOnly skjuler handlingsknapperne, så Installer
+// kan se produktionskøen som ren kontekst uden en knap han alligevel ikke
+// må bruge (API'et afviser ham allerede, men en knap der altid fejler er
+// forvirrende UX).
+export default function ProduktionList({ role, readOnly = false }: { role?: string; readOnly?: boolean } = {}) {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
@@ -31,9 +43,9 @@ export default function ProduktionList({ role }: { role?: string } = {}) {
   }
 
   async function markerKlar(id: string) {
-    if (!confirm("Markér ordren som klar i produktion? Den bliver herefter synlig for installation, og kan ikke ændres af dig igen.")) return;
+    if (!confirm("Markér ordren som klar til installation? Den bliver herefter synlig for installatøren, og kan ikke ændres af dig igen.")) return;
     const res = await fetch(`/api/produktion/${id}/klar`, { method: "POST" });
-    if (res.ok) { setMsg("Markeret Klar ✓"); setTimeout(() => setMsg(null), 2000); load(); }
+    if (res.ok) { setMsg("Markeret klar til installation ✓"); setTimeout(() => setMsg(null), 2000); load(); }
     else { const d = await res.json().catch(() => ({})); setMsg(d.error || "Kunne ikke markere klar."); setTimeout(() => setMsg(null), 3000); }
   }
 
@@ -42,7 +54,7 @@ export default function ProduktionList({ role }: { role?: string } = {}) {
       <div className="mb-4 flex flex-wrap items-end justify-between gap-3">
         <div>
           <h1 className="text-2xl font-extrabold text-brand-ink">Produktionskø</h1>
-          <p className="mt-1 text-sm text-brand-ink2/65">Ordrer der er forfremmet til produktion, i den rækkefølge de er booket.</p>
+          <p className="mt-1 text-sm text-brand-ink2/65">{readOnly ? "Ordrer der er i produktion lige nu (læs kun)." : "Ordrer der er forfremmet til produktion, i den rækkefølge de er booket."}</p>
         </div>
         <button onClick={load} className="btn-secondary py-2 text-sm">Opdater</button>
       </div>
@@ -56,24 +68,18 @@ export default function ProduktionList({ role }: { role?: string } = {}) {
               <span className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</span>
               <span className="ml-2 text-brand-ink2/55">{o.items?.length || 0} produkt(er) · {o.city}</span>
               {o.productionStartedAt && !o.readyAt && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">I gang</span>}
-              {o.readyAt && <span className="ml-2 rounded-full bg-brand-greendark/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">Klar ✓</span>}
+              {o.readyAt && <span className="ml-2 rounded-full bg-brand-greendark/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">Klar til installation ✓</span>}
             </div>
             <div className="flex items-center gap-2">
-              {/* RUNDE 4 (§G4): ingen separat "skub til beregner"-knap
-                  laengere - at aabne en produktionsopgave ER at gaa i gang
-                  med at bygge den, saa "Åbn" foerer direkte til
-                  beregneren (ordre-koblet ?orderId=). Ren visning af
-                  kunde-/ordredetaljer findes fortsat paa /admin/ordrer/[id]
-                  hvis nogen har brug for det - se linket i beregneren. */}
-              <a href={`/admin/imalat?orderId=${o.id}`} className="text-brand-greendark hover:underline">Åbn</a>
-              <a href={`/admin/ordrer/${o.id}`} className="text-brand-blue hover:underline">Ordredetaljer</a>
-              {!o.readyAt && !o.productionStartedAt && (
-                <button onClick={() => markerIGang(o.id)} className="rounded-full border border-brand-line px-3 py-1 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist">I gang</button>
+              <a href={`/admin/ordrer/${o.id}`} className="font-semibold text-brand-blue hover:underline">Se ordre & byggedetaljer</a>
+              {erKoordinator && !readOnly && <a href={`/admin/imalat?orderId=${o.id}`} className="text-brand-ink2/60 hover:underline">Rediger i beregner</a>}
+              {!readOnly && !o.readyAt && !o.productionStartedAt && (
+                <button onClick={() => markerIGang(o.id)} className="rounded-full border border-brand-line px-3 py-1 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist">Start</button>
               )}
-              {!o.readyAt && (
-                <button onClick={() => markerKlar(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Marker Klar</button>
+              {!readOnly && !o.readyAt && (
+                <button onClick={() => markerKlar(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Klar til installation</button>
               )}
-              {o.readyAt && erKoordinator && (
+              {!readOnly && o.readyAt && erKoordinator && (
                 <span className="text-xs text-brand-ink2/40">Fortryd på ordresiden ved fejl</span>
               )}
             </div>

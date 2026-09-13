@@ -70,5 +70,7 @@ export function defaultHomeForRole(role: Role): string {
   // (Produktionskø), ikke en tom beregner - han kan stadig naa
   // Produktionsberegneren og Faerdig-listen via menuen.
   if (role === "BUILDER") return "/admin/produktion";
-  return "/admin/opmaaling"; // INSTALLER
+  // RUNDE 6: Installatørens samlede arbejdsside (opmåling + klar til
+  // installation + produktions-kontekst), ikke laengere kun opmålingslisten.
+  return "/admin/produktion-installation"; // INSTALLER
 }

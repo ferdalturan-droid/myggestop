@@ -10,15 +10,19 @@ const LINKS = [
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/kalender", label: "Kalender" },
   { href: "/admin/opmaaling", label: "Opmåling" },
+  // RUNDE 6 (§G7): den tidligere separate Koordinator-only "Ordrestatus"-
+  // side (Runde 4 §G6) er foldet ind i "Ordrer" (nu Koordinatorens
+  // samlede ordre-overblik: alle stadier, filtrering, "Kræver din
+  // handling" + betalt/anmeldt/fortryd direkte i listen) - kun ét sted nu.
   { href: "/admin/ordrer", label: "Ordrer" },
-  // RUNDE 4 (§G6): separat Koordinator-only side til at vedligeholde
-  // ordre-status samlet ét sted (betalt/anmeldt + fortryd ved fejl) -
-  // isPathAllowedForRole giver kun Koordinator adgang (ikke tilføjet til
-  // BUILDER_PREFIXES/INSTALLER_PREFIXES), saa linket vises automatisk kun for ham.
-  { href: "/admin/ordrestatus", label: "Ordrestatus" },
   { href: "/admin/produktion", label: "Produktionskø" },
   { href: "/admin/installation", label: "Installation" },
-  { href: "/admin/imalat", label: "Produktionsberegner" },
+  // RUNDE 6 (§"fjern 'production beregning' og flyt informationen og
+  // budskabet ind i de respektive sider for at gøre det mere rent"):
+  // fjernet som selvstændigt menupunkt - siden findes stadig (bruges
+  // stadig kontekstuelt fra "Rediger mål & pris i beregner" på ordresiden,
+  // og af det ældre Færdig/Afsluttede-flow, jf. §11.1/Q7), men er ikke
+  // længere noget nogen rolle browser direkte til via menuen.
   { href: "/admin/faerdig", label: "Færdig" },
   { href: "/admin/afsluttede", label: "Afsluttede ordrer" },
   { href: "/admin/produkter", label: "Produkter" },
@@ -35,14 +39,16 @@ export default function AdminNav({ email, role }: { email: string; role: Role })
   // FASE 2 (§4): Builder/Installer ser kun de sider deres rolle maa aabne.
   let links = LINKS.filter((l) => isPathAllowedForRole(l.href, role));
 
-  // RUNDE 2 (Q8): kun for Installer erstattes de to separate faner
-  // "Produktionskø" og "Installation" med ét samlet menupunkt - Coordinator
-  // og Builder beholder de to separate links helt uændret, jf. brugerens
-  // eksplicitte svar: "to for Coordinator/Builder, ét samlet for Installer".
+  // RUNDE 2 (Q8) / RUNDE 6: Installer faar ét samlet arbejdsmenupunkt i
+  // stedet for tre overlappende ("Opmåling", "Produktionskø",
+  // "Installation") - siden selv (/admin/produktion-installation) rummer
+  // nu alle tre sektioner (opmåling, klar til installation, produktion
+  // som read-only kontekst). Coordinator og Builder beholder deres
+  // separate links helt uændret.
   if (role === "INSTALLER") {
-    const uden = links.filter((l) => l.href !== "/admin/produktion" && l.href !== "/admin/installation");
-    const indsaetIndex = uden.findIndex((l) => l.href === "/admin/opmaaling") + 1;
-    uden.splice(indsaetIndex, 0, { href: "/admin/produktion-installation", label: "Produktion & installation" });
+    const uden = links.filter((l) => l.href !== "/admin/produktion" && l.href !== "/admin/installation" && l.href !== "/admin/opmaaling");
+    const indsaetIndex = uden.findIndex((l) => l.href === "/admin/kalender") + 1;
+    uden.splice(indsaetIndex, 0, { href: "/admin/produktion-installation", label: "Mit arbejde" });
     links = uden;
   }
 

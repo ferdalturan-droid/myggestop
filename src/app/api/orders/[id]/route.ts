@@ -43,6 +43,24 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.stage && ["BETALT", "ANMELDT"].includes(body.stage) && auth.session.role !== "COORDINATOR") {
     return NextResponse.json({ error: "Kun Koordinator kan markere betalt/anmeldt." }, { status: 403 });
   }
+  // RUNDE 6 (§"fra en ordre når jeg vælger dato sender til produktion,
+  // opretter den en 'tentative' booking i calendar uden 'bygger (person)'
+  // selvom dette er et obligatorisk felt... sørg for at dette aldrig sker
+  // i systemet da det er unlogical"): haandhaevet HER, server-side - ikke
+  // kun som et UI-krav - saa "Send til produktion" er strukturelt umuligt
+  // at gennemfoere uden en navngiven Bygger, uanset hvilken klient der kalder.
+  let byggerForProduktion: { id: string; role: string } | null = null;
+  if (sendesTilProduktionNu) {
+    const assignedUserId = body.assignedUserId ? String(body.assignedUserId) : null;
+    if (!assignedUserId) {
+      return NextResponse.json({ error: "Vælg hvilken bygger ordren skal sendes til, før den kan sendes til produktion." }, { status: 400 });
+    }
+    const person = await prisma.adminUser.findUnique({ where: { id: assignedUserId } });
+    if (!person || person.role !== "BUILDER") {
+      return NextResponse.json({ error: "Den valgte person er ikke en gyldig bygger." }, { status: 400 });
+    }
+    byggerForProduktion = { id: person.id, role: person.role };
+  }
   if (body.stage && ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"].includes(body.stage)) data.stage = body.stage;
   // RUNDE 2 (Q4/§6.7): saettes typisk sammen med stage->I_PRODUKTION fra
   // "Send til produktion"-knappen, men accepteres ogsaa separat.
@@ -93,7 +111,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
           note: antalProdukter > 0 ? `${antalProdukter} produkt(er) at bygge` : "",
           type: "PRODUKTION",
           resource: "BUILDER",
-          orderId: updated.id
+          orderId: updated.id,
+          assignedUserId: byggerForProduktion!.id
         }
       });
     }

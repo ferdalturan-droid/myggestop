@@ -40,16 +40,26 @@ export default function InstallationList() {
       {loading && <p className="text-brand-ink2/60">Indlæser...</p>}
       {!loading && orders.length === 0 && <div className="rounded-xl border border-brand-line bg-white p-8 text-center text-brand-ink2/60">Ingen ordrer venter på installation.</div>}
       <div className="space-y-2">
-        {orders.map((o) => (
-          <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-line bg-white px-4 py-3 text-sm">
-            <div>
-              <span className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</span>
-              <span className="ml-2 text-brand-ink2/55">{o.phone} · {o.address}, {o.postalCode} {o.city}</span>
-              <span className="ml-2 text-brand-ink2/55">· Klar {new Date(o.readyAt).toLocaleDateString("da-DK")}</span>
+        {orders.map((o, i) => {
+          const appt = o.appointments?.[0];
+          return (
+            <div key={o.id} className="flex flex-wrap items-center justify-between gap-2 rounded-xl border border-brand-line bg-white px-4 py-3 text-sm">
+              <div>
+                <span className="mr-2 inline-grid h-6 w-6 place-items-center rounded-full bg-brand-mist text-xs font-bold text-brand-ink2">{i + 1}</span>
+                <span className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</span>
+                <span className="ml-2 text-brand-ink2/55">{o.phone} · {o.address}, {o.postalCode} {o.city}</span>
+                {appt ? (
+                  <span className="ml-2 rounded-full bg-brand-green/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">
+                    Booket {new Date(appt.day).toLocaleDateString("da-DK")}{appt.time ? ` kl. ${appt.time}` : ""}{appt.assignedUser ? ` · ${appt.assignedUser.name}` : ""}
+                  </span>
+                ) : (
+                  <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">Ikke booket endnu · klar {new Date(o.readyAt).toLocaleDateString("da-DK")}</span>
+                )}
+              </div>
+              <button onClick={() => markerInstalleret(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Marker Installeret</button>
             </div>
-            <button onClick={() => markerInstalleret(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Marker Installeret</button>
-          </div>
-        ))}
+          );
+        })}
       </div>
     </div>
   );

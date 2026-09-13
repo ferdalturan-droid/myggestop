@@ -9,11 +9,22 @@ import OrderInstallAppointment from "@/components/admin/OrderInstallAppointment"
 import ImalatImportButton from "@/components/admin/ImalatImportButton";
 import OrderDeleteButton from "@/components/admin/OrderDeleteButton";
 import OrderCsvExport from "@/components/admin/OrderCsvExport";
+import OrderBuildDetails from "@/components/admin/OrderBuildDetails";
 
 export const dynamic = "force-dynamic";
 
 export default async function OrderDetail({ params }: { params: { id: string } }) {
-  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true, appointments: { include: { assignedUser: { select: { id: true, name: true } } } } } });
+  const order = await prisma.order.findUnique({
+    where: { id: params.id },
+    include: {
+      items: true,
+      appointments: { include: { assignedUser: { select: { id: true, name: true } } } },
+      // RUNDE 6: byggedetaljer (skæreliste) beregnes af de rigtige
+      // Lead->Measurement-rækker, samme kilde som Produktionsberegneren
+      // altid har brugt for ordre-koblede sessioner (§8.6/§9).
+      lead: { include: { measurements: { orderBy: { itemNumber: "asc" } } } }
+    }
+  });
   if (!order) notFound();
   // RUNDE 4 (§G1 - "bullet proof"): et OrderItem uden reelle mål (0×0 mm)
   // er per definition ikke et rigtigt PRODUKT - vis det aldrig, uanset
@@ -110,6 +121,12 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               <p className="text-sm text-brand-ink2/80">{order.note}</p>
             </div>
           )}
+          {/* RUNDE 6 (§"builder skal kunne trykke på en ordre også se alle
+              detaljer omkring det de skal bygge og hvordan de bygger"):
+              erstatter behovet for at nogen rolle skal ind i den nu
+              skjulte Produktionsberegner blot for at SE byggeinfo - synlig
+              for alle tre roller, da alle tre allerede kan se selve siden. */}
+          <OrderBuildDetails measurements={order.lead?.measurements || []} />
           <OrderInstallAppointment
             orderId={order.id}
             existing={order.appointments.filter((a: any) => a.type === "INSTALLATION").map((a: any) => ({ day: a.day, time: a.time, status: a.status || "TENTATIVE", assignedUserName: a.assignedUser?.name || null }))}

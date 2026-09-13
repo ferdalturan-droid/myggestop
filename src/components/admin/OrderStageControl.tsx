@@ -1,5 +1,5 @@
 "use client";
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { deriveOrderStageLabel } from "@/lib/orderStage";
 
@@ -32,6 +32,29 @@ export default function OrderStageControl({
   const [estDato, setEstDato] = useState("");
   const [estUge, setEstUge] = useState("");
   const erKoordinator = role === "COORDINATOR";
+  // RUNDE 6: "Send til produktion" opretter automatisk en PRODUKTION-
+  // aftale hos en navngiven Bygger (se /api/kalender) - den bygger SKAL
+  // vælges her, ellers kan aftalen aldrig blive oprettet korrekt
+  // ("sørg for at dette aldrig sker i systemet da det er unlogical").
+  const [byggere, setByggere] = useState<any[]>([]);
+  const [assignedUserId, setAssignedUserId] = useState("");
+  // "Send til produktion" maa (ligesom resten af ordre-redigeringen)
+  // udfoeres af baade Coordinator og Installer, jf. "kun installer/
+  // coordinator kan redigere ordren" - /api/admin-users GET er derfor
+  // ogsaa aabnet for Installer (kun navn/rolle, ikke e-mail, se ruten).
+  const kanVaelgeBygger = role === "COORDINATOR" || role === "INSTALLER";
+  useEffect(() => {
+    if (!kanVaelgeBygger) return;
+    fetch("/api/admin-users", { cache: "no-store" })
+      .then((r) => r.json())
+      .then((d) => {
+        const liste = (d.users || []).filter((u: any) => u.role === "BUILDER");
+        setByggere(liste);
+        setAssignedUserId((v) => v || liste[0]?.id || "");
+      })
+      .catch(() => {});
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [kanVaelgeBygger]);
 
   async function saetStage(next: string, extra: any = {}) {
     setSaving(true);
@@ -80,11 +103,18 @@ export default function OrderStageControl({
         <div className="rounded-lg border border-dashed border-brand-line bg-brand-mist/30 p-3">
           <p className="mb-2 text-xs text-brand-ink2/60">Ordren ligger i køen (backlog). Send den til produktion når byggeren har plads (§6.5/§6.7 — book aldrig mere end ca. 2 uger frem).</p>
           <div className="flex flex-wrap items-end gap-2">
+            <label className="block"><span className="label">Bygger *</span>
+              <select className="input py-1.5 text-sm" required value={assignedUserId} onChange={(e) => setAssignedUserId(e.target.value)}>
+                <option value="">— Vælg —</option>
+                {byggere.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
+              </select>
+            </label>
             <label className="block"><span className="label">Forventet klar-dato</span><input type="date" className="input py-1.5 text-sm" value={estDato} onChange={(e) => setEstDato(e.target.value)} /></label>
             <label className="block"><span className="label">— eller uge-estimat</span><input className="input py-1.5 text-sm" placeholder="fx Uge 41" value={estUge} onChange={(e) => setEstUge(e.target.value)} /></label>
             <button
-              disabled={saving}
-              onClick={() => saetStage("I_PRODUKTION", { estReadyDate: estDato || undefined, estReadyWeekLabel: estDato ? undefined : (estUge || undefined) })}
+              disabled={saving || !assignedUserId}
+              title={!assignedUserId ? "Vælg en bygger først" : undefined}
+              onClick={() => saetStage("I_PRODUKTION", { estReadyDate: estDato || undefined, estReadyWeekLabel: estDato ? undefined : (estUge || undefined), assignedUserId })}
               className="btn-primary py-2 text-sm disabled:opacity-50"
             >
               Send til produktion

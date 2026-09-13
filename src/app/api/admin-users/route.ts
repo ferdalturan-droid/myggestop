@@ -9,13 +9,21 @@ export const dynamic = "force-dynamic";
 // FASE 2 (§5): minimal admin-opret-bruger-funktion, kun for COORDINATOR.
 // Bruges til at oprette Builder-/Installer-konti med en midlertidig
 // adgangskode.
+// RUNDE 6: GET er nu ogsaa aabnet for INSTALLER - han maa (ligesom
+// Coordinator) sende en ordre til produktion og skal derfor kunne vaelge
+// en navngiven Bygger i den dropdown (samme begrundelse som Runde 5's
+// person-kalender). E-mail-adresser vises fortsat KUN til Coordinator -
+// Installer faar kun det en navne-dropdown reelt har brug for.
 export async function GET() {
-  const auth = await requireRole(["COORDINATOR"]);
+  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
   const users = await prisma.adminUser.findMany({
     select: { id: true, email: true, name: true, role: true, createdAt: true },
     orderBy: { createdAt: "asc" }
   });
+  if (auth.session.role !== "COORDINATOR") {
+    return NextResponse.json({ users: users.map((u: any) => ({ id: u.id, name: u.name, role: u.role })) });
+  }
   return NextResponse.json({ users });
 }
 

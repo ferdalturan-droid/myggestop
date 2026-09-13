@@ -2,12 +2,11 @@
 import { useEffect, useState, useCallback } from "react";
 import Link from "next/link";
 import { formatDKK } from "@/lib/pricing";
-import { ORDER_STAGE_LABELS, deriveOrderStageLabel } from "@/lib/orderStage";
+import { deriveOrderStageLabel } from "@/lib/orderStage";
 
 // RUNDE 2 (§12.1): filter/farver bygger nu paa den reelle produktions-
 // pipeline (OrderStage + readyAt/installedAt), ikke den gamle frie
 // OrderStatus, som ikke laengere afspejler hvor en ordre reelt er.
-const STAGE_ORDER = ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"] as const;
 const STAGE_COLOR: Record<string, string> = {
   "I kø": "bg-blue-100 text-blue-700",
   "I produktion": "bg-amber-100 text-amber-700",
@@ -19,7 +18,23 @@ const STAGE_COLOR: Record<string, string> = {
 
 const BLANK_MANUAL = { firstName: "", lastName: "", phone: "", address: "", postalCode: "", city: "", productSummary: "", quotePriceDkk: "" };
 
-export default function OrdersTable() {
+// RUNDE 6 (§"koordinator kan se alle ordre og deres states, og kan
+// filtrere"): "Klar"/"Installeret" er afledte visninger (readyAt/
+// installedAt), ikke rigtige OrderStage-værdier i databasen (jf.
+// orderStage.ts) - de kan derfor ikke sendes som ?stage= til API'et.
+// Løsningen: hent med stage=I_PRODUKTION og filtrer resten client-side,
+// præcis som deriveOrderStageLabel allerede definerer dem.
+const STAGE_FILTER_OPTIONS: [string, string][] = [
+  ["KOE", "I kø"],
+  ["I_PRODUKTION", "I produktion"],
+  ["KLAR", "Klar"],
+  ["INSTALLERET", "Installeret"],
+  ["BETALT", "Betalt"],
+  ["ANMELDT", "Anmeldt"]
+];
+
+export default function OrdersTable({ role }: { role?: string } = {}) {
+  const erKoordinator = role === "COORDINATOR";
   const [orders, setOrders] = useState<any[]>([]);
   const [q, setQ] = useState("");
   const [stage, setStage] = useState("");
@@ -29,15 +44,22 @@ export default function OrdersTable() {
   const [manualSaving, setManualSaving] = useState(false);
   const [manualError, setManualError] = useState<string | null>(null);
   const [manualMsg, setManualMsg] = useState<string | null>(null);
+  const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
     setLoading(true);
     const params = new URLSearchParams();
     if (q) params.set("q", q);
-    if (stage) params.set("stage", stage);
+    // KLAR/INSTALLERET er pseudo-stadier (se STAGE_FILTER_OPTIONS) - de
+    // findes begge inde i den rigtige I_PRODUKTION-stadie.
+    if (stage && stage !== "KLAR" && stage !== "INSTALLERET") params.set("stage", stage);
+    else if (stage === "KLAR" || stage === "INSTALLERET") params.set("stage", "I_PRODUKTION");
     const res = await fetch("/api/orders?" + params.toString());
     const d = await res.json();
-    setOrders(d.orders || []);
+    let list: any[] = d.orders || [];
+    if (stage === "KLAR") list = list.filter((o) => o.readyAt && !o.installedAt);
+    else if (stage === "INSTALLERET") list = list.filter((o) => o.installedAt);
+    setOrders(list);
     setLoading(false);
   }, [q, stage]);
 
@@ -45,6 +67,25 @@ export default function OrdersTable() {
     const t = setTimeout(load, 250);
     return () => clearTimeout(t);
   }, [load]);
+
+  function melding(t: string | null) { if (t) { setActionMsg(t); setTimeout(() => setActionMsg(null), 2500); } }
+
+  // RUNDE 6: samme handlinger som den tidligere separate "Ordrestatus"-
+  // side (Runde 4 §G6) - nu foldet ind her, saa Koordinator kun har ÉT
+  // sted at holde styr på ordre-status. Kun synligt/virksomt for Koordinator.
+  async function saetStage(id: string, next: string, tekst: string) {
+    if (!confirm(`${tekst}?`)) return;
+    const res = await fetch(`/api/orders/${id}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ stage: next }) });
+    if (res.ok) melding("Gemt ✓"); else { const d = await res.json().catch(() => ({})); melding(d.error || "Kunne ikke gemme."); }
+    load();
+  }
+  async function fortryd(id: string, felt: "start" | "klar" | "installeret", tekst: string) {
+    if (!confirm(`Fortryd ${tekst}? Brug kun dette ved en fejlregistrering.`)) return;
+    const path = felt === "installeret" ? `/api/installation/${id}/installeret` : `/api/produktion/${id}/${felt}`;
+    const res = await fetch(path, { method: "DELETE" });
+    if (res.ok) melding("Fortrudt ✓"); else { const d = await res.json().catch(() => ({})); melding(d.error || "Kunne ikke fortryde."); }
+    load();
+  }
 
   async function del(id: string, orderNumber: string) {
     if (!confirm(`Slet ordre ${orderNumber}? Dette kan ikke fortrydes.`)) return;
@@ -119,8 +160,8 @@ export default function OrdersTable() {
         />
         <select className="input max-w-[200px]" value={stage} onChange={(e) => setStage(e.target.value)}>
           <option value="">Alle stadier</option>
-          {STAGE_ORDER.map((s) => (
-            <option key={s} value={s}>{ORDER_STAGE_LABELS[s]}</option>
+          {STAGE_FILTER_OPTIONS.map(([v, l]) => (
+            <option key={v} value={v}>{l}</option>
           ))}
         </select>
         <button onClick={() => setShowManual((v) => !v)} className="btn-primary ml-auto py-2.5 text-sm">{showManual ? "Luk" : "+ Ny ordre (manuel)"}</button>
@@ -128,6 +169,7 @@ export default function OrdersTable() {
       </div>
 
       {manualMsg && <p className="mb-4 text-sm font-medium text-brand-greendark">{manualMsg}</p>}
+      {actionMsg && <p className="mb-4 text-sm font-medium text-brand-greendark">{actionMsg}</p>}
 
       {showManual && (
         <form onSubmit={opretManuel} className="mb-6 grid gap-3 rounded-xl2 border border-brand-line bg-white p-5 shadow-card sm:grid-cols-2">
@@ -182,9 +224,27 @@ export default function OrdersTable() {
                       })()}
                     </td>
                     <td className="px-4 py-3 text-right">
-                      <div className="flex items-center justify-end gap-3">
+                      <div className="flex flex-wrap items-center justify-end gap-2">
+                        {/* RUNDE 6 (§G7, tidl. "Ordrestatus"-siden, Runde 4 §G6): kun
+                            Koordinator ser/kan bruge disse - fortryd ved fejl, og
+                            markér betalt/anmeldt, direkte fra overblikket. */}
+                        {erKoordinator && o.productionStartedAt && !o.readyAt && (
+                          <button onClick={() => fortryd(o.id, "start", "'i gang'")} className="rounded-full border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-500 hover:bg-red-50">Fortryd i gang</button>
+                        )}
+                        {erKoordinator && o.readyAt && !o.installedAt && (
+                          <button onClick={() => fortryd(o.id, "klar", "'klar'")} className="rounded-full border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-500 hover:bg-red-50">Fortryd klar</button>
+                        )}
+                        {erKoordinator && o.installedAt && o.stage === "I_PRODUKTION" && (
+                          <button onClick={() => fortryd(o.id, "installeret", "'installeret'")} className="rounded-full border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-500 hover:bg-red-50">Fortryd installeret</button>
+                        )}
+                        {erKoordinator && o.stage === "I_PRODUKTION" && o.installedAt && (
+                          <button onClick={() => saetStage(o.id, "BETALT", "Markér ordren som betalt")} className="rounded-full border border-brand-greendark px-2.5 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Markér betalt</button>
+                        )}
+                        {erKoordinator && o.stage === "BETALT" && (
+                          <button onClick={() => saetStage(o.id, "ANMELDT", "Markér ordren som anmeldt")} className="rounded-full border border-brand-greendark px-2.5 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Markér anmeldt</button>
+                        )}
                         <Link href={`/admin/ordrer/${o.id}`} className="text-sm font-semibold text-brand-blue hover:underline">Åbn</Link>
-                        <button onClick={() => del(o.id, o.orderNumber)} className="text-sm font-semibold text-red-500 hover:text-red-700">Slet</button>
+                        {erKoordinator && <button onClick={() => del(o.id, o.orderNumber)} className="text-sm font-semibold text-red-500 hover:text-red-700">Slet</button>}
                       </div>
                     </td>
                   </tr>
