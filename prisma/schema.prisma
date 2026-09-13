@@ -91,6 +91,19 @@ model Measurement {
   createdAt   DateTime @default(now())
   updatedAt   DateTime @updatedAt
 
+  // FASE 6 (§8.6): produktionsberegnerens linje-konfiguration, saa en
+  // ordre-koblet beregner-session kan laese/skrive DIREKTE til denne
+  // raekke (samme faktum, ingen "importeret snapshot" - jf. accept-
+  // kriterium i §9). Kun brugt naar ImalatCalc aabnes med ?orderId=,
+  // paavirker IKKE den gamle Setting-blob-baserede "Gemte ordrer".
+  tur         String   @default("SINEKLIK") // SINEKLIK | PERDE | KOMBI
+  sys         String   @default("1,9")      // 1,9 | 2,8
+  tip         String   @default("TEK")      // TEK | DUBLE
+  layout      String   @default("YANA")     // YANA | AŞAĞI (Row.model i ImalatCalc)
+  kanat       String   @default("HAREKETLI") // HAREKETLI | SABIT
+  adet        Int      @default(1)
+  done        Boolean  @default(false)
+
   @@index([leadId])
 }
 

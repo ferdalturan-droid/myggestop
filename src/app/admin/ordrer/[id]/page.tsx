@@ -26,13 +26,20 @@ export default async function OrderDetail({ params }: { params: { id: string } }
           </p>
         </div>
         <div className="flex gap-2">
-          <ImalatImportButton
-            musteri={`${order.firstName} ${order.lastName}`}
-            tel={order.phone}
-            adres={`${order.address}, ${order.postalCode} ${order.city}`}
-            orderId={order.id}
-            items={order.items.map((it: any) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
-          />
+          {order.leadId ? (
+            // FASE 6 (§8.6/§9): ordren har en rigtig Lead med Measurement-
+            // raekker - aabn beregneren ordre-koblet, saa mål/pris skrives
+            // direkte til dem (ingen "importeret snapshot").
+            <a href={`/admin/imalat?orderId=${order.id}`} className="btn-secondary py-2.5 text-sm">Til produktionsberegner</a>
+          ) : (
+            <ImalatImportButton
+              musteri={`${order.firstName} ${order.lastName}`}
+              tel={order.phone}
+              adres={`${order.address}, ${order.postalCode} ${order.city}`}
+              orderId={order.id}
+              items={order.items.map((it: any) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm }))}
+            />
+          )}
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
           <Link href={`/admin/ordrer/${order.id}/rediger`} className="btn-secondary py-2.5 text-sm">Rediger</Link>
           <OrderDeleteButton orderId={order.id} orderNumber={order.orderNumber} />

@@ -44,6 +44,7 @@ export default function ProduktionList() {
             </div>
             <div className="flex items-center gap-2">
               <a href={`/admin/ordrer/${o.id}`} className="text-brand-blue hover:underline">Åbn</a>
+              <a href={`/admin/imalat?orderId=${o.id}`} className="text-brand-greendark hover:underline">Til beregner</a>
               <button onClick={() => markerKlar(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Marker Klar</button>
             </div>
           </div>
