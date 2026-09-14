@@ -11,7 +11,10 @@ export default async function AdminDashboard() {
   // afspejler produktionspipelinen laengere (OrderStage gør). Tael derfor
   // efter stage i stedet, saa tallene stemmer overens med Produktionskø/
   // Installation/Ordrer-siderne.
-  const [total, ikoe, iProduktion, afsluttet, recent, sum, nyeLeads, opmaalteLeads, klarTilInstallation] = await Promise.all([
+  const [
+    total, ikoe, iProduktion, afsluttet, recent, sum, nyeLeads, opmaalteLeads,
+    klarTilInstallation, klarTilAfhentning, afventerBetaling, manglerFragtpris
+  ] = await Promise.all([
     prisma.order.count(),
     prisma.order.count({ where: { stage: "KOE" } }),
     prisma.order.count({ where: { stage: "I_PRODUKTION" } }),
@@ -28,13 +31,26 @@ export default async function AdminDashboard() {
     // leads (measuredAt sat) er den ene deliberate beslutning Coordinator
     // aktivt skal tage (opret ordre), den flyttes IKKE automatisk (§Q4).
     prisma.lead.findMany({ where: { stage: "OPMAALING_BOOKET", measuredAt: { not: null } }, orderBy: { measuredAt: "desc" }, take: 8 }),
-    // Klar i produktion, men endnu ikke installeret/afsluttet - Coordinator
-    // skal aktivt beslutte/booke installation (endnu en deliberate transition).
-    prisma.order.findMany({ where: { stage: "I_PRODUKTION", readyAt: { not: null }, installedAt: null }, orderBy: { readyAt: "asc" }, take: 8 })
+    // Klar i produktion, men endnu ikke installeret - KUN ordrer der reelt
+    // skal monteres (RUNDE 9: en ordre uden montering rammer aldrig
+    // installedAt, saa den ville ellers fejlagtigt staa her for evigt).
+    prisma.order.findMany({ where: { stage: "I_PRODUKTION", readyAt: { not: null }, installedAt: null, wantsInstallation: true }, orderBy: { readyAt: "asc" }, take: 8 }),
+    // RUNDE 9 ("hvis den skal fragtes eller afhentes selv skal koordinator
+    // sætte status manuelt"): modstykket til ovenstående, for ordrer der
+    // IKKE skal monteres - afventer at Koordinator selv markerer afhentet/fragtet.
+    prisma.order.findMany({ where: { stage: "I_PRODUKTION", readyAt: { not: null }, handedOverAt: null, wantsInstallation: false }, orderBy: { readyAt: "asc" }, take: 8 }),
+    // RUNDE 9: ordren er reelt afsluttet hos kunden (installeret ELLER
+    // afhentet/fragtet), men stadiet staar stadig som I_PRODUKTION -
+    // Koordinator skal markere betalt for at faa den videre i pipelinen.
+    prisma.order.findMany({ where: { stage: "I_PRODUKTION", OR: [{ installedAt: { not: null } }, { handedOverAt: { not: null } }] }, orderBy: { updatedAt: "desc" }, take: 8 }),
+    // RUNDE 9: "fragtes" valgt, men ingen fragtpris indtastet endnu -
+    // uden den kan ordren ikke reelt afsluttes over for kunden.
+    prisma.order.findMany({ where: { deliveryMethod: "FRAGTES", shippingCost: null, stage: { notIn: ["BETALT", "ANMELDT"] } }, orderBy: { createdAt: "desc" }, take: 8 })
     // RUNDE 8 (delta §2 - "vi gemmer ikke information der ikke bruges"):
     // "i gang hos byggeren"-tælleren er fjernet sammen med
     // productionStartedAt-feltet den byggede på.
   ]);
+  const harPending = opmaalteLeads.length + klarTilInstallation.length + klarTilAfhentning.length + afventerBetaling.length + manglerFragtpris.length > 0;
 
   const stats = [
     { label: "Ordrer i alt", value: total },
@@ -67,11 +83,16 @@ export default async function AdminDashboard() {
           Coordinator-beslutning ("Kør bare på" er IKKE noget system her -
           det er bevidst deliberate transitions, jf. §Q4). Ligger oevers,
           foer "Nye leads", da disse typisk haster mere (kunden venter). */}
-      {(opmaalteLeads.length > 0 || klarTilInstallation.length > 0) && (
+      {/* RUNDE 9 ("det skal være super nemt for koordinator at se hvad der
+          er sket... tilføj det der mangler på oversigt siden så man kan
+          se alt der er 'pending' på en logisk måde, og det skal give
+          mening med processen"): udvidet med de tre nye forgreninger fra
+          montering-ja/nej + levering + betaling. */}
+      {harPending && (
         <div className="mt-8 rounded-xl2 border border-amber-300 bg-amber-50 shadow-card">
           <div className="border-b border-amber-200 px-6 py-4">
             <h2 className="font-bold text-amber-900">Kræver din handling</h2>
-            <p className="mt-0.5 text-sm text-amber-800/70">Installatør/Bygger har gjort noget - tag stilling til næste skridt.</p>
+            <p className="mt-0.5 text-sm text-amber-800/70">Tag stilling til næste skridt for hver af disse.</p>
           </div>
           <div className="divide-y divide-amber-200">
             {opmaalteLeads.map((l: any) => (
@@ -90,6 +111,33 @@ export default async function AdminDashboard() {
                   <p className="text-sm text-brand-ink2/60">Klar i produktion {o.readyAt ? new Date(o.readyAt).toLocaleDateString("da-DK") : ""} · afventer booking af installation</p>
                 </div>
                 <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold text-amber-900">Klar</span>
+              </Link>
+            ))}
+            {klarTilAfhentning.map((o: any) => (
+              <Link key={o.id} href={`/admin/ordrer/${o.id}`} className="flex items-center justify-between px-6 py-4 hover:bg-amber-100/50">
+                <div>
+                  <p className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</p>
+                  <p className="text-sm text-brand-ink2/60">Klar i produktion {o.readyAt ? new Date(o.readyAt).toLocaleDateString("da-DK") : ""} · afventer at du markerer {o.deliveryMethod === "FRAGTES" ? "fragtet/sendt" : "afhentet"}</p>
+                </div>
+                <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold text-amber-900">Klar</span>
+              </Link>
+            ))}
+            {afventerBetaling.map((o: any) => (
+              <Link key={o.id} href={`/admin/ordrer/${o.id}`} className="flex items-center justify-between px-6 py-4 hover:bg-amber-100/50">
+                <div>
+                  <p className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</p>
+                  <p className="text-sm text-brand-ink2/60">{o.installedAt ? "Installeret" : (o.deliveryMethod === "FRAGTES" ? "Sendt" : "Afhentet")} · afventer at du markerer betalt</p>
+                </div>
+                <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold text-amber-900">Afsluttet hos kunde</span>
+              </Link>
+            ))}
+            {manglerFragtpris.map((o: any) => (
+              <Link key={o.id} href={`/admin/ordrer/${o.id}/rediger`} className="flex items-center justify-between px-6 py-4 hover:bg-amber-100/50">
+                <div>
+                  <p className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</p>
+                  <p className="text-sm text-brand-ink2/60">Skal fragtes · mangler fragtpris</p>
+                </div>
+                <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold text-amber-900">Mangler pris</span>
               </Link>
             ))}
           </div>

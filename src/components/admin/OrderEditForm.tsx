@@ -2,29 +2,17 @@
 import { useState } from "react";
 import { useRouter } from "next/navigation";
 
-interface ItemForm {
-  uid: number;
-  roomName: string;
-  productName: string;
-  widthMm: string;
-  heightMm: string;
-  colorName: string;
-  comment: string;
-  lineTotal: string;
-}
-
-let uidc = 1;
-const toItemForm = (it: any): ItemForm => ({
-  uid: uidc++,
-  roomName: it.roomName || "",
-  productName: it.productName || "",
-  widthMm: String(it.widthMm ?? ""),
-  heightMm: String(it.heightMm ?? ""),
-  colorName: it.colorName || "",
-  comment: it.comment || "",
-  lineTotal: String(it.lineTotal ?? "")
-});
-
+// RUNDE 9 ("når man trykker 'rediger ordre' kan man tilføje nogle mål og
+// forskelligt, ser ikke hvad formålet er her, da det ikke driver noget? så
+// vurder dette også"): den tidligere per-produkt-editor herinde var helt
+// afkoblet fra de rigtige mål (Measurement-rækker) som produktionen reelt
+// bygger efter - at redigere "pris" og "mål" her ændrede ALDRIG noget i
+// Produktionsberegneren, saa den drev intet og var bare forvirrende. Den
+// er derfor fjernet helt herfra. De rigtige produkt-/måldata redigeres nu
+// udelukkende ét sted: Produktionsberegneren (link vises paa ordre-siden
+// naar ordren har et lead). Denne side er nu KUN til det der reelt hoerer
+// til ordre-niveau: kundeoplysninger, bemærkning, og RUNDE 9's nye
+// montering/leverings-valg (som styrer selve post-produktions-processen).
 export default function OrderEditForm({ order }: { order: any }) {
   const router = useRouter();
   const [firstName, setFirstName] = useState(order.firstName || "");
@@ -35,34 +23,23 @@ export default function OrderEditForm({ order }: { order: any }) {
   const [postalCode, setPostalCode] = useState(order.postalCode || "");
   const [city, setCity] = useState(order.city || "");
   const [note, setNote] = useState(order.note || "");
-  // RUNDE 4 (§G2): "montering ja/nej" er fjernet som valg - vi arbejder
-  // kun montering-inklusivt, saa feltet er nu altid true (ingen UI-toggle).
-  const wantsInstallation = true;
-  const [installationTotal, setInstallationTotal] = useState(String(order.installationTotal ?? "0"));
-  const [items, setItems] = useState<ItemForm[]>(
-    (order.items || []).length ? order.items.map(toItemForm) : [toItemForm({})]
-  );
+
+  // RUNDE 9: reelt ordre-niveau-valg, se schema-kommentarer paa
+  // Order.wantsInstallation/deliveryMethod/shippingCost.
+  const [wantsInstallation, setWantsInstallation] = useState<boolean>(!!order.wantsInstallation);
+  const [deliveryMethod, setDeliveryMethod] = useState<string>(order.deliveryMethod || "AFHENTER_SELV");
+  const [shippingCost, setShippingCost] = useState(order.shippingCost != null ? String(order.shippingCost) : "");
+
   const [saving, setSaving] = useState(false);
   const [err, setErr] = useState<string | null>(null);
 
-  function upd(uid: number, p: Partial<ItemForm>) {
-    setItems((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
-  }
-  function add() {
-    setItems((rs) => [...rs, toItemForm({})]);
-  }
-  function del(uid: number) {
-    setItems((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : rs));
-  }
-
-  const productsTotal = items.reduce((s, it) => s + (parseFloat(it.lineTotal.replace(",", ".")) || 0), 0);
-  const estimatedTotal = productsTotal + (parseFloat(installationTotal.replace(",", ".")) || 0);
+  const backHref = `/admin/ordrer/${order.id}`;
 
   async function gem() {
     if (!firstName.trim() || !lastName.trim()) { setErr("Angiv for- og efternavn."); return; }
     setSaving(true);
     setErr(null);
-    const payload = {
+    const payload: any = {
       firstName: firstName.trim(),
       lastName: lastName.trim(),
       phone,
@@ -72,19 +49,11 @@ export default function OrderEditForm({ order }: { order: any }) {
       city,
       note,
       wantsInstallation,
-      installationTotal: parseFloat(installationTotal.replace(",", ".")) || 0,
-      items: items
-        .filter((it) => it.productName.trim())
-        .map((it) => ({
-          roomName: it.roomName,
-          productName: it.productName,
-          widthMm: parseFloat(it.widthMm.replace(",", ".")) || 0,
-          heightMm: parseFloat(it.heightMm.replace(",", ".")) || 0,
-          colorName: it.colorName,
-          comment: it.comment,
-          lineTotal: parseFloat(it.lineTotal.replace(",", ".")) || 0
-        }))
+      deliveryMethod
     };
+    if (!wantsInstallation && deliveryMethod === "FRAGTES") {
+      payload.shippingCost = parseFloat(shippingCost.replace(",", ".")) || 0;
+    }
     const res = await fetch(`/api/orders/${order.id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
@@ -92,10 +61,15 @@ export default function OrderEditForm({ order }: { order: any }) {
     });
     setSaving(false);
     if (res.ok) {
-      router.push(`/admin/ordrer/${order.id}`);
+      // RUNDE 9 ("nogle gange kan man ikke navigere tilbage"): en fast,
+      // kendt destination i stedet for router.back() (som intet gør, hvis
+      // der ikke er browserhistorik at gaa tilbage til - f.eks. hvis
+      // siden er aabnet i en ny fane eller via et direkte link).
+      router.push(backHref);
       router.refresh();
     } else {
-      setErr("Kunne ikke gemme ændringerne.");
+      const d = await res.json().catch(() => ({}));
+      setErr(d.error || "Kunne ikke gemme ændringerne.");
     }
   }
 
@@ -112,44 +86,70 @@ export default function OrderEditForm({ order }: { order: any }) {
           <label className="block"><span className="label">Postnummer</span><input className="input" value={postalCode} onChange={(e) => setPostalCode(e.target.value)} /></label>
           <label className="block"><span className="label">By</span><input className="input" value={city} onChange={(e) => setCity(e.target.value)} /></label>
         </div>
-        <label className="mt-3 block max-w-[220px]"><span className="label">Montering (kr)</span><input className="input" inputMode="decimal" value={installationTotal} onChange={(e) => setInstallationTotal(e.target.value.replace(/[^0-9.,]/g, ""))} /></label>
         <label className="mt-3 block"><span className="label">Bemærkning</span><textarea className="input" rows={3} value={note} onChange={(e) => setNote(e.target.value)} /></label>
       </div>
 
+      {/* RUNDE 9 ("Det skal være muligt at vælge om montering skal laves
+          eller ikke på ordre niveau... det skal også være muligt at vælge
+          'afhenter selv' eller 'fragtet'"): kortet der reelt styrer
+          post-produktions-forgreningen. */}
       <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
-        <h2 className="mb-4 font-bold text-brand-ink">Produkter</h2>
-        <div className="space-y-3">
-          {items.map((it, i) => (
-            <div key={it.uid} className="rounded-xl border border-brand-line p-4">
-              <div className="mb-2 flex items-center justify-between">
-                <span className="text-sm font-bold text-brand-greendark">Produkt {i + 1}</span>
-                <button onClick={() => del(it.uid)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button>
-              </div>
-              <div className="grid grid-cols-2 gap-2 sm:grid-cols-4">
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Rum</span><input className="input py-2 text-sm" value={it.roomName} onChange={(e) => upd(it.uid, { roomName: e.target.value })} /></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Produkt</span><input className="input py-2 text-sm" value={it.productName} onChange={(e) => upd(it.uid, { productName: e.target.value })} /></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Bredde (mm)</span><input className="input py-2 text-sm" inputMode="decimal" value={it.widthMm} onChange={(e) => upd(it.uid, { widthMm: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Højde (mm)</span><input className="input py-2 text-sm" inputMode="decimal" value={it.heightMm} onChange={(e) => upd(it.uid, { heightMm: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span><input className="input py-2 text-sm" value={it.colorName} onChange={(e) => upd(it.uid, { colorName: e.target.value })} /></label>
-                <label className="block sm:col-span-2"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Kommentar</span><input className="input py-2 text-sm" value={it.comment} onChange={(e) => upd(it.uid, { comment: e.target.value })} /></label>
-                <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Pris (kr)</span><input className="input py-2 text-sm" inputMode="decimal" value={it.lineTotal} onChange={(e) => upd(it.uid, { lineTotal: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
-              </div>
-            </div>
-          ))}
+        <h2 className="mb-1 font-bold text-brand-ink">Montering & levering</h2>
+        <p className="mb-4 text-sm text-brand-ink2/60">Styrer hvad der sker, når ordren er færdigbygget. Monteringstillægget beregnes automatisk ud fra Priser & gebyrer.</p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <button
+            type="button"
+            onClick={() => setWantsInstallation(true)}
+            className={`rounded-xl border-2 p-4 text-left transition ${wantsInstallation ? "border-brand-greendark bg-brand-greendark/5" : "border-brand-line hover:bg-brand-mist"}`}
+          >
+            <span className="block font-semibold text-brand-ink">Ja — montering</span>
+            <span className="block text-xs text-brand-ink2/60">Installatør monterer hos kunden. Tillæg lægges automatisk til prisen.</span>
+          </button>
+          <button
+            type="button"
+            onClick={() => setWantsInstallation(false)}
+            className={`rounded-xl border-2 p-4 text-left transition ${!wantsInstallation ? "border-brand-greendark bg-brand-greendark/5" : "border-brand-line hover:bg-brand-mist"}`}
+          >
+            <span className="block font-semibold text-brand-ink">Nej — kun levering</span>
+            <span className="block text-xs text-brand-ink2/60">Ingen installatør involveret. Du markerer selv afhentet/fragtet.</span>
+          </button>
         </div>
-        <button onClick={add} className="btn-secondary mt-3 w-full border-dashed py-2 text-sm">+ Tilføj produkt</button>
+
+        {!wantsInstallation && (
+          <div className="mt-4 border-t border-brand-line pt-4">
+            <span className="label mb-2 block">Hvordan får kunden ordren?</span>
+            <div className="flex flex-wrap gap-3">
+              <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium ${deliveryMethod === "AFHENTER_SELV" ? "border-brand-greendark bg-brand-greendark/5 text-brand-ink" : "border-brand-line text-brand-ink2"}`}>
+                <input type="radio" className="accent-brand-greendark" checked={deliveryMethod === "AFHENTER_SELV"} onChange={() => setDeliveryMethod("AFHENTER_SELV")} />
+                Afhenter selv
+              </label>
+              <label className={`flex cursor-pointer items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium ${deliveryMethod === "FRAGTES" ? "border-brand-greendark bg-brand-greendark/5 text-brand-ink" : "border-brand-line text-brand-ink2"}`}>
+                <input type="radio" className="accent-brand-greendark" checked={deliveryMethod === "FRAGTES"} onChange={() => setDeliveryMethod("FRAGTES")} />
+                Fragtes
+              </label>
+            </div>
+            {deliveryMethod === "FRAGTES" && (
+              <label className="mt-3 block max-w-[220px]">
+                <span className="label">Fragtpris (kr) — indtastes manuelt</span>
+                <input className="input" inputMode="decimal" value={shippingCost} onChange={(e) => setShippingCost(e.target.value.replace(/[^0-9.,]/g, ""))} />
+              </label>
+            )}
+          </div>
+        )}
       </div>
 
-      <div className="rounded-xl2 border border-brand-line bg-white p-4 text-sm">
-        <div className="flex justify-between py-1"><span className="text-brand-ink2/70">Produkter i alt</span><span className="font-semibold text-brand-ink">{productsTotal.toLocaleString("da-DK")} kr</span></div>
-        <div className="flex justify-between py-1"><span className="text-brand-ink2/70">Montering</span><span className="text-brand-ink">{(parseFloat(installationTotal.replace(",", ".")) || 0).toLocaleString("da-DK")} kr</span></div>
-        <div className="mt-1 flex justify-between border-t border-brand-line pt-2 text-base font-bold"><span>Estimeret total</span><span className="text-brand-bluedark">{estimatedTotal.toLocaleString("da-DK")} kr</span></div>
-      </div>
+      {order.leadId && (
+        <div className="rounded-xl border border-dashed border-brand-line bg-brand-mist/30 p-4 text-sm text-brand-ink2/70">
+          Mål, produkter og priser pr. linje redigeres i Produktionsberegneren, ikke her.{" "}
+          <a href={`/admin/imalat?orderId=${order.id}`} className="font-semibold text-brand-greendark hover:underline">Åbn beregner →</a>
+        </div>
+      )}
 
       {err && <p className="text-sm font-medium text-red-600">{err}</p>}
       <div className="flex gap-2">
         <button onClick={gem} disabled={saving} className="btn-primary py-2.5 text-sm disabled:opacity-50">{saving ? "Gemmer..." : "Gem ændringer"}</button>
-        <button onClick={() => router.push(`/admin/ordrer/${order.id}`)} className="btn-secondary py-2.5 text-sm">Annuller</button>
+        <button type="button" onClick={() => router.push(backHref)} className="btn-secondary py-2.5 text-sm">← Tilbage til ordre</button>
       </div>
     </div>
   );

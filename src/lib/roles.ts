@@ -30,19 +30,22 @@ const BUILDER_PREFIXES = ["/admin/imalat", "/admin/faerdig", "/admin/afsluttede"
 // den samlede "Mine opgaver"-visning.
 // RUNDE 8 (delta §1 - "Installer ser ALDRIG Coordinators ordreliste,
 // ordre-detalje eller redigeringsformular. Installer ser ALDRIG leads."):
-// "/admin/ordrer" er fjernet helt herfra. Ordre-kontekst til installation
-// vises i stedet INDE i "Mine opgaver" (read-only, via OrderBuildDetails +
-// selve installationskortet) - ikke som en separat side. Den eneste
-// undtagelse er den snaevre manuelle ordre-oprettelse (justeret paa
-// brugerens instruks: "only coordinator and installer can add this
-// by-pass manual entry"), som har sin egen smalle rute - se
-// ORDER_MANUAL_CREATE_ONLY nedenfor.
+// "/admin/ordrer" blev dengang fjernet helt herfra.
+// RUNDE 9 (eksplicit ombestemt af brugeren: "det med at opdatere en ordre
+// skal kun installatør og koordinator kunne gøre, og det skal gøres via
+// ordrer tabben, de skal kunne gå ind i detaljer ved at klikke på en knap"):
+// denne Runde 8-indsnævring er nu bevidst delvist tilbagerullet -
+// Installer FÅR igen "/admin/ordrer" (liste, detalje, rediger), præcis
+// som Koordinator, fordi brugeren eksplicit har bedt om at redigering
+// skal ske netop via Ordrer-fanen for begge roller. "Installer ser
+// ALDRIG leads" står derimod uændret - /admin/leads er IKKE tilføjet her.
 const INSTALLER_PREFIXES = [
   ...BUILDER_PREFIXES,
   "/admin/opmaaling",
   "/admin/installation",
   "/admin/kalender",
-  "/admin/mine-opgaver"
+  "/admin/mine-opgaver",
+  "/admin/ordrer"
 ];
 
 function matches(pathname: string, prefixes: string[]): boolean {

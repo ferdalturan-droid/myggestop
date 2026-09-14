@@ -1,5 +1,7 @@
 import { prisma } from "@/lib/prisma";
 import { TUR_LABEL } from "@/lib/calcOptions";
+import { getSetting } from "@/lib/settings";
+import { calcInstallation } from "@/lib/pricing";
 
 // Prisma's transaction-client type er svaer at navngive praecist paa tvaers
 // af Prisma-versioner - "any" her paavirker ikke kald-stedernes egen typning.
@@ -39,13 +41,29 @@ export async function promoteLeadToOrder(tx: Tx, leadId: string) {
   const gyldigeLinjer = linjer.filter((m: any) => m.widthMm != null && m.heightMm != null && m.widthMm > 0 && m.heightMm > 0);
   const perLinje = gyldigeLinjer.length > 0 ? Math.round((totalPris / gyldigeLinjer.length) * 100) / 100 : 0;
 
+  // RUNDE 9 ("det skal være muligt at vælge om montering skal laves eller
+  // ikke på ordre niveau"): webformularen (den hyppigste kilde til leads)
+  // lagde tidligere kun "[Ønsker montering]" i lead.note som fri tekst -
+  // her laeses den markering ind som ordrens rigtige wantsInstallation, saa
+  // Koordinator ikke skal huske at slaa den til manuelt for hver eneste
+  // almindelig ordre. Kan altid rettes bagefter via "Rediger ordre".
+  const onskerMontering = /\[Ønsker montering\]/.test(lead.note || "");
+  const pricing = onskerMontering ? await getSetting("pricing") : null;
+  const installationTotal = pricing ? calcInstallation(gyldigeLinjer.length, true, pricing) : 0;
+
   const order = await tx.order.create({
     data: {
       orderNumber: lead.leadNumber, // samme loebenummer genbruges, §3.6
       leadId: lead.id,
       stage: "KOE",
       productsTotal: totalPris,
-      estimatedTotal: totalPris,
+      installationTotal,
+      estimatedTotal: totalPris + installationTotal,
+      wantsInstallation: onskerMontering,
+      // RUNDE 9: kilde-rapportering skal ogsaa gaelde almindelige (lead-
+      // baserede) ordrer, ikke kun manuelle bypass-ordrer - se
+      // Order.source-kommentaren i schema.prisma.
+      source: lead.source || "",
       // Q1 (besluttet): kundefelterne paa Order beholdes urørt i databasen
       // som et additivt snapshot ved forfremmelse - al NY kode laeser dog
       // kundedata via order.lead.* som den levende sandhed, jf. §2.

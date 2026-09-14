@@ -3,6 +3,10 @@
 // ---------------------------------------------------------------------------
 
 export interface PricingConfig {
+  // RUNDE 9 ("tillæg under priser skal følge farve-sektionen, fjern det
+  // globale tillægsfelt"): dette felt bevares kun for bagudkompatibilitet
+  // med gamle indstillinger i databasen, men bruges IKKE LÆNGERE af
+  // calcLine() - farvetillæg kommer udelukkende fra Color.surchargePerSqm.
   coloredFrameSurchargePerSqm: number;
   doubleDoorSurcharge: number;
   installationBaseFee: number;
@@ -66,10 +70,11 @@ export function calcLine(input: LineInput, config: PricingConfig): LineResult {
 
   const baseTotal = round2(area * product.pricePerSqm);
 
-  // Farvetillæg: brug farvens egen sats hvis sat, ellers globalt tillæg for ikke-standardfarve.
+  // RUNDE 9: farvetillæg kommer UDELUKKENDE fra farvens egen sats (sat under
+  // "Farver"-sektionen) - intet globalt fallback-tillæg her længere.
   let colorPerSqm = 0;
   if (color && !color.isStandard) {
-    colorPerSqm = color.surchargePerSqm > 0 ? color.surchargePerSqm : config.coloredFrameSurchargePerSqm;
+    colorPerSqm = color.surchargePerSqm > 0 ? color.surchargePerSqm : 0;
   }
   const colorSurcharge = round2(area * colorPerSqm);
 

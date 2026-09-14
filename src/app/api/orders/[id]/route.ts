@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
 import { ORDER_STATUS_ORDER } from "@/lib/types";
+import { getSetting } from "@/lib/settings";
+import { calcInstallation } from "@/lib/pricing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -27,7 +29,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
   const body = await req.json();
-  const existing = await prisma.order.findUnique({ where: { id: params.id } });
+  const existing = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true } });
   if (!existing) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
 
   const data: any = {};
@@ -50,9 +52,42 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   for (const f of ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "note"] as const) {
     if (typeof body[f] === "string") data[f] = body[f];
   }
-  if (typeof body.wantsInstallation === "boolean") data.wantsInstallation = body.wantsInstallation;
+  // RUNDE 9 ("Det skal være muligt at vælge om montering skal laves eller
+  // ikke på ordre niveau, når montering vælges skal tillæg automatisk
+  // inkluderes i pris"): wantsInstallation er et rent ja/nej-valg -
+  // monteringsgebyret beregnes ALTID her server-side ud fra de gældende
+  // indstillinger (aldrig et tal klienten selv sender ind), saa det ikke
+  // kan komme ud af trit med Priser & gebyrer.
+  let wantsInstallationChanged = false;
+  if (typeof body.wantsInstallation === "boolean" && body.wantsInstallation !== existing.wantsInstallation) {
+    data.wantsInstallation = body.wantsInstallation;
+    wantsInstallationChanged = true;
+  }
 
-  const installationTotal = typeof body.installationTotal === "number" ? body.installationTotal : existing.installationTotal;
+  // RUNDE 9: levering - kun relevant naar der IKKE monteres. "fragtes"
+  // kraever en manuelt indtastet pris (varierer, beregnes ikke automatisk -
+  // jf. eksisterende "Fragt beregnes ikke automatisk" i Priser & gebyrer).
+  if (typeof body.deliveryMethod === "string" && ["AFHENTER_SELV", "FRAGTES"].includes(body.deliveryMethod)) {
+    data.deliveryMethod = body.deliveryMethod;
+  }
+  const nextDeliveryMethod = data.deliveryMethod ?? existing.deliveryMethod;
+  if (nextDeliveryMethod === "FRAGTES") {
+    if (typeof body.shippingCost === "number") data.shippingCost = Math.max(0, body.shippingCost);
+  } else if (data.deliveryMethod === "AFHENTER_SELV") {
+    // Skifter man tilbage til "afhenter selv", giver en gemt fragtpris ikke længere mening.
+    data.shippingCost = null;
+  }
+
+  let installationTotal = typeof body.installationTotal === "number" ? body.installationTotal : existing.installationTotal;
+
+  if (wantsInstallationChanged) {
+    const pricing = await getSetting("pricing");
+    // Antal fysiske enheder = de rigtige produktlinjer (ikke gebyr-/rabatlinjer med 0×0 mm).
+    const itemCount = existing.items.filter((it) => !(it.widthMm === 0 && it.heightMm === 0)).length;
+    installationTotal = calcInstallation(itemCount, body.wantsInstallation, pricing);
+    data.installationTotal = installationTotal;
+    data.estimatedTotal = existing.productsTotal + installationTotal;
+  }
 
   if (Array.isArray(body.items)) {
     const productsTotal = body.items.reduce((s: number, it: any) => s + (Number(it.lineTotal) || 0), 0);

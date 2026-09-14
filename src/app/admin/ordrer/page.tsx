@@ -20,7 +20,13 @@ export default async function AdminOrders() {
     prisma.lead.findMany({ where: { stage: "OPMAALING_BOOKET", measuredAt: { not: null } }, orderBy: { measuredAt: "desc" }, take: 10 }),
     prisma.order.findMany({ where: { stage: "I_PRODUKTION", readyAt: { not: null }, installedAt: null }, orderBy: { readyAt: "asc" }, take: 10 })
   ]);
-  const harHandling = opmaalteLeads.length > 0 || klarTilInstallation.length > 0;
+  // RUNDE 9 ("installatør skal kunne... via ordrer tabben"): Installer får
+  // nu ogsaa denne side, men "Kræver din handling"-sektionen linker til
+  // Leads (som Installer fortsat aldrig maa se, jf. Runde 8) og handler om
+  // Koordinatorens egne opgaver (oprette ordre fra et opmålt lead) - vis
+  // den derfor kun for Koordinator.
+  const erKoordinator = session?.role === "COORDINATOR";
+  const harHandling = erKoordinator && (opmaalteLeads.length > 0 || klarTilInstallation.length > 0);
 
   return (
     <div>

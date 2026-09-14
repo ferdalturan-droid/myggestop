@@ -4,12 +4,12 @@ import { TUR_OPTIONS, TUR_LABEL, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT
 
 const BLANK_M = { roomName: "", tur: "SINEKLIK", sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1", colorName: "", comment: "" };
 
-// RUNDE 3: redesignet til et rigtigt tabellayout med kolonneoverskrifter
-// (den tidligere version var en umaerket grid af felter - svaer at
-// gennemskue). "+ Nyt bekræftet lead" er FJERNET herfra (leads hoerer
-// udelukkende til Coordinator, og "opret kunde manuelt" bor nu ét sted:
-// Ordre-siden, jf. Gruppe C). Installatøren har (bevidst) ikke adgang til
-// den fulde Lead-detaljeside, saa al måletagning sker direkte her.
+// RUNDE 9 ("de forme vi har... f.eks. oprette mål, tilføje mål... er meget
+// grimt og ikke brugervenligt, lav fuldstændig om"): den tidligere tætte
+// 9-kolonners tabel med umærkede felter er erstattet af et kort pr.
+// måle-linje med tydeligt mærkede felter, samme mønster som de øvrige
+// redesignede formularer i systemet (ManualOrderForm/OrderEditForm). Alle
+// felter, værdier og API-kald er UÆNDREDE - kun layoutet er nyt.
 export default function OpmaalingList() {
   const [leads, setLeads] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -75,7 +75,7 @@ export default function OpmaalingList() {
     }
   }
 
-  const COLS = ["Type", "System", "Fløjtype", "Retning", "Fløj", "Antal", "Bredde (mm)", "Højde (mm)", "Farve", ""];
+  const lbl = "mb-0.5 block text-[11px] font-medium text-brand-ink2/60";
 
   return (
     <div>
@@ -95,6 +95,7 @@ export default function OpmaalingList() {
       <div className="space-y-4">
         {leads.map((l) => {
           const nm = newMFor(l.id);
+          const nmRel = felterRelevanteForTur(nm.tur);
           return (
             <div key={l.id} className="overflow-hidden rounded-xl2 border border-brand-line bg-white shadow-card">
               <div className="flex flex-wrap items-center justify-between gap-3 border-b border-brand-line bg-brand-mist/40 px-5 py-3.5">
@@ -118,48 +119,67 @@ export default function OpmaalingList() {
                 </div>
               )}
 
-              <div className="overflow-x-auto p-4">
-                <table className="w-full min-w-[760px] text-sm">
-                  <thead>
-                    <tr className="text-left text-xs uppercase tracking-wide text-brand-ink2/45">
-                      {COLS.map((c) => <th key={c} className="pb-1.5 pr-2 font-semibold">{c}</th>)}
-                    </tr>
-                  </thead>
-                  <tbody>
-                    {(l.measurements || []).map((m: any) => {
-                      const rel = felterRelevanteForTur(m.tur || "SINEKLIK");
-                      return (
-                        <tr key={m.id} className="border-t border-brand-line/60">
-                          <td className="py-1.5 pr-2"><select className="input py-1 text-sm" defaultValue={m.tur || "SINEKLIK"} onChange={(e) => opdaterMaal(l.id, m.id, { tur: e.target.value })}>{TUR_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select></td>
-                          <td className="py-1.5 pr-2">{rel.sys ? <select className="input py-1 text-sm" defaultValue={m.sys || "1,9"} onChange={(e) => opdaterMaal(l.id, m.id, { sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select> : <span className="text-brand-ink2/30">—</span>}</td>
-                          <td className="py-1.5 pr-2">{rel.tip ? <select className="input py-1 text-sm" defaultValue={m.tip || "TEK"} onChange={(e) => opdaterMaal(l.id, m.id, { tip: e.target.value })}>{TIP_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select> : <span className="text-brand-ink2/30">—</span>}</td>
-                          <td className="py-1.5 pr-2">{rel.layout ? <select className="input py-1 text-sm" defaultValue={m.layout || "YANA"} onChange={(e) => opdaterMaal(l.id, m.id, { layout: e.target.value })}>{LAYOUT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select> : <span className="text-brand-ink2/30">—</span>}</td>
-                          <td className="py-1.5 pr-2">{rel.kanat ? <select className="input py-1 text-sm" defaultValue={m.kanat || "HAREKETLI"} onChange={(e) => opdaterMaal(l.id, m.id, { kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select> : <span className="text-brand-ink2/30">—</span>}</td>
-                          <td className="py-1.5 pr-2 w-16"><input className="input py-1 text-sm" defaultValue={m.adet ?? 1} onBlur={(e) => opdaterMaal(l.id, m.id, { adet: Number(e.target.value) || 1 })} /></td>
-                          <td className="py-1.5 pr-2 w-24"><input className="input py-1 text-sm" placeholder="mm" defaultValue={m.widthMm ?? ""} onBlur={(e) => opdaterMaal(l.id, m.id, { widthMm: e.target.value })} /></td>
-                          <td className="py-1.5 pr-2 w-24"><input className="input py-1 text-sm" placeholder="mm" defaultValue={m.heightMm ?? ""} onBlur={(e) => opdaterMaal(l.id, m.id, { heightMm: e.target.value })} /></td>
-                          <td className="py-1.5 pr-2 w-28"><input className="input py-1 text-sm" placeholder="Farve" defaultValue={m.colorName ?? ""} onBlur={(e) => opdaterMaal(l.id, m.id, { colorName: e.target.value })} /></td>
-                          <td className="py-1.5 text-right"><button onClick={() => sletMaal(l.id, m.id)} className="text-red-400 hover:text-red-600">✕</button></td>
-                        </tr>
-                      );
-                    })}
-                    {(!l.measurements || l.measurements.length === 0) && (
-                      <tr><td colSpan={COLS.length} className="py-3 text-sm text-brand-ink2/50">Ingen linjer endnu — tilføj den første nedenfor.</td></tr>
-                    )}
-                  </tbody>
-                </table>
+              <div className="space-y-3 p-4">
+                {(l.measurements || []).length === 0 && (
+                  <p className="rounded-lg bg-brand-mist/30 px-4 py-3 text-sm text-brand-ink2/50">Ingen linjer endnu — tilføj den første nedenfor.</p>
+                )}
+                {(l.measurements || []).map((m: any, i: number) => {
+                  const rel = felterRelevanteForTur(m.tur || "SINEKLIK");
+                  return (
+                    <div key={m.id} className="rounded-xl border border-brand-line p-3.5">
+                      <div className="mb-2 flex items-center justify-between">
+                        <span className="text-sm font-bold text-brand-greendark">Linje {i + 1}{m.roomName ? ` · ${m.roomName}` : ""}</span>
+                        <button onClick={() => sletMaal(l.id, m.id)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button>
+                      </div>
+                      <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-5">
+                        <label className="block"><span className={lbl}>Type</span>
+                          <select className="input py-2 text-sm" defaultValue={m.tur || "SINEKLIK"} onChange={(e) => opdaterMaal(l.id, m.id, { tur: e.target.value })}>{TUR_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                        </label>
+                        {rel.sys && <label className="block"><span className={lbl}>System</span>
+                          <select className="input py-2 text-sm" defaultValue={m.sys || "1,9"} onChange={(e) => opdaterMaal(l.id, m.id, { sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select>
+                        </label>}
+                        {rel.tip && <label className="block"><span className={lbl}>Fløjtype</span>
+                          <select className="input py-2 text-sm" defaultValue={m.tip || "TEK"} onChange={(e) => opdaterMaal(l.id, m.id, { tip: e.target.value })}>{TIP_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                        </label>}
+                        {rel.layout && <label className="block"><span className={lbl}>Retning</span>
+                          <select className="input py-2 text-sm" defaultValue={m.layout || "YANA"} onChange={(e) => opdaterMaal(l.id, m.id, { layout: e.target.value })}>{LAYOUT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                        </label>}
+                        {rel.kanat && <label className="block"><span className={lbl}>Fløj</span>
+                          <select className="input py-2 text-sm" defaultValue={m.kanat || "HAREKETLI"} onChange={(e) => opdaterMaal(l.id, m.id, { kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                        </label>}
+                        <label className="block"><span className={lbl}>Antal</span><input className="input py-2 text-sm" defaultValue={m.adet ?? 1} onBlur={(e) => opdaterMaal(l.id, m.id, { adet: Number(e.target.value) || 1 })} /></label>
+                        <label className="block"><span className={lbl}>Bredde (mm)</span><input className="input py-2 text-sm" placeholder="mm" defaultValue={m.widthMm ?? ""} onBlur={(e) => opdaterMaal(l.id, m.id, { widthMm: e.target.value })} /></label>
+                        <label className="block"><span className={lbl}>Højde (mm)</span><input className="input py-2 text-sm" placeholder="mm" defaultValue={m.heightMm ?? ""} onBlur={(e) => opdaterMaal(l.id, m.id, { heightMm: e.target.value })} /></label>
+                        <label className="block"><span className={lbl}>Farve</span><input className="input py-2 text-sm" placeholder="Standard" defaultValue={m.colorName ?? ""} onBlur={(e) => opdaterMaal(l.id, m.id, { colorName: e.target.value })} /></label>
+                      </div>
+                    </div>
+                  );
+                })}
 
-                <form onSubmit={(e) => tilfoejMaal(l.id, e)} className="mt-3 flex flex-wrap items-end gap-2 border-t border-dashed border-brand-line pt-3">
-                  <input className="input w-32" placeholder="Rum" value={nm.roomName} onChange={(e) => setNewMFor(l.id, { roomName: e.target.value })} />
-                  <select className="input w-36" value={nm.tur} onChange={(e) => setNewMFor(l.id, { tur: e.target.value })}>{TUR_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
-                  {felterRelevanteForTur(nm.tur).sys && <select className="input w-24" value={nm.sys} onChange={(e) => setNewMFor(l.id, { sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select>}
-                  {felterRelevanteForTur(nm.tur).tip && <select className="input w-28" value={nm.tip} onChange={(e) => setNewMFor(l.id, { tip: e.target.value })}>{TIP_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>}
-                  {felterRelevanteForTur(nm.tur).layout && <select className="input w-24" value={nm.model} onChange={(e) => setNewMFor(l.id, { model: e.target.value })}>{LAYOUT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>}
-                  {felterRelevanteForTur(nm.tur).kanat && <select className="input w-28" value={nm.kanat} onChange={(e) => setNewMFor(l.id, { kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>}
-                  <input className="input w-16" placeholder="Antal" value={nm.adet} onChange={(e) => setNewMFor(l.id, { adet: e.target.value.replace(/[^0-9]/g, "") })} />
-                  <input className="input w-28" placeholder="Farve" value={nm.colorName} onChange={(e) => setNewMFor(l.id, { colorName: e.target.value })} />
-                  <input className="input w-36" placeholder="Kommentar" value={nm.comment} onChange={(e) => setNewMFor(l.id, { comment: e.target.value })} />
-                  <button className="btn-secondary text-sm">+ Tilføj linje</button>
+                <form onSubmit={(e) => tilfoejMaal(l.id, e)} className="rounded-xl border border-dashed border-brand-line p-3.5">
+                  <p className="mb-2 text-sm font-bold text-brand-greendark">+ Ny linje</p>
+                  <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4 lg:grid-cols-5">
+                    <label className="block"><span className={lbl}>Rum</span><input className="input py-2 text-sm" placeholder="F.eks. Stue" value={nm.roomName} onChange={(e) => setNewMFor(l.id, { roomName: e.target.value })} /></label>
+                    <label className="block"><span className={lbl}>Type</span>
+                      <select className="input py-2 text-sm" value={nm.tur} onChange={(e) => setNewMFor(l.id, { tur: e.target.value })}>{TUR_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                    </label>
+                    {nmRel.sys && <label className="block"><span className={lbl}>System</span>
+                      <select className="input py-2 text-sm" value={nm.sys} onChange={(e) => setNewMFor(l.id, { sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select>
+                    </label>}
+                    {nmRel.tip && <label className="block"><span className={lbl}>Fløjtype</span>
+                      <select className="input py-2 text-sm" value={nm.tip} onChange={(e) => setNewMFor(l.id, { tip: e.target.value })}>{TIP_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                    </label>}
+                    {nmRel.layout && <label className="block"><span className={lbl}>Retning</span>
+                      <select className="input py-2 text-sm" value={nm.model} onChange={(e) => setNewMFor(l.id, { model: e.target.value })}>{LAYOUT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                    </label>}
+                    {nmRel.kanat && <label className="block"><span className={lbl}>Fløj</span>
+                      <select className="input py-2 text-sm" value={nm.kanat} onChange={(e) => setNewMFor(l.id, { kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, lab]) => <option key={v} value={v}>{lab}</option>)}</select>
+                    </label>}
+                    <label className="block"><span className={lbl}>Antal</span><input className="input py-2 text-sm" placeholder="1" value={nm.adet} onChange={(e) => setNewMFor(l.id, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
+                    <label className="block"><span className={lbl}>Farve</span><input className="input py-2 text-sm" placeholder="Standard" value={nm.colorName} onChange={(e) => setNewMFor(l.id, { colorName: e.target.value })} /></label>
+                    <label className="block sm:col-span-2"><span className={lbl}>Kommentar</span><input className="input py-2 text-sm" value={nm.comment} onChange={(e) => setNewMFor(l.id, { comment: e.target.value })} /></label>
+                  </div>
+                  <button className="btn-secondary mt-3 w-full py-2 text-sm">+ Tilføj linje</button>
                 </form>
               </div>
             </div>

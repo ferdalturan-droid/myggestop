@@ -68,14 +68,14 @@ export default function PricesManager() {
       <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
         <h2 className="mb-4 font-bold text-brand-ink">Tillæg & montering</h2>
         <div className="grid gap-4 sm:grid-cols-2">
-          {num("coloredFrameSurchargePerSqm")}
           {num("doubleDoorSurcharge")}
           {num("installationBaseFee")}
           {num("installationPerProduct")}
         </div>
         <p className="mt-4 rounded-xl bg-brand-mist p-4 text-sm text-brand-ink2/70">
           Produktpriser pr. m² og dobbeltdør-grænser saettes pr. produkt under <strong>Produkter</strong>.
-          Farvetillæg kan ogsa saettes individuelt pr. farve under <strong>Farver</strong>.
+          Farvetillæg saettes UDELUKKENDE individuelt pr. farve under <strong>Farver</strong> - der er ikke
+          længere et separat tillægsfelt her.
         </p>
       </div>
 

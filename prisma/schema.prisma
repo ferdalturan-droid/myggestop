@@ -109,8 +109,16 @@ model Lead {
 // (unified_saved_records). Bruges foerst rigtigt fra Fase 6.
 model Measurement {
   id          String   @id @default(cuid())
-  leadId      String
-  lead        Lead     @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  // RUNDE 9 ("manuel ordre skal kunne indtaste alle info pr. produkt inkl.
+  // mål/type... og en manuel ordre må ikke oprette et lead"): leadId er nu
+  // valgfri, og et Measurement kan i stedet kobles direkte til en Order via
+  // orderId - samme dobbelt-valgfri-FK-mønster som Appointment/Note allerede
+  // bruger. En "rigtig" (lead-baseret) ordre bruger fortsat leadId; en
+  // manuel bypass-ordre (uden lead) bruger orderId direkte.
+  leadId      String?
+  lead        Lead?    @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  orderId     String?
+  order       Order?   @relation(fields: [orderId], references: [id], onDelete: Cascade)
   itemNumber  Int
   roomName    String   @default("")
   productType String
@@ -139,6 +147,7 @@ model Measurement {
   builtAt     DateTime?
 
   @@index([leadId])
+  @@index([orderId])
 }
 
 // FASE 1 (§3.3): nye OrderStage-vaerdier tilfoejet ved siden af den
@@ -195,6 +204,17 @@ enum OrderStatus {
   ANNULLERET    // Annulleret
 }
 
+// RUNDE 9 ("det skal være muligt at vælge om montering skal laves... det
+// skal også være muligt at vælge 'afhenter selv' eller 'fragtet'"):
+// hvordan kunden får ordren, NÅR den er færdig i produktion - adskilt fra
+// wantsInstallation (som styrer OM installatøren monterer den hos kunden).
+// En ordre der ikke skal monteres, skal enten afhentes af kunden selv
+// eller sendes med fragt (med en manuelt indtastet fragtpris).
+enum DeliveryMethod {
+  AFHENTER_SELV
+  FRAGTES
+}
+
 model Order {
   id            String   @id @default(cuid())
   orderNumber   String   @unique // MYG-2026-0001
@@ -210,6 +230,23 @@ model Order {
   city          String
 
   wantsInstallation Boolean @default(false) // true = montering, false = kun levering
+  // RUNDE 9: kun relevant naar wantsInstallation=false - hvordan kunden
+  // faar ordren. shippingCost indtastes manuelt af Koordinator (fragtpris
+  // varierer, beregnes ikke automatisk - se allerede eksisterende
+  // "Fragt beregnes ikke automatisk" i Priser & gebyrer).
+  deliveryMethod    DeliveryMethod @default(AFHENTER_SELV)
+  shippingCost      Float?
+  // RUNDE 9: post-produktion-forgreningens "modstykke" til installedAt, når
+  // ordren IKKE skal monteres - Koordinator markerer selv hvornår den er
+  // afhentet/fragtet, da installatørens del af processen slet ikke gælder
+  // for denne ordre.
+  handedOverAt      DateTime?
+  // RUNDE 9: kilde-kategori ogsaa paa selve ordren (ikke kun Lead) - en
+  // manuel bypass-ordre opretter ikke laengere noget lead (se nedenfor), saa
+  // kilde-rapportering ville ellers gaa tabt for netop disse ordrer.
+  // Udfyldes fra lead.source ved forfremmelse, eller direkte ved manuel
+  // ordre-oprettelse.
+  source            String   @default("")
   note          String   @default("")
 
   // Prissammendrag (oprettet ud fra indstillinger paa bestillingstidspunktet)
@@ -248,6 +285,11 @@ model Order {
   cancelledAt         DateTime?
   appointments        Appointment[]
   notes               Note[]
+  // RUNDE 9: en manuel bypass-ordre har INGEN Lead (se Measurement.orderId
+  // ovenfor) - dens produktlinjer/mål ligger derfor direkte her i stedet.
+  // For en normal (lead-baseret) ordre forbliver order.lead.measurements
+  // fortsat sandhedskilden, uaendret.
+  measurements        Measurement[]
 
   @@index([status])
   @@index([stage])

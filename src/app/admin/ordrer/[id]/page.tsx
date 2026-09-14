@@ -50,7 +50,14 @@ export default async function OrderDetail({ params }: { params: { id: string } }
   // er fjernet fra denne side - OrderStage (afledt her) er nu den eneste
   // status en ordre viser, saa der ikke findes to statusfelter der kan
   // sige to forskellige ting om samme ordre.
-  const stageLabel = deriveOrderStageLabel({ stage: order.stage, readyAt: order.readyAt ? order.readyAt.toISOString() : null, installedAt: order.installedAt ? order.installedAt.toISOString() : null });
+  const stageLabel = deriveOrderStageLabel({
+    stage: order.stage,
+    readyAt: order.readyAt ? order.readyAt.toISOString() : null,
+    installedAt: order.installedAt ? order.installedAt.toISOString() : null,
+    wantsInstallation: order.wantsInstallation,
+    deliveryMethod: order.deliveryMethod,
+    handedOverAt: order.handedOverAt ? order.handedOverAt.toISOString() : null
+  });
   // RUNDE 7 (§4 i procesdokumentet): "Klar til installation" kan foerst
   // saettes naar ALLE maalelinjer er markeret Færdig i beregneren.
   const alleMaalinger = order.lead?.measurements || [];
@@ -117,7 +124,9 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             <div className="mt-5 space-y-1.5 border-t border-brand-line pt-4 text-sm">
               <div className="flex justify-between"><span className="text-brand-ink2/60">Produkter i alt</span><span>{formatDKK(order.productsTotal)}</span></div>
               {order.wantsInstallation && <div className="flex justify-between"><span className="text-brand-ink2/60">Montering</span><span>{formatDKK(order.installationTotal)}</span></div>}
-              <div className="flex justify-between"><span className="text-brand-ink2/60">Fragt</span><span>Efter aftale</span></div>
+              {!order.wantsInstallation && order.deliveryMethod === "FRAGTES" && (
+                <div className="flex justify-between"><span className="text-brand-ink2/60">Fragt</span><span>{order.shippingCost != null ? formatDKK(order.shippingCost) : "Ikke angivet endnu"}</span></div>
+              )}
               <div className="flex justify-between border-t border-brand-line pt-2 text-base font-bold"><span>Estimeret total</span><span className="text-brand-bluedark">{formatDKK(order.estimatedTotal)}</span></div>
             </div>
           </div>
@@ -146,7 +155,18 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               <div><dt className="text-brand-ink2/50">Telefon</dt><dd><a className="text-brand-blue hover:underline" href={`tel:${order.phone}`}>{order.phone}</a></dd></div>
               <div><dt className="text-brand-ink2/50">E-mail</dt><dd><a className="text-brand-blue hover:underline" href={`mailto:${order.email}`}>{order.email}</a></dd></div>
               <div><dt className="text-brand-ink2/50">Adresse</dt><dd className="text-brand-ink">{order.address}, {order.postalCode} {order.city}</dd></div>
-              <div><dt className="text-brand-ink2/50">Montering</dt><dd className="text-brand-ink">{order.wantsInstallation ? "Ja — ønsker montering" : "Nej — kun levering"}</dd></div>
+              <div><dt className="text-brand-ink2/50">Montering</dt><dd className="text-brand-ink">{order.wantsInstallation ? "Ja — montering inkluderet" : "Nej — kunden modtager selv"}</dd></div>
+              {!order.wantsInstallation && (
+                <div>
+                  <dt className="text-brand-ink2/50">Levering</dt>
+                  <dd className="text-brand-ink">
+                    {order.deliveryMethod === "FRAGTES" ? "Fragtes" : "Afhenter selv"}
+                    {order.deliveryMethod === "FRAGTES" && (
+                      <span className="text-brand-ink2/60"> · Fragtpris: {order.shippingCost != null ? formatDKK(order.shippingCost) : "ikke angivet endnu"}</span>
+                    )}
+                  </dd>
+                </div>
+              )}
             </dl>
           </div>
           {canEdit ? (
@@ -160,6 +180,9 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 alleLinjerFaerdig={alleLinjerFaerdig}
                 antalLinjerIalt={antalLinjerIalt}
                 antalLinjerFaerdig={antalLinjerFaerdig}
+                wantsInstallation={order.wantsInstallation}
+                deliveryMethod={order.deliveryMethod}
+                handedOverAt={order.handedOverAt ? order.handedOverAt.toISOString() : null}
               />
             </div>
           ) : (

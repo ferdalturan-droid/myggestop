@@ -20,7 +20,8 @@ import { deriveOrderStageLabel } from "@/lib/orderStage";
 // sat, låses den (vises som en færdig-tilstand, ikke en knap man kan
 // trykke på igen) - kun Koordinator kan fortryde en fejlagtig markering.
 export default function OrderStageControl({
-  orderId, stage, readyAt, installedAt, role, alleLinjerFaerdig = true, antalLinjerIalt = 0, antalLinjerFaerdig = 0
+  orderId, stage, readyAt, installedAt, role, alleLinjerFaerdig = true, antalLinjerIalt = 0, antalLinjerFaerdig = 0,
+  wantsInstallation = true, deliveryMethod = "AFHENTER_SELV", handedOverAt = null
 }: {
   orderId: string; stage: string; readyAt: string | null; installedAt: string | null; role?: string;
   // RUNDE 7 (§4 i procesdokumentet): "Færdig"-markeringen pr. linje i
@@ -29,11 +30,17 @@ export default function OrderStageControl({
   // grund til den, og afspejler den logisk noget?"). Default true, saa en
   // ordre uden nogen linjer (manuel ordre) aldrig spærres unødigt.
   alleLinjerFaerdig?: boolean; antalLinjerIalt?: number; antalLinjerFaerdig?: number;
+  // RUNDE 9 ("hele 'installering' processen skal kun være en del af
+  // processen hvis optionen der vælges er 'monteres = ja'"): styrer om
+  // Klar->Installeret-flowet vises, eller om Koordinator i stedet skal
+  // markere afhentet/fragtet manuelt.
+  wantsInstallation?: boolean; deliveryMethod?: string; handedOverAt?: string | null;
 }) {
   const router = useRouter();
   const [s, setS] = useState(stage);
   const [ready, setReady] = useState(readyAt);
   const [installed, setInstalled] = useState(installedAt);
+  const [handedOver, setHandedOver] = useState(handedOverAt);
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
@@ -75,7 +82,25 @@ export default function OrderStageControl({
     if (res.ok) { setInstalled(null); router.refresh(); }
   }
 
-  const visning = deriveOrderStageLabel({ stage: s, readyAt: ready, installedAt: installed });
+  // RUNDE 9: modstykket til marker/fortrydInstalleret, for ordrer der IKKE
+  // skal monteres - kun Koordinator, se /api/orders/[id]/handed-over.
+  const leveringsOrd = deliveryMethod === "FRAGTES" ? "sendt" : "afhentet";
+  async function markerAfhentet() {
+    if (!confirm(`Markér ordren som ${leveringsOrd}?`)) return;
+    setErr(null);
+    const res = await fetch(`/api/orders/${orderId}/handed-over`, { method: "POST" });
+    const d = await res.json();
+    if (res.ok) { setHandedOver(d.order.handedOverAt); router.refresh(); } else setErr(d.error || "Kunne ikke markere.");
+  }
+  async function fortrydAfhentet() {
+    if (!confirm("Fortryd? Brug kun dette ved en fejlregistrering.")) return;
+    const res = await fetch(`/api/orders/${orderId}/handed-over`, { method: "DELETE" });
+    const d = await res.json();
+    if (res.ok) { setHandedOver(null); router.refresh(); }
+  }
+
+  const visning = deriveOrderStageLabel({ stage: s, readyAt: ready, installedAt: installed, wantsInstallation, deliveryMethod, handedOverAt: handedOver });
+  const afsluttetPostProduktion = wantsInstallation ? !!installed : !!handedOver;
 
   return (
     <div>
@@ -132,24 +157,45 @@ export default function OrderStageControl({
             <p className="text-xs text-brand-ink2/50">Afventer at byggeren markerer ordren klar til installation.</p>
           )}
 
-          {installed ? (
-            <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-brand-greendark px-3 py-1.5 text-xs font-semibold text-white">Installeret ✓ ({new Date(installed).toLocaleDateString("da-DK")})</span>
-              {erKoordinator && <button onClick={fortrydInstalleret} className="text-xs font-medium text-red-500 hover:underline">Fortryd (kun ved fejl)</button>}
-            </div>
+          {/* RUNDE 9 ("hele 'installering' processen skal kun være en del
+              af processen hvis optionen der vælges er 'monteres = ja'.
+              Hvis den skal fragtes eller afhentes selv skal koordinator
+              sætte status manuelt"): to helt adskilte grene herfra. */}
+          {wantsInstallation ? (
+            installed ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-brand-greendark px-3 py-1.5 text-xs font-semibold text-white">Installeret ✓ ({new Date(installed).toLocaleDateString("da-DK")})</span>
+                {erKoordinator && <button onClick={fortrydInstalleret} className="text-xs font-medium text-red-500 hover:underline">Fortryd (kun ved fejl)</button>}
+              </div>
+            ) : (
+              (erKoordinator || role === "INSTALLER") && (
+                <button onClick={markerInstalleret} disabled={!ready} title={!ready ? "Ordren skal være markeret klar i produktion først" : undefined} className="rounded-full border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist disabled:opacity-40">
+                  Marker Installeret
+                </button>
+              )
+            )
           ) : (
-            (erKoordinator || role === "INSTALLER") && (
-              <button onClick={markerInstalleret} disabled={!ready} title={!ready ? "Ordren skal være markeret klar i produktion først" : undefined} className="rounded-full border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist disabled:opacity-40">
-                Marker Installeret
-              </button>
+            handedOver ? (
+              <div className="flex flex-wrap items-center gap-2">
+                <span className="rounded-full bg-brand-greendark px-3 py-1.5 text-xs font-semibold text-white">{deliveryMethod === "FRAGTES" ? "Sendt" : "Afhentet"} ✓ ({new Date(handedOver).toLocaleDateString("da-DK")})</span>
+                {erKoordinator && <button onClick={fortrydAfhentet} className="text-xs font-medium text-red-500 hover:underline">Fortryd (kun ved fejl)</button>}
+              </div>
+            ) : (
+              erKoordinator && (
+                <button onClick={markerAfhentet} disabled={!ready} title={!ready ? "Ordren skal være markeret klar i produktion først" : undefined} className="rounded-full border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist disabled:opacity-40">
+                  Markér {deliveryMethod === "FRAGTES" ? "fragtet/sendt" : "afhentet"}
+                </button>
+              )
             )
           )}
         </div>
       )}
 
       {/* RUNDE 4 (§G6): "Markér betalt"/"Markér anmeldt" er nu KUN synligt
-          og brugbart for Koordinator - ingen andre roller. */}
-      {erKoordinator && (s === "I_PRODUKTION" || s === "BETALT" || s === "ANMELDT") && installed && (
+          og brugbart for Koordinator - ingen andre roller. RUNDE 9: gælder
+          nu ogsaa naar en ikke-monteret ordre er afhentet/fragtet, ikke
+          kun naar den er installeret. */}
+      {erKoordinator && (s === "I_PRODUKTION" || s === "BETALT" || s === "ANMELDT") && afsluttetPostProduktion && (
         <div className="mt-3 flex flex-wrap gap-2 border-t border-brand-line pt-3">
           <button disabled={saving || s !== "I_PRODUKTION"} onClick={() => { if (confirm("Markér ordren som betalt?")) saetStage("BETALT"); }} className={`rounded-full px-3 py-1.5 text-xs font-semibold disabled:opacity-40 ${s === "BETALT" || s === "ANMELDT" ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>
             {s === "BETALT" || s === "ANMELDT" ? "Betalt ✓" : "Markér betalt"}
