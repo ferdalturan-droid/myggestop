@@ -49,20 +49,6 @@ enum LeadStage {
   BEKRAEFTET
 }
 
-// RUNDE 8 (delta §1/§3 - "ikke frit tekstfelt men en liste rapporterings-
-// mulighed for at se hvilken platform lead kom fra"): faste, rapporterbare
-// kilde-kategorier i stedet for den tidligere frie streng. HJEMMESIDE
-// sættes automatisk af webformularen; alle andre vælges eksplicit af
-// Koordinator ved manuel oprettelse.
-enum LeadSource {
-  HJEMMESIDE
-  META
-  GOOGLE
-  HENVISNING
-  PERSONLIG_KONTAKT
-  ANDET
-}
-
 model Lead {
   id             String    @id @default(cuid())
   leadNumber     String    @unique // fx MYG-2026-0001 - samme loebenummer som Order.orderNumber ved forfremmelse, se §3.6
@@ -76,7 +62,18 @@ model Lead {
   postalCode     String
   city           String
 
-  source         LeadSource @default(HJEMMESIDE)
+  // RUNDE 8 (delta §1/§3 - "ikke frit tekstfelt men en liste rapporterings-
+  // mulighed for at se hvilken platform lead kom fra"): faste, rapporterbare
+  // kilde-kategorier - men BEVIDST stadig en almindelig String i selve
+  // databasen (ikke et Postgres-enum). Kategorierne haandhaeves i
+  // applikationslaget (src/lib/leadSource.ts, samme moenster som fx
+  // Order.paymentStatus allerede bruger). Grunden: at konvertere en
+  // eksisterende tekst-kolonne til en enum-type kraever at ALLE
+  // eksisterende raekker allerede matcher praecis en af enum-vaerdierne,
+  // ellers fejler "prisma db push" haardt for HELE databasen (oplevet i
+  // praksis under denne rundes forsoeg) - en unoedvendig risiko for en
+  // regel der lige saa sikkert kan haandhaeves i koden.
+  source         String    @default("HJEMMESIDE")
   productSummary String    @default("")
   note           String    @default("")
 
