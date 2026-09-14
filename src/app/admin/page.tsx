@@ -11,7 +11,7 @@ export default async function AdminDashboard() {
   // afspejler produktionspipelinen laengere (OrderStage gør). Tael derfor
   // efter stage i stedet, saa tallene stemmer overens med Produktionskø/
   // Installation/Ordrer-siderne.
-  const [total, ikoe, iProduktion, afsluttet, recent, sum, nyeLeads, opmaalteLeads, klarTilInstallation, iGangHosBygger] = await Promise.all([
+  const [total, ikoe, iProduktion, afsluttet, recent, sum, nyeLeads, opmaalteLeads, klarTilInstallation] = await Promise.all([
     prisma.order.count(),
     prisma.order.count({ where: { stage: "KOE" } }),
     prisma.order.count({ where: { stage: "I_PRODUKTION" } }),
@@ -30,10 +30,10 @@ export default async function AdminDashboard() {
     prisma.lead.findMany({ where: { stage: "OPMAALING_BOOKET", measuredAt: { not: null } }, orderBy: { measuredAt: "desc" }, take: 8 }),
     // Klar i produktion, men endnu ikke installeret/afsluttet - Coordinator
     // skal aktivt beslutte/booke installation (endnu en deliberate transition).
-    prisma.order.findMany({ where: { stage: "I_PRODUKTION", readyAt: { not: null }, installedAt: null }, orderBy: { readyAt: "asc" }, take: 8 }),
-    // Rent informativt: Bygger er i gang, men endnu ikke klar - ingen
-    // handling kræves endnu, men Coordinator kan se det sker noget.
-    prisma.order.count({ where: { stage: "I_PRODUKTION", productionStartedAt: { not: null }, readyAt: null } })
+    prisma.order.findMany({ where: { stage: "I_PRODUKTION", readyAt: { not: null }, installedAt: null }, orderBy: { readyAt: "asc" }, take: 8 })
+    // RUNDE 8 (delta §2 - "vi gemmer ikke information der ikke bruges"):
+    // "i gang hos byggeren"-tælleren er fjernet sammen med
+    // productionStartedAt-feltet den byggede på.
   ]);
 
   const stats = [
@@ -67,7 +67,7 @@ export default async function AdminDashboard() {
           Coordinator-beslutning ("Kør bare på" er IKKE noget system her -
           det er bevidst deliberate transitions, jf. §Q4). Ligger oevers,
           foer "Nye leads", da disse typisk haster mere (kunden venter). */}
-      {(opmaalteLeads.length > 0 || klarTilInstallation.length > 0 || iGangHosBygger > 0) && (
+      {(opmaalteLeads.length > 0 || klarTilInstallation.length > 0) && (
         <div className="mt-8 rounded-xl2 border border-amber-300 bg-amber-50 shadow-card">
           <div className="border-b border-amber-200 px-6 py-4">
             <h2 className="font-bold text-amber-900">Kræver din handling</h2>
@@ -92,12 +92,6 @@ export default async function AdminDashboard() {
                 <span className="rounded-full bg-amber-200 px-3 py-1 text-xs font-semibold text-amber-900">Klar</span>
               </Link>
             ))}
-            {iGangHosBygger > 0 && (
-              <div className="flex items-center justify-between px-6 py-4">
-                <p className="text-sm text-brand-ink2/70">{iGangHosBygger} ordre(r) er i gang hos byggeren lige nu (ingen handling krævet endnu)</p>
-                <Link href="/admin/produktion" className="text-sm font-semibold text-brand-blue hover:underline">Se produktionskø</Link>
-              </div>
-            )}
           </div>
         </div>
       )}

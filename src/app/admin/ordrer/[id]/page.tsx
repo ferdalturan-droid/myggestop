@@ -55,7 +55,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
   // saettes naar ALLE maalelinjer er markeret Færdig i beregneren.
   const alleMaalinger = order.lead?.measurements || [];
   const antalLinjerIalt = alleMaalinger.length;
-  const antalLinjerFaerdig = alleMaalinger.filter((m: any) => m.done).length;
+  const antalLinjerFaerdig = alleMaalinger.filter((m: any) => m.builtAt != null).length;
   const alleLinjerFaerdig = antalLinjerIalt === 0 || antalLinjerFaerdig === antalLinjerIalt;
 
   return (
@@ -134,9 +134,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               for alle tre roller, da alle tre allerede kan se selve siden. */}
           <OrderBuildDetails measurements={order.lead?.measurements || []} />
           <OrderInstallAppointment
-            orderId={order.id}
             existing={order.appointments.filter((a: any) => a.type === "INSTALLATION").map((a: any) => ({ day: a.day, time: a.time, status: a.status || "TENTATIVE", assignedUserName: a.assignedUser?.name || null }))}
-            canBook={session?.role === "COORDINATOR"}
           />
         </div>
 

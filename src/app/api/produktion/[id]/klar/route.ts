@@ -23,7 +23,9 @@ export async function POST(_req: NextRequest, { params }: { params: { id: string
   // beregneren. Uden dette ville UI-spaerringen alene ikke vaere nok
   // (samme princip som alle andre roller/felt-tjek i dette projekt).
   const linjer = existing.lead?.measurements || [];
-  const ufaerdige = linjer.filter((m: any) => !m.done);
+  // RUNDE 8 (delta §7): "done" (boolean) er erstattet af "builtAt"
+  // (tidsstempel) - samme regel, ny kilde.
+  const ufaerdige = linjer.filter((m: any) => m.builtAt == null);
   if (linjer.length > 0 && ufaerdige.length > 0) {
     return NextResponse.json({ error: `${ufaerdige.length} af ${linjer.length} linjer mangler at blive markeret Færdig i beregneren.` }, { status: 400 });
   }

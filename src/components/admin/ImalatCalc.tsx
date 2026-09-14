@@ -193,7 +193,11 @@ export default function ImalatCalc() {
         en: m.widthMm != null ? String(m.widthMm / 10).replace(".", ",") : "",
         boy: m.heightMm != null ? String(m.heightMm / 10).replace(".", ",") : "",
         farve: m.colorName || "",
-        done: !!m.done
+        // RUNDE 8 (delta §7): databasen gemmer nu et tidsstempel
+        // (builtAt), ikke en boolean - selve beregnerens interne
+        // rowstate/UI forbliver uændret (boolean), kun læse/skrive-
+        // grænsen mod databasen er justeret.
+        done: m.builtAt != null
       })));
     }
     const items: any[] = d.items || [];

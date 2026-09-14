@@ -1,30 +1,14 @@
-import { NextRequest, NextResponse } from "next/server";
-import { prisma } from "@/lib/prisma";
-import { requireRole } from "@/lib/requireAdmin";
+import { NextResponse } from "next/server";
 
-export const runtime = "nodejs";
+// RUNDE 8 (delta §2 - "Slet Order.productionStartedAt... og enhver
+// 'Start'-knap i kalender/produktion. Vi gemmer ikke information der ikke
+// bruges"): "i gang"-tilstanden er fjernet helt. Filen er bevidst
+// efterladt som en inaktiv stub (kan ikke slettes fra outputs-mappen) i
+// stedet for at blive fjernet fra git ved hver deploy.
 export const dynamic = "force-dynamic";
-
-// RUNDE 3: Byggerens eget "i gang"-tryk, direkte fra kalenderen (samme
-// moenster som "Klar" i ../klar/route.ts) - rent informativt, saa
-// Coordinator kan se at arbejdet reelt er paabegyndt.
-// RUNDE 4 (§G5): kan kun saettes naar ordren reelt er i produktion.
-export async function POST(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR", "BUILDER"]);
-  if (!auth.ok) return auth.response;
-  const existing = await prisma.order.findUnique({ where: { id: params.id } });
-  if (!existing) return NextResponse.json({ error: "Ordre ikke fundet" }, { status: 404 });
-  if (existing.stage !== "I_PRODUKTION") {
-    return NextResponse.json({ error: "Ordren skal være sendt til produktion, før den kan markeres i gang." }, { status: 400 });
-  }
-  const order = await prisma.order.update({ where: { id: params.id }, data: { productionStartedAt: new Date() } });
-  return NextResponse.json({ order });
+export async function POST() {
+  return NextResponse.json({ error: "Fjernet - 'i gang'-status findes ikke længere." }, { status: 410 });
 }
-
-// RUNDE 4 (§G5): fortrydelse er nu KUN en Koordinator-handling.
-export async function DELETE(_req: NextRequest, { params }: { params: { id: string } }) {
-  const auth = await requireRole(["COORDINATOR"]);
-  if (!auth.ok) return auth.response;
-  const order = await prisma.order.update({ where: { id: params.id }, data: { productionStartedAt: null } });
-  return NextResponse.json({ order });
+export async function DELETE() {
+  return NextResponse.json({ error: "Fjernet - 'i gang'-status findes ikke længere." }, { status: 410 });
 }

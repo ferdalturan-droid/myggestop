@@ -1,5 +1,5 @@
 "use client";
-import { useEffect, useState } from "react";
+import { useState } from "react";
 import { useRouter } from "next/navigation";
 import { deriveOrderStageLabel } from "@/lib/orderStage";
 
@@ -37,32 +37,7 @@ export default function OrderStageControl({
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
-  const [estDato, setEstDato] = useState("");
-  const [estUge, setEstUge] = useState("");
   const erKoordinator = role === "COORDINATOR";
-  // RUNDE 6: "Send til produktion" opretter automatisk en PRODUKTION-
-  // aftale hos en navngiven Bygger (se /api/kalender) - den bygger SKAL
-  // vælges her, ellers kan aftalen aldrig blive oprettet korrekt
-  // ("sørg for at dette aldrig sker i systemet da det er unlogical").
-  const [byggere, setByggere] = useState<any[]>([]);
-  const [assignedUserId, setAssignedUserId] = useState("");
-  // "Send til produktion" maa (ligesom resten af ordre-redigeringen)
-  // udfoeres af baade Coordinator og Installer, jf. "kun installer/
-  // coordinator kan redigere ordren" - /api/admin-users GET er derfor
-  // ogsaa aabnet for Installer (kun navn/rolle, ikke e-mail, se ruten).
-  const kanVaelgeBygger = role === "COORDINATOR" || role === "INSTALLER";
-  useEffect(() => {
-    if (!kanVaelgeBygger) return;
-    fetch("/api/admin-users", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        const liste = (d.users || []).filter((u: any) => u.role === "BUILDER");
-        setByggere(liste);
-        setAssignedUserId((v) => v || liste[0]?.id || "");
-      })
-      .catch(() => {});
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [kanVaelgeBygger]);
 
   async function saetStage(next: string, extra: any = {}) {
     setSaving(true);
@@ -109,30 +84,20 @@ export default function OrderStageControl({
 
       {s === "KOE" && (
         <div className="rounded-lg border border-dashed border-brand-line bg-brand-mist/30 p-3">
-          {/* RUNDE 7 (§"when i book installation or production it is
-              important i can select date... easier alternative to add
-              event to a calendar manually"): dato er nu et KRÆVET felt -
-              den dato ER kalenderaftalens dag, ikke kun et løst estimat
-              der stille faldt tilbage til "i dag" hvis man glemte det. */}
-          <p className="mb-2 text-xs text-brand-ink2/60">Ordren ligger i køen (backlog). Vælg bygger og dato — det opretter automatisk aftalen i kalenderen, du behøver ikke gøre det manuelt bagefter (§6.5/§6.7 — book aldrig mere end ca. 2 uger frem).</p>
-          <div className="flex flex-wrap items-end gap-2">
-            <label className="block"><span className="label">Bygger *</span>
-              <select className="input py-1.5 text-sm" required value={assignedUserId} onChange={(e) => setAssignedUserId(e.target.value)}>
-                <option value="">— Vælg —</option>
-                {byggere.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
-            </label>
-            <label className="block"><span className="label">Dato (bookes i kalenderen) *</span><input type="date" className="input py-1.5 text-sm" required value={estDato} onChange={(e) => setEstDato(e.target.value)} /></label>
-            <label className="block"><span className="label">Uge-note til kunden (valgfrit)</span><input className="input py-1.5 text-sm" placeholder="fx Uge 41" value={estUge} onChange={(e) => setEstUge(e.target.value)} /></label>
-            <button
-              disabled={saving || !assignedUserId || !estDato}
-              title={!assignedUserId ? "Vælg en bygger først" : !estDato ? "Vælg en dato først" : undefined}
-              onClick={() => saetStage("I_PRODUKTION", { estReadyDate: estDato, estReadyWeekLabel: estUge || undefined, assignedUserId })}
-              className="btn-primary py-2 text-sm disabled:opacity-50"
-            >
-              Send til produktion
-            </button>
-          </div>
+          {/* RUNDE 8 ("Calendar (tentative and fixed) can only be created
+              directly from calendar, i dont want any ui possiblity to
+              auto-create as it confuses"): dette er nu KUN et stadie-skift.
+              Naar byggeren reelt skal planlaegges, opretter Koordinator selv
+              en Produktion-aftale hos den navngivne bygger fra Kalender-
+              siden (soeg efter ordrenummeret der for at koble den). */}
+          <p className="mb-2 text-xs text-brand-ink2/60">Ordren ligger i køen (backlog). Når den er klar til at blive bygget, sender du den til produktion herunder — book selve arbejdet hos en bygger fra Kalender-siden, når det er planlagt.</p>
+          <button
+            disabled={saving}
+            onClick={() => { if (confirm("Send ordren til produktion?")) saetStage("I_PRODUKTION"); }}
+            className="btn-primary py-2 text-sm disabled:opacity-50"
+          >
+            Send til produktion
+          </button>
         </div>
       )}
 

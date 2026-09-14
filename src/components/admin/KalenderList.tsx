@@ -258,19 +258,14 @@ export default function KalenderList({ role }: { role: string }) {
     if (res.ok) { setMsg("Slettet ✓"); setTimeout(() => setMsg(null), 2000); load(); }
   }
 
-  // RUNDE 3: Byggerens eget "i gang"/"faerdig"-tryk direkte i kalenderen.
-  // RUNDE 4 (§G5): dette er nu ENVEJS-handlinger for Bygger (soft
-  // validation + lås efter markering) - kun Koordinator kan fortryde (fra
+  // RUNDE 3: Byggerens eget "faerdig"-tryk direkte i kalenderen.
+  // RUNDE 4 (§G5): dette er en ENVEJS-handling for Bygger (soft validation
+  // + lås efter markering) - kun Koordinator kan fortryde (fra
   // ordre-siden), saa der sendes ikke laengere en DELETE herfra, og et
   // svar der IKKE er ok vises nu til brugeren i stedet for at blive
   // ignoreret (samme fejlklasse som den tidligere opmålings-bug).
-  async function toggleStart(orderId: string, isOn: boolean) {
-    if (isOn) return;
-    if (!confirm("Markér ordren som i gang?")) return;
-    const res = await fetch(`/api/produktion/${orderId}/start`, { method: "POST" });
-    if (!res.ok) { const d = await res.json().catch(() => ({})); alert(d.error || "Kunne ikke markere i gang."); }
-    load();
-  }
+  // RUNDE 8 (delta §2): "i gang"-tilstanden (og "Start"-knappen der satte
+  // den) er fjernet helt - kun "Klar til installation" er tilbage.
   async function toggleKlar(orderId: string, isOn: boolean) {
     if (isOn) return;
     if (!confirm("Markér ordren som klar i produktion? Dette kan herefter kun fortrydes af Koordinator.")) return;
@@ -463,12 +458,9 @@ export default function KalenderList({ role }: { role: string }) {
                             {a.phone && <span className="ml-2 text-brand-ink2/55">· {a.phone}</span>}
                           </div>
                           <div className="flex items-center gap-3">
-                            {/* Bygger: Start/Færdig direkte i kalenderen, kun paa sine egne produktionsopgaver. */}
+                            {/* Bygger: Færdig direkte i kalenderen, kun paa sine egne produktionsopgaver. */}
                             {role === "BUILDER" && a.type === "PRODUKTION" && a.orderId && (
-                              <>
-                                <button disabled={!!a.order?.productionStartedAt} onClick={() => toggleStart(a.orderId, !!a.order?.productionStartedAt)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.order?.productionStartedAt ? "bg-amber-100 text-amber-700" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{a.order?.productionStartedAt ? "I gang ✓" : "Start"}</button>
-                                <button disabled={!!a.order?.readyAt} onClick={() => toggleKlar(a.orderId, !!a.order?.readyAt)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.order?.readyAt ? "bg-brand-green/15 text-brand-greendark" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{a.order?.readyAt ? "Færdig ✓" : "Færdiggjort"}</button>
-                              </>
+                              <button disabled={!!a.order?.readyAt} onClick={() => toggleKlar(a.orderId, !!a.order?.readyAt)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.order?.readyAt ? "bg-brand-green/15 text-brand-greendark" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{a.order?.readyAt ? "Færdig ✓" : "Færdiggjort"}</button>
                             )}
                             {detailHref(a) && <a href={detailHref(a)!} className="font-semibold text-brand-blue hover:underline">Se detaljer</a>}
                             {isCoordinator && <button onClick={() => { setEditingId(a.id); setShowCreate(false); }} className="font-semibold text-brand-blue hover:underline">Rediger</button>}

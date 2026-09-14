@@ -2,6 +2,7 @@
 import { useEffect, useState } from "react";
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, deriveLeadStatusLabel } from "@/lib/leadStatus";
 import { TUR_OPTIONS, TUR_LABEL, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
+import { LEAD_SOURCE_LABEL } from "@/lib/leadSource";
 
 const BLANK_M = { roomName: "", tur: "SINEKLIK", sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1", colorName: "", comment: "" };
 
@@ -12,13 +13,7 @@ export default function LeadDetail({ id }: { id: string }) {
   const [error, setError] = useState<string | null>(null);
   const [quote, setQuote] = useState("");
   const [newM, setNewM] = useState<any>(BLANK_M);
-  const [appt, setAppt] = useState({ day: "", time: "", assignedUserId: "" });
   const [uge, setUge] = useState("");
-  const [apptMsg, setApptMsg] = useState<string | null>(null);
-  // RUNDE 5 (§"Koordinator indsætter dette i Installators (specifik
-  // person) kalender"): listen af navngivne installatører, saa aftalen
-  // lægges hos en konkret person, ikke en generisk rolle-bunke.
-  const [installatorer, setInstallatorer] = useState<any[]>([]);
 
   async function load() {
     setLoading(true);
@@ -34,16 +29,6 @@ export default function LeadDetail({ id }: { id: string }) {
     setLoading(false);
   }
   useEffect(() => { load(); }, [id]);
-  useEffect(() => {
-    fetch("/api/admin-users", { cache: "no-store" })
-      .then((r) => r.json())
-      .then((d) => {
-        const liste = (d.users || []).filter((u: any) => u.role === "INSTALLER");
-        setInstallatorer(liste);
-        setAppt((a) => (a.assignedUserId ? a : { ...a, assignedUserId: liste[0]?.id || "" }));
-      })
-      .catch(() => {});
-  }, []);
 
   async function patch(data: any) {
     setError(null);
@@ -84,17 +69,6 @@ export default function LeadDetail({ id }: { id: string }) {
     load();
   }
 
-  async function bookOpmaaling(e: React.FormEvent) {
-    e.preventDefault();
-    setApptMsg(null);
-    const res = await fetch(`/api/leads/${id}/measure-appointment`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(appt) });
-    const d = await res.json();
-    if (!res.ok) { setApptMsg(`⚠ ${d.error}`); return; }
-    setApptMsg("Opmåling booket ✓");
-    setAppt((a) => ({ day: "", time: "", assignedUserId: a.assignedUserId }));
-    load();
-  }
-
   if (loading) return <p className="text-brand-ink2/60">Indlæser...</p>;
   if (!lead) return <p className="text-red-600">Lead ikke fundet.</p>;
 
@@ -106,7 +80,7 @@ export default function LeadDetail({ id }: { id: string }) {
       <div className="mb-4 flex flex-wrap items-center justify-between gap-2">
         <div>
           <h1 className="text-2xl font-extrabold text-brand-ink">{lead.leadNumber} · {lead.firstName} {lead.lastName}</h1>
-          <p className="mt-1 text-sm text-brand-ink2/65">{deriveLeadStatusLabel(lead.stage, lead.measuredAt)} · Kilde: {lead.source || "-"}</p>
+          <p className="mt-1 text-sm text-brand-ink2/65">{deriveLeadStatusLabel(lead.stage, lead.measuredAt)} · Kilde: {LEAD_SOURCE_LABEL[lead.source] || lead.source || "-"}</p>
         </div>
         {lead.order && <a href={`/admin/ordrer/${lead.order.id}`} className="btn-secondary py-2 text-sm">Se ordre {lead.order.orderNumber} →</a>}
       </div>
@@ -171,32 +145,24 @@ export default function LeadDetail({ id }: { id: string }) {
           {lead.measuredAt && <span className="rounded-full bg-brand-green/15 px-3 py-1 text-xs font-semibold text-brand-greendark">Opmålt {new Date(lead.measuredAt).toLocaleDateString("da-DK")}</span>}
         </div>
 
+        {/* RUNDE 8 ("Calendar... can only be created directly from
+            calendar, i dont want any ui possiblity to auto-create as it
+            confuses"): denne side viser nu KUN den eksisterende aftale
+            (hvis en findes) - opret/rediger den fra Kalender-siden, søg på
+            leadnummeret der for at koble den til dette lead. */}
         {maalingAppt ? (
           <p className="mt-2 text-sm text-brand-ink2/80">{maalingAppt.day}{maalingAppt.time ? ` kl. ${maalingAppt.time}` : ""} — {maalingAppt.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}{maalingAppt.assignedUser ? ` · ${maalingAppt.assignedUser.name}` : ""}</p>
         ) : lead.expectedMeasuringWeekLabel ? (
-          <p className="mt-2 text-sm text-brand-ink2/70">Uge-estimat givet til kunden: <b>{lead.expectedMeasuringWeekLabel}</b> — ingen konkret tid booket endnu.</p>
+          <p className="mt-2 text-sm text-brand-ink2/70">Uge-estimat givet til kunden: <b>{lead.expectedMeasuringWeekLabel}</b> — ingen konkret tid booket endnu. Book den fra Kalender-siden, når den er fundet.</p>
         ) : (
-          <p className="mt-2 text-sm text-brand-ink2/55">Ingen aftale eller uge-estimat endnu.</p>
+          <p className="mt-2 text-sm text-brand-ink2/55">Ingen aftale eller uge-estimat endnu. Book den fra Kalender-siden (søg på {lead.leadNumber}).</p>
         )}
 
-        <div className="mt-4 grid gap-4 sm:grid-cols-2">
-          <form onSubmit={bookOpmaaling} className="flex flex-wrap items-end gap-3">
-            <label className="block"><span className="label">Installatør *</span>
-              <select className="input py-2 text-sm" required value={appt.assignedUserId} onChange={(e) => setAppt({ ...appt, assignedUserId: e.target.value })}>
-                <option value="">— Vælg —</option>
-                {installatorer.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
-              </select>
-            </label>
-            <label className="block"><span className="label">Dato</span><input type="date" className="input py-2 text-sm" required value={appt.day} onChange={(e) => setAppt({ ...appt, day: e.target.value })} /></label>
-            <label className="block"><span className="label">Klokkeslæt</span><input type="time" className="input py-2 text-sm" required value={appt.time} onChange={(e) => setAppt({ ...appt, time: e.target.value })} /></label>
-            <button className="btn-primary py-2.5 text-sm">Book konkret tid</button>
-          </form>
-          <div className="flex flex-wrap items-end gap-3">
-            <label className="block flex-1"><span className="label">Uge-estimat (§6.2: hvis kalenderen er presset)</span><input className="input py-2 text-sm" placeholder="fx Uge 39" value={uge} onChange={(e) => setUge(e.target.value)} /></label>
-            <button onClick={gemUgeEstimat} className="btn-secondary py-2.5 text-sm">Gem estimat</button>
-          </div>
+        <div className="mt-4 flex flex-wrap items-end gap-3">
+          <label className="block flex-1"><span className="label">Uge-estimat til kunden (valgfrit, hvis kalenderen er presset)</span><input className="input py-2 text-sm" placeholder="fx Uge 39" value={uge} onChange={(e) => setUge(e.target.value)} /></label>
+          <button onClick={gemUgeEstimat} className="btn-secondary py-2.5 text-sm">Gem estimat</button>
+          <a href="/admin/kalender" className="btn-primary py-2.5 text-sm">Gå til Kalender for at booke →</a>
         </div>
-        {apptMsg && <p className="mt-2 text-sm font-medium text-brand-ink2/80">{apptMsg}</p>}
       </div>
 
       {/* Måletagning - fulde beregner-felter, §11.3 */}

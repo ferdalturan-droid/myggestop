@@ -9,6 +9,10 @@ const LINKS = [
   { href: "/admin", label: "Oversigt" },
   { href: "/admin/leads", label: "Leads" },
   { href: "/admin/kalender", label: "Kalender" },
+  // RUNDE 8 (delta §1): Byggerens og Installatørens fælles daglige side -
+  // ekskluderet fra Koordinators menu nedenfor (han har Ordrer/
+  // Produktionskø i stedet).
+  { href: "/admin/mine-opgaver", label: "Mine opgaver" },
   { href: "/admin/opmaaling", label: "Opmåling" },
   // RUNDE 6 (§G7): den tidligere separate Koordinator-only "Ordrestatus"-
   // side (Runde 4 §G6) er foldet ind i "Ordrer" (nu Koordinatorens
@@ -39,17 +43,13 @@ export default function AdminNav({ email, role }: { email: string; role: Role })
   // FASE 2 (§4): Builder/Installer ser kun de sider deres rolle maa aabne.
   let links = LINKS.filter((l) => isPathAllowedForRole(l.href, role));
 
-  // RUNDE 2 (Q8) / RUNDE 6: Installer faar ét samlet arbejdsmenupunkt i
-  // stedet for tre overlappende ("Opmåling", "Produktionskø",
-  // "Installation") - siden selv (/admin/produktion-installation) rummer
-  // nu alle tre sektioner (opmåling, klar til installation, produktion
-  // som read-only kontekst). Coordinator og Builder beholder deres
-  // separate links helt uændret.
+  // RUNDE 2 (Q8) / RUNDE 6 / RUNDE 8: Installer faar ét samlet
+  // arbejdsmenupunkt ("Mine opgaver", allerede i LINKS ovenfor) i stedet
+  // for de tre overlappende ("Opmåling", "Produktionskø", "Installation") -
+  // de skjules her, men ruterne findes stadig (bruges internt/legacy).
+  // Coordinator og Builder beholder deres øvrige links uændret.
   if (role === "INSTALLER") {
-    const uden = links.filter((l) => l.href !== "/admin/produktion" && l.href !== "/admin/installation" && l.href !== "/admin/opmaaling");
-    const indsaetIndex = uden.findIndex((l) => l.href === "/admin/kalender") + 1;
-    uden.splice(indsaetIndex, 0, { href: "/admin/produktion-installation", label: "Mit arbejde" });
-    links = uden;
+    links = links.filter((l) => l.href !== "/admin/produktion" && l.href !== "/admin/installation" && l.href !== "/admin/opmaaling");
   }
 
   // RUNDE 7 (§"synes det er svært at finde rundt i det" / §5 i
@@ -62,7 +62,7 @@ export default function AdminNav({ email, role }: { email: string; role: Role })
   // fast punkt i sidemenuen, saa den afspejler procesdokumentets
   // side-for-side-kort i stedet for hver historisk tilføjet side.
   if (role === "COORDINATOR") {
-    links = links.filter((l) => l.href !== "/admin/opmaaling" && l.href !== "/admin/installation" && l.href !== "/admin/faerdig" && l.href !== "/admin/afsluttede");
+    links = links.filter((l) => l.href !== "/admin/opmaaling" && l.href !== "/admin/installation" && l.href !== "/admin/faerdig" && l.href !== "/admin/afsluttede" && l.href !== "/admin/mine-opgaver");
   }
 
   async function logout() {

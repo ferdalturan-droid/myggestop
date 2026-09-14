@@ -24,21 +24,25 @@ import type { Role } from "@prisma/client";
 // tryk paa produktionsopgaver) - /api/kalender begraenser server-side,
 // hvad han rent faktisk faar tilbage (kun hans egne ressource-koblede
 // aftaler), saa denne rute-adgang alene giver ham ikke andres kalender.
-const BUILDER_PREFIXES = ["/admin/imalat", "/admin/faerdig", "/admin/afsluttede", "/admin/produktion", "/admin/kalender"];
+const BUILDER_PREFIXES = ["/admin/imalat", "/admin/faerdig", "/admin/afsluttede", "/admin/produktion", "/admin/kalender", "/admin/mine-opgaver"];
 
-// INSTALLER: samme som Builder, plus opmaalings- og installationslisten,
-// den samlede produktion+installation-visning (Q8), og - RUNDE 2 - fuld
-// adgang til ordrelisten/detaljen/redigering, da han (jf. brugerens egen
-// procesbeskrivelse: "kun installer/coordinator kan redigere ordren") skal
-// kunne redigere en ordre paa lige fod med Coordinator (haandhaevet paa
-// API-niveau i /api/orders/[id] og /api/orders/[id]/production).
+// INSTALLER: samme som Builder, plus opmaalings- og installationslisten og
+// den samlede "Mine opgaver"-visning.
+// RUNDE 8 (delta §1 - "Installer ser ALDRIG Coordinators ordreliste,
+// ordre-detalje eller redigeringsformular. Installer ser ALDRIG leads."):
+// "/admin/ordrer" er fjernet helt herfra. Ordre-kontekst til installation
+// vises i stedet INDE i "Mine opgaver" (read-only, via OrderBuildDetails +
+// selve installationskortet) - ikke som en separat side. Den eneste
+// undtagelse er den snaevre manuelle ordre-oprettelse (justeret paa
+// brugerens instruks: "only coordinator and installer can add this
+// by-pass manual entry"), som har sin egen smalle rute - se
+// ORDER_MANUAL_CREATE_ONLY nedenfor.
 const INSTALLER_PREFIXES = [
   ...BUILDER_PREFIXES,
   "/admin/opmaaling",
   "/admin/installation",
   "/admin/kalender",
-  "/admin/ordrer",
-  "/admin/produktion-installation"
+  "/admin/mine-opgaver"
 ];
 
 function matches(pathname: string, prefixes: string[]): boolean {
@@ -53,12 +57,20 @@ function matches(pathname: string, prefixes: string[]): boolean {
 // for ham (§11.1/processen: "builder ser ordre+detaljer, read-only").
 const ORDER_DETAIL_ONLY = /^\/admin\/ordrer\/[^/]+$/;
 
+// RUNDE 8 (bruger: "in case customer is a friend or someone off-cycle, it
+// should be possible to add a order manually... only coordinator and
+// installer can add this by-pass manual entry"): en enkelt, eksakt sti -
+// IKKE et praefiks - saa Installer faar adgang til netop denne handling
+// uden at faa resten af ordre-omraadet aabnet ved en fejl.
+const ORDER_MANUAL_CREATE_ONLY = "/admin/ordrer/ny";
+
 export function isPathAllowedForRole(pathname: string, role: Role): boolean {
   if (role === "COORDINATOR") return true;
   if (role === "BUILDER") {
     if (ORDER_DETAIL_ONLY.test(pathname)) return true;
     return matches(pathname, BUILDER_PREFIXES);
   }
+  if (pathname === ORDER_MANUAL_CREATE_ONLY) return true; // INSTALLER
   return matches(pathname, INSTALLER_PREFIXES); // INSTALLER
 }
 
@@ -66,11 +78,8 @@ export function isPathAllowedForRole(pathname: string, role: Role): boolean {
 // den ikke maa se. Jf. §5.
 export function defaultHomeForRole(role: Role): string {
   if (role === "COORDINATOR") return "/admin";
-  // RUNDE 2: Builders naturlige udgangspunkt er nu hans arbejdskoe
-  // (Produktionskø), ikke en tom beregner - han kan stadig naa
-  // Produktionsberegneren og Faerdig-listen via menuen.
-  if (role === "BUILDER") return "/admin/produktion";
-  // RUNDE 6: Installatørens samlede arbejdsside (opmåling + klar til
-  // installation + produktions-kontekst), ikke laengere kun opmålingslisten.
-  return "/admin/produktion-installation"; // INSTALLER
+  // RUNDE 8 (delta §1 - "Builder får samme side med kun fanerne I dag ·
+  // Produktion"): Builder og Installer deler nu samme udgangspunkt.
+  if (role === "BUILDER") return "/admin/mine-opgaver";
+  return "/admin/mine-opgaver"; // INSTALLER
 }

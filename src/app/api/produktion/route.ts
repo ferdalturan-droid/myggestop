@@ -16,13 +16,13 @@ export async function GET() {
     // fremdrift ("X af Y linjer færdig") direkte i køen, ikke kun ved at
     // åbne hver ordre - og "Klar til installation"-knappen her skal
     // spærres på samme måde som på selve ordresiden.
-    include: { items: true, lead: { include: { measurements: { select: { done: true } } } } },
+    include: { items: true, lead: { include: { measurements: { select: { builtAt: true } } } } },
     orderBy: { createdAt: "asc" }
   });
   const medFremdrift = orders.map((o: any) => {
     const linjer = o.lead?.measurements || [];
     const antalLinjerIalt = linjer.length;
-    const antalLinjerFaerdig = linjer.filter((m: any) => m.done).length;
+    const antalLinjerFaerdig = linjer.filter((m: any) => m.builtAt != null).length;
     const { lead, ...rest } = o;
     return { ...rest, antalLinjerIalt, antalLinjerFaerdig, alleLinjerFaerdig: antalLinjerIalt === 0 || antalLinjerFaerdig === antalLinjerIalt };
   });

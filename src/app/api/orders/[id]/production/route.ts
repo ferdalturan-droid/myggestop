@@ -88,7 +88,8 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const savedRows: { clientKey: any; measurementId: string }[] = [];
 
   if (order.leadId) {
-    const existing = await prisma.measurement.findMany({ where: { leadId: order.leadId }, select: { id: true, itemNumber: true } });
+    const existing = await prisma.measurement.findMany({ where: { leadId: order.leadId }, select: { id: true, itemNumber: true, builtAt: true } });
+    const eksisterendeBuiltAt = new Map(existing.map((m: any) => [m.id, m.builtAt]));
     const keepIds = new Set(rows.filter((r) => r.measurementId).map((r) => r.measurementId));
     const toDelete = existing.filter((m: any) => !keepIds.has(m.id)).map((m: any) => m.id);
     let nextItemNumber = existing.reduce((max: number, m: any) => Math.max(max, m.itemNumber), 0) + 1;
@@ -107,7 +108,13 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
         widthMm: r.en !== "" && r.en != null ? Math.round((parseFloat(String(r.en).replace(",", ".")) || 0) * 10) : null,
         heightMm: r.boy !== "" && r.boy != null ? Math.round((parseFloat(String(r.boy).replace(",", ".")) || 0) * 10) : null,
         colorName: String(r.farve || ""),
-        done: !!r.done
+        // RUNDE 8 (delta §7 - "ingen bruger indtaster nogensinde en dato"):
+        // builtAt er et tidsstempel sat af togglen, ikke et frit flueben -
+        // bevar det eksisterende tidspunkt saa laenge fluebenet forbliver
+        // taendt (undgaar at "gense samme dag" nulstiller historikken),
+        // saet et nyt naar det lige er blevet taendt, og nulstil til null
+        // naar det slukkes.
+        builtAt: r.done ? (r.measurementId && eksisterendeBuiltAt.get(r.measurementId) ? eksisterendeBuiltAt.get(r.measurementId) : new Date()) : null
       };
       if (r.measurementId) {
         ops.push(prisma.measurement.update({ where: { id: r.measurementId }, data }));

@@ -16,8 +16,6 @@ const STAGE_COLOR: Record<string, string> = {
   Anmeldt: "bg-green-100 text-green-700"
 };
 
-const BLANK_MANUAL = { firstName: "", lastName: "", phone: "", address: "", postalCode: "", city: "", productSummary: "", quotePriceDkk: "" };
-
 // RUNDE 6 (§"koordinator kan se alle ordre og deres states, og kan
 // filtrere"): "Klar"/"Installeret" er afledte visninger (readyAt/
 // installedAt), ikke rigtige OrderStage-værdier i databasen (jf.
@@ -39,11 +37,6 @@ export default function OrdersTable({ role }: { role?: string } = {}) {
   const [q, setQ] = useState("");
   const [stage, setStage] = useState("");
   const [loading, setLoading] = useState(true);
-  const [showManual, setShowManual] = useState(false);
-  const [manual, setManual] = useState({ ...BLANK_MANUAL });
-  const [manualSaving, setManualSaving] = useState(false);
-  const [manualError, setManualError] = useState<string | null>(null);
-  const [manualMsg, setManualMsg] = useState<string | null>(null);
   const [actionMsg, setActionMsg] = useState<string | null>(null);
 
   const load = useCallback(async () => {
@@ -79,7 +72,7 @@ export default function OrdersTable({ role }: { role?: string } = {}) {
     if (res.ok) melding("Gemt ✓"); else { const d = await res.json().catch(() => ({})); melding(d.error || "Kunne ikke gemme."); }
     load();
   }
-  async function fortryd(id: string, felt: "start" | "klar" | "installeret", tekst: string) {
+  async function fortryd(id: string, felt: "klar" | "installeret", tekst: string) {
     if (!confirm(`Fortryd ${tekst}? Brug kun dette ved en fejlregistrering.`)) return;
     const path = felt === "installeret" ? `/api/installation/${id}/installeret` : `/api/produktion/${id}/${felt}`;
     const res = await fetch(path, { method: "DELETE" });
@@ -92,37 +85,6 @@ export default function OrdersTable({ role }: { role?: string } = {}) {
     const res = await fetch(`/api/orders/${id}`, { method: "DELETE" });
     if (res.ok) load();
     else alert("Kunne ikke slette ordren.");
-  }
-
-  // RUNDE 3: den ENESTE knap i systemet der kan oprette en kunde/ordre
-  // uden om hele lead-processen (§"det skal bare være muligt at oprette en
-  // kunde... hvor man kan oprette en kunde manuelt og bypasse den proces...
-  // knappen skal være på siden hvor ordre oprettes/detaljer angives -
-  // kun på 1 side"). Ligger bevidst her og INGEN andre steder (fjernet fra
-  // Opmålingslisten). Genbruger under motorhjelmen det allerede byggede
-  // bekraeftNu-flow (§11.5/Gruppe 1/3) - der findes stadig aldrig en Order
-  // uden et Lead bagved (§3.3's invariant).
-  async function opretManuel(e: React.FormEvent) {
-    e.preventDefault();
-    setManualError(null);
-    if (!manual.quotePriceDkk) { setManualError("Angiv en pris."); return; }
-    setManualSaving(true);
-    try {
-      const res = await fetch("/api/leads", {
-        method: "POST", headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ ...manual, source: "Manuel", bekraeftNu: true })
-      });
-      const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Kunne ikke oprette ordren.");
-      setManual({ ...BLANK_MANUAL });
-      setShowManual(false);
-      setManualMsg(`Ordre ${d.lead.leadNumber} oprettet ✓`); setTimeout(() => setManualMsg(null), 3000);
-      load();
-    } catch (err: any) {
-      setManualError(err.message);
-    } finally {
-      setManualSaving(false);
-    }
   }
 
   function exportCsv() {
@@ -164,28 +126,14 @@ export default function OrdersTable({ role }: { role?: string } = {}) {
             <option key={v} value={v}>{l}</option>
           ))}
         </select>
-        <button onClick={() => setShowManual((v) => !v)} className="btn-primary ml-auto py-2.5 text-sm">{showManual ? "Luk" : "+ Ny ordre (manuel)"}</button>
+        {/* RUNDE 8: flyttet til sin egen side (/admin/ordrer/ny), så
+            Installatøren kan nå netop denne handling uden at få adgang til
+            resten af ordrelisten (se roles.ts). */}
+        <Link href="/admin/ordrer/ny" className="btn-primary ml-auto py-2.5 text-sm">+ Ny ordre (manuel)</Link>
         <button onClick={exportCsv} className="btn-ghost py-2.5 text-sm">Eksporter CSV</button>
       </div>
 
-      {manualMsg && <p className="mb-4 text-sm font-medium text-brand-greendark">{manualMsg}</p>}
       {actionMsg && <p className="mb-4 text-sm font-medium text-brand-greendark">{actionMsg}</p>}
-
-      {showManual && (
-        <form onSubmit={opretManuel} className="mb-6 grid gap-3 rounded-xl2 border border-brand-line bg-white p-5 shadow-card sm:grid-cols-2">
-          <p className="sm:col-span-2 text-xs text-brand-ink2/55">Til en kunde der ikke skal igennem den normale lead-proces (fx en ven der ringer direkte) - opretter en bekræftet ordre med det samme.</p>
-          <div><label className="label">Fornavn *</label><input className="input" required value={manual.firstName} onChange={(e) => setManual({ ...manual, firstName: e.target.value })} /></div>
-          <div><label className="label">Efternavn *</label><input className="input" required value={manual.lastName} onChange={(e) => setManual({ ...manual, lastName: e.target.value })} /></div>
-          <div><label className="label">Telefon *</label><input className="input" required value={manual.phone} onChange={(e) => setManual({ ...manual, phone: e.target.value })} /></div>
-          <div><label className="label">Pris i kr. *</label><input className="input" type="number" required value={manual.quotePriceDkk} onChange={(e) => setManual({ ...manual, quotePriceDkk: e.target.value })} /></div>
-          <div className="sm:col-span-2"><label className="label">Adresse</label><input className="input" value={manual.address} onChange={(e) => setManual({ ...manual, address: e.target.value })} /></div>
-          <div><label className="label">Postnummer</label><input className="input" value={manual.postalCode} onChange={(e) => setManual({ ...manual, postalCode: e.target.value })} /></div>
-          <div><label className="label">By</label><input className="input" value={manual.city} onChange={(e) => setManual({ ...manual, city: e.target.value })} /></div>
-          <div className="sm:col-span-2"><label className="label">Hvad ønsker kunden?</label><input className="input" value={manual.productSummary} onChange={(e) => setManual({ ...manual, productSummary: e.target.value })} placeholder="F.eks. 3 myggenet, 1 plisségardin" /></div>
-          {manualError && <p className="sm:col-span-2 rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{manualError}</p>}
-          <button disabled={manualSaving} className="btn-primary sm:col-span-2 disabled:opacity-60">{manualSaving ? "Opretter..." : "Opret ordre"}</button>
-        </form>
-      )}
 
       <div className="overflow-hidden rounded-xl2 border border-brand-line bg-white shadow-card">
         <div className="overflow-x-auto">
@@ -228,9 +176,6 @@ export default function OrdersTable({ role }: { role?: string } = {}) {
                         {/* RUNDE 6 (§G7, tidl. "Ordrestatus"-siden, Runde 4 §G6): kun
                             Koordinator ser/kan bruge disse - fortryd ved fejl, og
                             markér betalt/anmeldt, direkte fra overblikket. */}
-                        {erKoordinator && o.productionStartedAt && !o.readyAt && (
-                          <button onClick={() => fortryd(o.id, "start", "'i gang'")} className="rounded-full border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-500 hover:bg-red-50">Fortryd i gang</button>
-                        )}
                         {erKoordinator && o.readyAt && !o.installedAt && (
                           <button onClick={() => fortryd(o.id, "klar", "'klar'")} className="rounded-full border border-red-200 px-2.5 py-1 text-xs font-semibold text-red-500 hover:bg-red-50">Fortryd klar</button>
                         )}

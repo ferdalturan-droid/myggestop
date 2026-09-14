@@ -3,6 +3,7 @@ import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
 import { nextOrderNumber } from "@/lib/orderNumber";
 import { promoteLeadToOrder } from "@/lib/promoteLead";
+import { LEAD_SOURCE_ALL } from "@/lib/leadSource";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -40,6 +41,11 @@ export async function POST(req: NextRequest) {
   }
   const leadNumber = await nextOrderNumber();
   const quotePriceDkk = typeof b.quotePriceDkk === "number" ? b.quotePriceDkk : (b.quotePriceDkk ? Number(b.quotePriceDkk) || null : null);
+  // RUNDE 8 ("ikke frit tekstfelt men en liste rapporteringsmulighed"):
+  // source er nu et fast enum - et lead oprettet HER er altid manuelt
+  // indtastet (aldrig HJEMMESIDE, som kun webformularen maa saette), saa
+  // en ugyldig/manglende vaerdi falder tilbage til ANDET fremfor at fejle.
+  const source = LEAD_SOURCE_ALL.includes(b.source) && b.source !== "HJEMMESIDE" ? b.source : "ANDET";
 
   const lead = await prisma.$transaction(async (tx: any) => {
     const created = await tx.lead.create({
@@ -52,7 +58,7 @@ export async function POST(req: NextRequest) {
         address: String(b.address || "").trim(),
         postalCode: String(b.postalCode || "").trim(),
         city: String(b.city || "").trim(),
-        source: String(b.source || "Telefon").trim(),
+        source: source as any,
         productSummary: String(b.productSummary || "").trim(),
         note: String(b.note || "").trim(),
         quotePriceDkk: quotePriceDkk ?? undefined,

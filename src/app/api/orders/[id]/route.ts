@@ -33,39 +33,20 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const data: any = {};
   if (body.status && ORDER_STATUS_ORDER.includes(body.status)) data.status = body.status;
   // FASE 4 (§3.3/§6.5): produktionsstadie - separat fra den gamle status.
-  // RUNDE 3: naar stadiet netop NU skifter til I_PRODUKTION ("Send til
-  // produktion"), skal ordren "dukke op med detaljer for byggeren i samme
-  // moment" ved at en PRODUKTION-aftale automatisk oprettes paa hans
-  // kalender - samme transaktion, saa den aldrig kan mangle.
-  const sendesTilProduktionNu = body.stage === "I_PRODUKTION" && existing.stage !== "I_PRODUKTION";
+  // RUNDE 8 (delta §8 + brugerens eksplicitte instruks: "Calendar (tentative
+  // and fixed) can only be created directly from calendar, i dont want any
+  // ui possiblity to auto-create as it confuses"): "Send til produktion" er
+  // nu KUN et stadie-skift - INGEN kalenderaftale, bygger-valg eller dato
+  // kraeves/oprettes her laengere (dette ophaevede Runde 6/7's automatik,
+  // som netop var det brugeren bad om at fjerne). Koordinator opretter selv
+  // produktionsaftalen hos den navngivne bygger fra Kalender-siden, naar
+  // den reelt skal planlaegges - ligesom opmåling/installation.
   // RUNDE 4 (§G6): "Markér betalt"/"Markér anmeldt" er nu KUN en
   // Koordinator-handling - ingen andre roller maa se eller saette dette.
   if (body.stage && ["BETALT", "ANMELDT"].includes(body.stage) && auth.session.role !== "COORDINATOR") {
     return NextResponse.json({ error: "Kun Koordinator kan markere betalt/anmeldt." }, { status: 403 });
   }
-  // RUNDE 6 (§"fra en ordre når jeg vælger dato sender til produktion,
-  // opretter den en 'tentative' booking i calendar uden 'bygger (person)'
-  // selvom dette er et obligatorisk felt... sørg for at dette aldrig sker
-  // i systemet da det er unlogical"): haandhaevet HER, server-side - ikke
-  // kun som et UI-krav - saa "Send til produktion" er strukturelt umuligt
-  // at gennemfoere uden en navngiven Bygger, uanset hvilken klient der kalder.
-  let byggerForProduktion: { id: string; role: string } | null = null;
-  if (sendesTilProduktionNu) {
-    const assignedUserId = body.assignedUserId ? String(body.assignedUserId) : null;
-    if (!assignedUserId) {
-      return NextResponse.json({ error: "Vælg hvilken bygger ordren skal sendes til, før den kan sendes til produktion." }, { status: 400 });
-    }
-    const person = await prisma.adminUser.findUnique({ where: { id: assignedUserId } });
-    if (!person || person.role !== "BUILDER") {
-      return NextResponse.json({ error: "Den valgte person er ikke en gyldig bygger." }, { status: 400 });
-    }
-    byggerForProduktion = { id: person.id, role: person.role };
-  }
   if (body.stage && ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"].includes(body.stage)) data.stage = body.stage;
-  // RUNDE 2 (Q4/§6.7): saettes typisk sammen med stage->I_PRODUKTION fra
-  // "Send til produktion"-knappen, men accepteres ogsaa separat.
-  if (typeof body.estReadyDate === "string" && body.estReadyDate) data.estReadyDate = new Date(body.estReadyDate);
-  if (typeof body.estReadyWeekLabel === "string") data.estReadyWeekLabel = body.estReadyWeekLabel || null;
   for (const f of ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "note"] as const) {
     if (typeof body[f] === "string") data[f] = body[f];
   }
@@ -97,27 +78,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     data.estimatedTotal = existing.productsTotal + installationTotal;
   }
 
-  const order = await prisma.$transaction(async (tx: any) => {
-    const updated = await tx.order.update({ where: { id: params.id }, data, include: { items: true } });
-    if (sendesTilProduktionNu) {
-      const antalProdukter = updated.items.length;
-      await tx.appointment.create({
-        data: {
-          day: data.estReadyDate ? data.estReadyDate.toISOString().slice(0, 10) : new Date().toISOString().slice(0, 10),
-          time: null,
-          customer: `${updated.firstName} ${updated.lastName}`,
-          phone: updated.phone,
-          address: `${updated.address}, ${updated.postalCode} ${updated.city}`,
-          note: antalProdukter > 0 ? `${antalProdukter} produkt(er) at bygge` : "",
-          type: "PRODUKTION",
-          resource: "BUILDER",
-          orderId: updated.id,
-          assignedUserId: byggerForProduktion!.id
-        }
-      });
-    }
-    return updated;
-  });
+  const order = await prisma.order.update({ where: { id: params.id }, data, include: { items: true } });
   return NextResponse.json({ order });
 }
 

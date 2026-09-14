@@ -35,13 +35,6 @@ export default function ProduktionList({ role, readOnly = false }: { role?: stri
   }
   useEffect(() => { load(); }, []);
 
-  async function markerIGang(id: string) {
-    if (!confirm("Markér ordren som i gang? Koordinator kan se dette med det samme.")) return;
-    const res = await fetch(`/api/produktion/${id}/start`, { method: "POST" });
-    if (res.ok) { setMsg("Markeret I gang ✓"); setTimeout(() => setMsg(null), 2000); load(); }
-    else { const d = await res.json().catch(() => ({})); setMsg(d.error || "Kunne ikke markere i gang."); setTimeout(() => setMsg(null), 3000); }
-  }
-
   async function markerKlar(id: string) {
     if (!confirm("Markér ordren som klar til installation? Den bliver herefter synlig for installatøren, og kan ikke ændres af dig igen.")) return;
     const res = await fetch(`/api/produktion/${id}/klar`, { method: "POST" });
@@ -67,7 +60,6 @@ export default function ProduktionList({ role, readOnly = false }: { role?: stri
             <div>
               <span className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</span>
               <span className="ml-2 text-brand-ink2/55">{o.items?.length || 0} produkt(er) · {o.city}</span>
-              {o.productionStartedAt && !o.readyAt && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">I gang</span>}
               {o.readyAt && <span className="ml-2 rounded-full bg-brand-greendark/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">Klar til installation ✓</span>}
               {/* RUNDE 7 (§4 i procesdokumentet): fremdrift pr. ordre, saa
                   Byggeren kan se hvor langt han er UDEN at aabne hver ordre. */}
@@ -80,9 +72,6 @@ export default function ProduktionList({ role, readOnly = false }: { role?: stri
             <div className="flex items-center gap-2">
               <a href={`/admin/ordrer/${o.id}`} className="font-semibold text-brand-blue hover:underline">Se ordre & byggedetaljer</a>
               {erKoordinator && !readOnly && <a href={`/admin/imalat?orderId=${o.id}`} className="text-brand-ink2/60 hover:underline">Rediger i beregner</a>}
-              {!readOnly && !o.readyAt && !o.productionStartedAt && (
-                <button onClick={() => markerIGang(o.id)} className="rounded-full border border-brand-line px-3 py-1 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist">Start</button>
-              )}
               {!readOnly && !o.readyAt && (
                 <button
                   onClick={() => markerKlar(o.id)}

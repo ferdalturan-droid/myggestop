@@ -2,10 +2,16 @@
 import { useEffect, useState } from "react";
 import Link from "next/link";
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, deriveLeadStatusLabel } from "@/lib/leadStatus";
+import { LEAD_SOURCE_LABEL, LEAD_SOURCE_MANUAL_OPTIONS } from "@/lib/leadSource";
 
 const TABS = [{ key: "", label: "Alle" }, ...LEAD_STAGE_ORDER.map((s) => ({ key: s, label: LEAD_STAGE_LABELS[s] }))];
 
-const blank = { firstName: "", lastName: "", phone: "", email: "", address: "", postalCode: "", city: "", source: "Telefon", productSummary: "", note: "", quotePriceDkk: "", bekraeftNu: false };
+// RUNDE 8 ("ikke frit tekstfelt men en liste rapporteringsmulighed for at
+// se hvilken platform lead kom fra"): et lead oprettet HER er per
+// definition altid manuelt indtastet af Koordinator - HJEMMESIDE findes
+// derfor bevidst ikke i denne dropdown (den sættes kun automatisk af
+// webformularen, se /api/orders/route.ts).
+const blank = { firstName: "", lastName: "", phone: "", email: "", address: "", postalCode: "", city: "", source: "PERSONLIG_KONTAKT", productSummary: "", note: "", quotePriceDkk: "", bekraeftNu: false };
 
 export default function LeadsList() {
   const [leads, setLeads] = useState<any[]>([]);
@@ -75,7 +81,7 @@ export default function LeadsList() {
           <div>
             <label className="label">Kilde</label>
             <select className="input" value={form.source} onChange={(e) => setForm({ ...form, source: e.target.value })}>
-              <option>Telefon</option><option>Hjemmeside</option><option>Henvisning</option>
+              {LEAD_SOURCE_MANUAL_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
             </select>
           </div>
           <div className="sm:col-span-2"><label className="label">Hvad efterspørger kunden?</label><input className="input" value={form.productSummary} onChange={(e) => setForm({ ...form, productSummary: e.target.value })} placeholder="F.eks. 3 myggenet, 1 plisségardin" /></div>
@@ -103,6 +109,17 @@ export default function LeadsList() {
         </form>
       )}
 
+      {/* RUNDE 8 ("en liste rapporteringsmulighed for at se hvilken
+          platform lead kom fra"): simpel optælling pr. kilde over den
+          aktuelt viste liste (respekterer stadie-fanen nedenfor). */}
+      {!loading && leads.length > 0 && (
+        <div className="mb-3 flex flex-wrap gap-2 text-xs text-brand-ink2/60">
+          {Object.entries(leads.reduce((m: Record<string, number>, l) => { m[l.source] = (m[l.source] || 0) + 1; return m; }, {})).map(([src, n]) => (
+            <span key={src} className="rounded-full border border-brand-line px-2.5 py-1">{LEAD_SOURCE_LABEL[src] || src}: <b>{n}</b></span>
+          ))}
+        </div>
+      )}
+
       <div className="mb-4 flex flex-wrap gap-2">
         {TABS.map((t) => (
           <button key={t.key} onClick={() => setTab(t.key)} className={`rounded-full px-3 py-1.5 text-xs font-semibold transition ${tab === t.key ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{t.label}</button>
@@ -121,6 +138,7 @@ export default function LeadsList() {
             </div>
             <div className="flex items-center gap-2">
               {l.order && <span className="rounded bg-brand-green/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">Forfremmet: {l.order.orderNumber}</span>}
+              <span className="rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2/60">{LEAD_SOURCE_LABEL[l.source] || l.source}</span>
               <span className="rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">{deriveLeadStatusLabel(l.stage, l.measuredAt)}</span>
             </div>
           </Link>

@@ -49,6 +49,20 @@ enum LeadStage {
   BEKRAEFTET
 }
 
+// RUNDE 8 (delta §1/§3 - "ikke frit tekstfelt men en liste rapporterings-
+// mulighed for at se hvilken platform lead kom fra"): faste, rapporterbare
+// kilde-kategorier i stedet for den tidligere frie streng. HJEMMESIDE
+// sættes automatisk af webformularen; alle andre vælges eksplicit af
+// Koordinator ved manuel oprettelse.
+enum LeadSource {
+  HJEMMESIDE
+  META
+  GOOGLE
+  HENVISNING
+  PERSONLIG_KONTAKT
+  ANDET
+}
+
 model Lead {
   id             String    @id @default(cuid())
   leadNumber     String    @unique // fx MYG-2026-0001 - samme loebenummer som Order.orderNumber ved forfremmelse, se §3.6
@@ -62,9 +76,13 @@ model Lead {
   postalCode     String
   city           String
 
-  source         String    @default("") // "Hjemmeside", "Telefon", "Henvisning", "Migreret" osv.
+  source         LeadSource @default(HJEMMESIDE)
   productSummary String    @default("")
   note           String    @default("")
+
+  // RUNDE 8 (delta §5): et lead der sagde nej maa ikke blive vaerende for
+  // evigt i aktive lister/notifikationer.
+  lostAt         DateTime?
 
   quotePriceDkk  Float?
   confirmedAt    DateTime?
@@ -84,6 +102,7 @@ model Lead {
 
   measurements   Measurement[]
   appointments   Appointment[]
+  notes          Note[]
   order          Order?
 
   @@index([stage])
@@ -116,7 +135,11 @@ model Measurement {
   layout      String   @default("YANA")     // YANA | AŞAĞI (Row.model i ImalatCalc)
   kanat       String   @default("HAREKETLI") // HAREKETLI | SABIT
   adet        Int      @default(1)
-  done        Boolean  @default(false)
+  // RUNDE 8 (delta §7 - "ingen bruger indtaster nogensinde en dato"):
+  // erstatter den tidligere rene boolean "done" - et tidsstempel sat af
+  // en toggle-handling (Byggeren tjekker linjen af i Produktion-fanen),
+  // ikke et frit flueben uden historik. NULL = ikke bygget endnu.
+  builtAt     DateTime?
 
   @@index([leadId])
 }
@@ -208,14 +231,14 @@ model Order {
   stage               OrderStage @default(KOE)
   leadId              String?    @unique
   lead                Lead?      @relation(fields: [leadId], references: [id])
-  estReadyDate        DateTime?
-  estReadyWeekLabel   String?
-  promisedInstallDate DateTime?
-  // RUNDE 3: Byggerens eget "i gang"-tryk direkte fra kalenderen - rent
-  // informativt (gate'r intet), saa Coordinator kan se om en ordre reelt
-  // er paabegyndt i vaerkstedet, ikke kun at den ligger i koeen. readyAt
-  // er fortsat den egentlige "faerdig i produktion"-kendsgerning.
-  productionStartedAt DateTime?
+  // RUNDE 8 ("vi gemmer ikke information der ikke bruges" - delta §2, samme
+  // princip anvendt bredere): estReadyDate/estReadyWeekLabel/
+  // promisedInstallDate blev udelukkende sat af den nu fjernede automatiske
+  // kalender-booking fra ordre-siden og blev aldrig vist andre steder -
+  // fjernet i stedet for at lade dem staa som daed data.
+  // RUNDE 8 (delta §2 - "vi gemmer ikke information der ikke bruges"):
+  // productionStartedAt ("i gang")-feltet er fjernet helt sammen med
+  // knappen der satte det - readyAt er og var den egentlige kendsgerning.
   readyAt             DateTime?
   installedAt         DateTime?
   paymentStatus       String     @default("IKKE_SENDT") // IKKE_SENDT | SENDT | BETALT
@@ -227,6 +250,7 @@ model Order {
   // (se §7 punkt 5 - "brug dit skoen her, men dokumentér valget").
   cancelledAt         DateTime?
   appointments        Appointment[]
+  notes               Note[]
 
   @@index([status])
   @@index([stage])
@@ -300,13 +324,15 @@ model OrderCounter {
 enum AppointmentType {
   MAALING
   INSTALLATION
-  // RUNDE 3: to nye opgavetyper til kalenderens "+ Ny aftale" (kun
-  // Coordinator maa oprette). PRODUKTION oprettes automatisk paa Byggerens
-  // kalender naar en ordre sendes til produktion. ORDRE er en generisk,
-  // ordre-koblet paamindelse/opgave Coordinator selv opretter (fx "ring
-  // kunde om betaling") - ikke bundet til Bygger/Installatoer.
+  // RUNDE 3: opgavetype til kalenderens "+ Ny aftale" (kun Coordinator maa
+  // oprette).
+  // RUNDE 8 (delta §8 + "kalenderaftaler kun oprettes fra Kalender-siden"):
+  // PRODUKTION oprettes IKKE laengere automatisk - Coordinator opretter den
+  // manuelt fra Kalender-siden ligesom Opmåling/Installation, og kobler
+  // den til ordren via soegefeltet der allerede findes der. ORDRE er
+  // fjernet (paamindelser hoerer fremover til notifikationscenteret,
+  // delta §4 - ikke bygget endnu, se procesdokumentet).
   PRODUKTION
-  ORDRE
 }
 
 enum AppointmentStatus {
@@ -350,4 +376,35 @@ model Appointment {
   @@index([day])
   @@index([day, resource])
   @@index([assignedUserId])
+}
+
+// RUNDE 8 ("notat skal være generelt men også muligt at vælge hvilken
+// proces det omhandler så det ikke er blandet - notater fra lead-
+// processen kan godt contradict med notater fra installations-processen"):
+// et notat pr. LEAD (bevares ved forfremmelse til ordre) ELLER pr. ORDRE
+// (til den manuelle "bypass"-ordre uden noget lead, se §11.5/delta §8),
+// aldrig begge - samme dobbelt-nullable moenster som Appointment allerede
+// bruger. Flere notater kan findes pr. kategori (en lille logget liste,
+// ikke ét delt tekstfelt flere roller kan overskrive for hinanden).
+enum NoteCategory {
+  LEAD          // opmåling/pris/aftaler før ordren findes
+  PRODUKTION    // til Byggeren
+  INSTALLATION  // til Installatøren
+  GENERELT      // tværgående / passer ikke i de andre
+}
+
+model Note {
+  id         String       @id @default(cuid())
+  category   NoteCategory @default(GENERELT)
+  leadId     String?
+  lead       Lead?        @relation(fields: [leadId], references: [id], onDelete: Cascade)
+  orderId    String?
+  order      Order?       @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  authorId   String?
+  authorName String       @default("")
+  body       String
+  createdAt  DateTime     @default(now())
+
+  @@index([leadId])
+  @@index([orderId])
 }

@@ -39,7 +39,7 @@ export async function GET(req: NextRequest) {
     orderBy: [{ day: "asc" }, { time: "asc" }],
     include: {
       lead: { select: { leadNumber: true, id: true, _count: { select: { measurements: true } } } },
-      order: { select: { orderNumber: true, id: true, readyAt: true, productionStartedAt: true, _count: { select: { items: true } } } },
+      order: { select: { orderNumber: true, id: true, readyAt: true, _count: { select: { items: true } } } },
       assignedUser: { select: { id: true, name: true, role: true } }
     }
   });

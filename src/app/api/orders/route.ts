@@ -90,7 +90,7 @@ export async function POST(req: NextRequest) {
         address: c.address,
         postalCode: c.postalCode,
         city: c.city,
-        source: "Hjemmeside",
+        source: "HJEMMESIDE",
         productSummary,
         note: (body.note || "") + (wantsInstallation ? "\n[Ønsker montering]" : ""),
         measurements: {
