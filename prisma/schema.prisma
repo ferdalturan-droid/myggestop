@@ -329,10 +329,17 @@ enum AppointmentType {
   // RUNDE 8 (delta §8 + "kalenderaftaler kun oprettes fra Kalender-siden"):
   // PRODUKTION oprettes IKKE laengere automatisk - Coordinator opretter den
   // manuelt fra Kalender-siden ligesom Opmåling/Installation, og kobler
-  // den til ordren via soegefeltet der allerede findes der. ORDRE er
-  // fjernet (paamindelser hoerer fremover til notifikationscenteret,
-  // delta §4 - ikke bygget endnu, se procesdokumentet).
+  // den til ordren via soegefeltet der allerede findes der.
   PRODUKTION
+  // RUNDE 8: IKKE laengere valgbar i UI'en (fjernet fra APPT_TYPE_OPTIONS,
+  // se appointmentOptions.ts) - men BEVIDST bevaret her i selve enum'et.
+  // Ældre, allerede oprettede aftaler i produktions-databasen har denne
+  // vaerdi, og at fjerne en enum-vaerdi der stadig er i brug faar
+  // "prisma db push" til at fejle haardt (Postgres kan ikke konvertere
+  // eksisterende raekker til en enum-type der ikke laengere indeholder
+  // deres vaerdi). At beholde vaerdien i skemaet er risikofrit; det er
+  // UI-tilgaengeligheden der er fjernet, jf. Runde 5 §G3.
+  ORDRE
 }
 
 enum AppointmentStatus {
