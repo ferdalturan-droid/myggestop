@@ -20,8 +20,16 @@ import { deriveOrderStageLabel } from "@/lib/orderStage";
 // sat, låses den (vises som en færdig-tilstand, ikke en knap man kan
 // trykke på igen) - kun Koordinator kan fortryde en fejlagtig markering.
 export default function OrderStageControl({
-  orderId, stage, readyAt, installedAt, role
-}: { orderId: string; stage: string; readyAt: string | null; installedAt: string | null; role?: string }) {
+  orderId, stage, readyAt, installedAt, role, alleLinjerFaerdig = true, antalLinjerIalt = 0, antalLinjerFaerdig = 0
+}: {
+  orderId: string; stage: string; readyAt: string | null; installedAt: string | null; role?: string;
+  // RUNDE 7 (§4 i procesdokumentet): "Færdig"-markeringen pr. linje i
+  // beregneren spærrer nu reelt for "Klar til installation", indtil ALLE
+  // linjer er markeret - ellers betød markeringen ingenting ("er der en
+  // grund til den, og afspejler den logisk noget?"). Default true, saa en
+  // ordre uden nogen linjer (manuel ordre) aldrig spærres unødigt.
+  alleLinjerFaerdig?: boolean; antalLinjerIalt?: number; antalLinjerFaerdig?: number;
+}) {
   const router = useRouter();
   const [s, setS] = useState(stage);
   const [ready, setReady] = useState(readyAt);
@@ -101,7 +109,12 @@ export default function OrderStageControl({
 
       {s === "KOE" && (
         <div className="rounded-lg border border-dashed border-brand-line bg-brand-mist/30 p-3">
-          <p className="mb-2 text-xs text-brand-ink2/60">Ordren ligger i køen (backlog). Send den til produktion når byggeren har plads (§6.5/§6.7 — book aldrig mere end ca. 2 uger frem).</p>
+          {/* RUNDE 7 (§"when i book installation or production it is
+              important i can select date... easier alternative to add
+              event to a calendar manually"): dato er nu et KRÆVET felt -
+              den dato ER kalenderaftalens dag, ikke kun et løst estimat
+              der stille faldt tilbage til "i dag" hvis man glemte det. */}
+          <p className="mb-2 text-xs text-brand-ink2/60">Ordren ligger i køen (backlog). Vælg bygger og dato — det opretter automatisk aftalen i kalenderen, du behøver ikke gøre det manuelt bagefter (§6.5/§6.7 — book aldrig mere end ca. 2 uger frem).</p>
           <div className="flex flex-wrap items-end gap-2">
             <label className="block"><span className="label">Bygger *</span>
               <select className="input py-1.5 text-sm" required value={assignedUserId} onChange={(e) => setAssignedUserId(e.target.value)}>
@@ -109,12 +122,12 @@ export default function OrderStageControl({
                 {byggere.map((u) => <option key={u.id} value={u.id}>{u.name}</option>)}
               </select>
             </label>
-            <label className="block"><span className="label">Forventet klar-dato</span><input type="date" className="input py-1.5 text-sm" value={estDato} onChange={(e) => setEstDato(e.target.value)} /></label>
-            <label className="block"><span className="label">— eller uge-estimat</span><input className="input py-1.5 text-sm" placeholder="fx Uge 41" value={estUge} onChange={(e) => setEstUge(e.target.value)} /></label>
+            <label className="block"><span className="label">Dato (bookes i kalenderen) *</span><input type="date" className="input py-1.5 text-sm" required value={estDato} onChange={(e) => setEstDato(e.target.value)} /></label>
+            <label className="block"><span className="label">Uge-note til kunden (valgfrit)</span><input className="input py-1.5 text-sm" placeholder="fx Uge 41" value={estUge} onChange={(e) => setEstUge(e.target.value)} /></label>
             <button
-              disabled={saving || !assignedUserId}
-              title={!assignedUserId ? "Vælg en bygger først" : undefined}
-              onClick={() => saetStage("I_PRODUKTION", { estReadyDate: estDato || undefined, estReadyWeekLabel: estDato ? undefined : (estUge || undefined), assignedUserId })}
+              disabled={saving || !assignedUserId || !estDato}
+              title={!assignedUserId ? "Vælg en bygger først" : !estDato ? "Vælg en dato først" : undefined}
+              onClick={() => saetStage("I_PRODUKTION", { estReadyDate: estDato, estReadyWeekLabel: estUge || undefined, assignedUserId })}
               className="btn-primary py-2 text-sm disabled:opacity-50"
             >
               Send til produktion
@@ -130,13 +143,28 @@ export default function OrderStageControl({
               mulighed for selv at markere/rette den, IKKE til Installatør. */}
           {ready ? (
             <div className="flex flex-wrap items-center gap-2">
-              <span className="rounded-full bg-brand-greendark px-3 py-1.5 text-xs font-semibold text-white">Klar ✓ ({new Date(ready).toLocaleDateString("da-DK")})</span>
+              <span className="rounded-full bg-brand-greendark px-3 py-1.5 text-xs font-semibold text-white">Klar til installation ✓ ({new Date(ready).toLocaleDateString("da-DK")})</span>
               {erKoordinator && <button onClick={fortrydKlar} className="text-xs font-medium text-red-500 hover:underline">Fortryd (kun ved fejl)</button>}
             </div>
           ) : erKoordinator ? (
-            <button onClick={markerKlar} className="rounded-full border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist">Marker Klar</button>
+            <div>
+              {/* RUNDE 7 (§4 i procesdokumentet): kan foerst markeres naar
+                  ALLE maalelinjer er "Færdig" i beregneren - ellers betyder
+                  Færdig-fluebenet ingenting reelt. */}
+              <button
+                onClick={markerKlar}
+                disabled={!alleLinjerFaerdig}
+                title={!alleLinjerFaerdig ? `${antalLinjerFaerdig} af ${antalLinjerIalt} linjer er markeret Færdig i beregneren - alle skal være det først` : undefined}
+                className="rounded-full border border-brand-line px-3 py-1.5 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist disabled:opacity-40"
+              >
+                Klar til installation
+              </button>
+              {!alleLinjerFaerdig && antalLinjerIalt > 0 && (
+                <p className="mt-1 text-xs text-amber-700">{antalLinjerFaerdig} af {antalLinjerIalt} linjer markeret Færdig i beregneren — marker alle før ordren kan sendes videre.</p>
+              )}
+            </div>
           ) : (
-            <p className="text-xs text-brand-ink2/50">Afventer at byggeren markerer ordren klar i produktion.</p>
+            <p className="text-xs text-brand-ink2/50">Afventer at byggeren markerer ordren klar til installation.</p>
           )}
 
           {installed ? (

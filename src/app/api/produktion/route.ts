@@ -12,8 +12,19 @@ export async function GET() {
   if (!auth.ok) return auth.response;
   const orders = await prisma.order.findMany({
     where: { stage: "I_PRODUKTION" },
-    include: { items: true },
+    // RUNDE 7 (§4 i procesdokumentet): Byggeren skal kunne se sin egen
+    // fremdrift ("X af Y linjer færdig") direkte i køen, ikke kun ved at
+    // åbne hver ordre - og "Klar til installation"-knappen her skal
+    // spærres på samme måde som på selve ordresiden.
+    include: { items: true, lead: { include: { measurements: { select: { done: true } } } } },
     orderBy: { createdAt: "asc" }
   });
-  return NextResponse.json({ orders });
+  const medFremdrift = orders.map((o: any) => {
+    const linjer = o.lead?.measurements || [];
+    const antalLinjerIalt = linjer.length;
+    const antalLinjerFaerdig = linjer.filter((m: any) => m.done).length;
+    const { lead, ...rest } = o;
+    return { ...rest, antalLinjerIalt, antalLinjerFaerdig, alleLinjerFaerdig: antalLinjerIalt === 0 || antalLinjerFaerdig === antalLinjerIalt };
+  });
+  return NextResponse.json({ orders: medFremdrift });
 }

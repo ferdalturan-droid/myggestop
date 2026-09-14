@@ -51,6 +51,12 @@ export default async function OrderDetail({ params }: { params: { id: string } }
   // status en ordre viser, saa der ikke findes to statusfelter der kan
   // sige to forskellige ting om samme ordre.
   const stageLabel = deriveOrderStageLabel({ stage: order.stage, readyAt: order.readyAt ? order.readyAt.toISOString() : null, installedAt: order.installedAt ? order.installedAt.toISOString() : null });
+  // RUNDE 7 (§4 i procesdokumentet): "Klar til installation" kan foerst
+  // saettes naar ALLE maalelinjer er markeret Færdig i beregneren.
+  const alleMaalinger = order.lead?.measurements || [];
+  const antalLinjerIalt = alleMaalinger.length;
+  const antalLinjerFaerdig = alleMaalinger.filter((m: any) => m.done).length;
+  const alleLinjerFaerdig = antalLinjerIalt === 0 || antalLinjerFaerdig === antalLinjerIalt;
 
   return (
     <div>
@@ -153,6 +159,9 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 readyAt={order.readyAt ? order.readyAt.toISOString() : null}
                 installedAt={order.installedAt ? order.installedAt.toISOString() : null}
                 role={session?.role}
+                alleLinjerFaerdig={alleLinjerFaerdig}
+                antalLinjerIalt={antalLinjerIalt}
+                antalLinjerFaerdig={antalLinjerFaerdig}
               />
             </div>
           ) : (

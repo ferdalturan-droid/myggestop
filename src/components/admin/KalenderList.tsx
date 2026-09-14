@@ -1,6 +1,6 @@
 "use client";
 import { useEffect, useMemo, useState } from "react";
-import { APPT_TYPE_LABEL, APPT_TYPE_OPTIONS, APPT_TYPE_RESOURCE, RESOURCE_LABEL } from "@/lib/appointmentOptions";
+import { APPT_TYPE_LABEL, APPT_TYPE_OPTIONS, APPT_TYPE_RESOURCE, RESOURCE_LABEL, APPT_TYPE_COLOR, FRI_AFTALE_COLOR } from "@/lib/appointmentOptions";
 
 const BLANK = {
   day: "", time: "", customer: "", phone: "", address: "", note: "",
@@ -175,6 +175,10 @@ export default function KalenderList({ role }: { role: string }) {
   // kan yderligere filtrere ned til én konkret navngiven person.
   const [personTab, setPersonTab] = useState<string>("");
   const [people, setPeople] = useState<any[]>([]);
+  // RUNDE 7 (§"hard to know what goes where for what"): et eksplicit
+  // type-filter oveni de eksisterende dato-/person-filtre, saa man kan
+  // isolere "kun opmålinger" eller "kun produktion" med ét klik.
+  const [typeTab, setTypeTab] = useState<"" | "MAALING" | "INSTALLATION" | "PRODUKTION">("");
 
   async function load() {
     setLoading(true);
@@ -204,6 +208,7 @@ export default function KalenderList({ role }: { role: string }) {
   const filtered = items
     .filter((a) => !resourceTab || a.resource === resourceTab)
     .filter((a) => !personTab || a.assignedUserId === personTab)
+    .filter((a) => !typeTab || a.type === typeTab)
     .filter((a) => {
       if (range === "today") return a.day === today;
       if (range === "tomorrow") return a.day === tomorrow;
@@ -289,10 +294,34 @@ export default function KalenderList({ role }: { role: string }) {
     return null;
   }
 
+  // RUNDE 7 (§"hard to know what goes where for what"): aftaler inden for
+  // samme dag sorteres nu kronologisk (uden klokkeslæt sidst), i stedet
+  // for i den vilkårlige rækkefølge de blev oprettet i.
   const byDay = filtered.reduce((m: Record<string, any[]>, a) => {
     (m[a.day] ||= []).push(a);
     return m;
   }, {});
+  Object.values(byDay).forEach((list) => list.sort((a: any, b: any) => (a.time || "99:99").localeCompare(b.time || "99:99")));
+
+  // Naar Coordinator ser flere personer paa samme tid ("Alle"), grupperes
+  // hver dags aftaler under en under-overskrift pr. navngiven person - det
+  // var netop uklarheden brugeren peger på ("hard to know what goes where
+  // for what"): en flad liste blander alles skemaer sammen.
+  const grupperEfterPerson = isCoordinator && !personTab;
+  function personGrupper(list: any[]) {
+    if (!grupperEfterPerson) return [{ navn: null, liste: list }];
+    const grupper: { navn: string | null; liste: any[] }[] = [];
+    const map = new Map<string, any[]>();
+    for (const a of list) {
+      const key = a.assignedUser?.name || (a.resource ? RESOURCE_LABEL[a.resource] || a.resource : "Andet / fri aftale");
+      if (!map.has(key)) map.set(key, []);
+      map.get(key)!.push(a);
+    }
+    // Kun opdel i grupper naar der reelt er mere end én - ellers unødig støj.
+    if (map.size <= 1) return [{ navn: null, liste: list }];
+    for (const [navn, liste] of map) grupper.push({ navn, liste });
+    return grupper.sort((a, b) => (a.navn || "").localeCompare(b.navn || ""));
+  }
 
   return (
     <div>
@@ -336,6 +365,26 @@ export default function KalenderList({ role }: { role: string }) {
             {people.filter((p) => p.role === resourceTab).map((p) => <option key={p.id} value={p.id}>{p.name}</option>)}
           </select>
         )}
+        {/* RUNDE 7 (§"hard to know what goes where for what"): type-filter
+            tilgaengeligt for alle roller - Bygger/Installatør har ogsaa en
+            blanding af opgavetyper + frie aftaler i deres egen kalender. */}
+        <div className="flex gap-1 rounded-full border border-brand-line bg-white p-1">
+          {[{ key: "", label: "Alle typer" }, ...APPT_TYPE_OPTIONS.filter(([v]) => v !== "ORDRE").map(([v, l]) => ({ key: v, label: l }))].map((t) => (
+            <button key={t.key} onClick={() => setTypeTab(t.key as any)} className={`flex items-center gap-1.5 rounded-full px-3 py-1.5 text-xs font-semibold transition ${typeTab === t.key ? "bg-brand-ink text-white" : "text-brand-ink2 hover:bg-brand-mist"}`}>
+              {t.key && <span className={`h-1.5 w-1.5 rounded-full ${APPT_TYPE_COLOR[t.key]?.dot || ""} ${typeTab === t.key ? "opacity-100" : ""}`} />}
+              {t.label}
+            </button>
+          ))}
+        </div>
+      </div>
+
+      {/* Farvelegend - forklarer den venstre farvekant paa hver aftale, saa
+          man kan se HVAD en aftale er uden at laese teksten foerst. */}
+      <div className="mb-4 flex flex-wrap items-center gap-3 text-xs text-brand-ink2/60">
+        {APPT_TYPE_OPTIONS.filter(([v]) => v !== "ORDRE").map(([v, l]) => (
+          <span key={v} className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${APPT_TYPE_COLOR[v]?.dot}`} />{l}</span>
+        ))}
+        <span className="flex items-center gap-1.5"><span className={`h-2 w-2 rounded-full ${FRI_AFTALE_COLOR.dot}`} />Fri aftale</span>
       </div>
 
       {msg && <p className="mb-3 text-sm font-medium text-brand-greendark">{msg}</p>}
@@ -368,56 +417,69 @@ export default function KalenderList({ role }: { role: string }) {
         {Object.entries(byDay).map(([day, list]) => (
           <div key={day}>
             <h2 className="mb-2 text-sm font-bold text-brand-ink2">{day === today ? "I dag" : day === tomorrow ? "I morgen" : day} <span className="font-normal text-brand-ink2/40">· {day}</span></h2>
-            <div className="space-y-1.5">
-              {list.map((a: any) =>
-                isCoordinator && editingId === a.id ? (
-                  <div key={a.id} className="py-1">
-                    <AppointmentForm
-                      initial={{
-                        day: a.day, time: a.time || "", customer: a.customer, phone: a.phone || "", address: a.address || "", note: a.note || "",
-                        type: a.type || "", status: a.status || "",
-                        leadId: a.leadId || "", orderId: a.orderId || "",
-                        linkLabel: a.lead ? a.lead.leadNumber : a.order ? a.order.orderNumber : "",
-                        assignedUserId: a.assignedUserId || ""
-                      }}
-                      people={people}
-                      submitLabel="Gem ændring"
-                      onCancel={() => setEditingId(null)}
-                      onSubmit={(data) => gemRedigering(a.id, data)}
-                    />
+            {/* RUNDE 7 (§"hard to know what goes where for what"): naar
+                Coordinator ser flere personer paa én gang, deles dagen op i
+                under-grupper pr. navngiven person, saa alles skemaer ikke
+                blandes i én flad liste. */}
+            <div className="space-y-3">
+              {personGrupper(list).map((gruppe, gi) => (
+                <div key={gruppe.navn || gi}>
+                  {gruppe.navn && <p className="mb-1 text-xs font-semibold uppercase tracking-wide text-brand-ink2/45">{gruppe.navn}</p>}
+                  <div className="space-y-1.5">
+                    {gruppe.liste.map((a: any) => {
+                      const farve = a.type ? (APPT_TYPE_COLOR[a.type] || APPT_TYPE_COLOR.ORDRE) : FRI_AFTALE_COLOR;
+                      return isCoordinator && editingId === a.id ? (
+                        <div key={a.id} className="py-1">
+                          <AppointmentForm
+                            initial={{
+                              day: a.day, time: a.time || "", customer: a.customer, phone: a.phone || "", address: a.address || "", note: a.note || "",
+                              type: a.type || "", status: a.status || "",
+                              leadId: a.leadId || "", orderId: a.orderId || "",
+                              linkLabel: a.lead ? a.lead.leadNumber : a.order ? a.order.orderNumber : "",
+                              assignedUserId: a.assignedUserId || ""
+                            }}
+                            people={people}
+                            submitLabel="Gem ændring"
+                            onCancel={() => setEditingId(null)}
+                            onSubmit={(data) => gemRedigering(a.id, data)}
+                          />
+                        </div>
+                      ) : (
+                        <div key={a.id} className={`flex flex-wrap items-center justify-between gap-2 rounded-lg border border-l-4 border-brand-line ${farve.border} bg-white px-3 py-2.5 text-sm`}>
+                          <div>
+                            <span className="font-semibold text-brand-ink">{a.time ? `${a.time} · ` : ""}{a.customer}</span>
+                            {a.type && <span className="ml-2 rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">{APPT_TYPE_LABEL[a.type] || a.type}</span>}
+                            {!a.type && <span className="ml-2 rounded bg-slate-100 px-2 py-0.5 text-xs font-semibold text-brand-ink2/60">Fri aftale</span>}
+                            {a.status && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${a.status === "CONFIRMED" ? "bg-brand-green/15 text-brand-greendark" : "bg-amber-50 text-amber-700"}`}>{a.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</span>}
+                            {/* RUNDE 5: den konkrete navngivne person aftalen ligger hos - kun relevant for Coordinator at se (Bygger/Installatør ser jo allerede kun sine egne). */}
+                            {isCoordinator && a.assignedUser && !gruppe.navn && <span className="ml-2 font-semibold text-brand-ink2/70">· {a.assignedUser.name}</span>}
+                            {a.lead && <span className="ml-2 text-brand-ink2/55">{a.lead.leadNumber}</span>}
+                            {a.order && <span className="ml-2 text-brand-ink2/55">{a.order.orderNumber}</span>}
+                            {/* §"antal materialer der skal leveres" for opmåling/installering */}
+                            {(a.type === "MAALING" || a.type === "INSTALLATION") && (a.lead?._count?.measurements ?? a.order?._count?.items) != null && (
+                              <span className="ml-2 text-brand-ink2/55">· {a.lead?._count?.measurements ?? a.order?._count?.items} materiale(r)</span>
+                            )}
+                            {a.address && <span className="ml-2 text-brand-ink2/55">· {a.address}</span>}
+                            {a.phone && <span className="ml-2 text-brand-ink2/55">· {a.phone}</span>}
+                          </div>
+                          <div className="flex items-center gap-3">
+                            {/* Bygger: Start/Færdig direkte i kalenderen, kun paa sine egne produktionsopgaver. */}
+                            {role === "BUILDER" && a.type === "PRODUKTION" && a.orderId && (
+                              <>
+                                <button disabled={!!a.order?.productionStartedAt} onClick={() => toggleStart(a.orderId, !!a.order?.productionStartedAt)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.order?.productionStartedAt ? "bg-amber-100 text-amber-700" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{a.order?.productionStartedAt ? "I gang ✓" : "Start"}</button>
+                                <button disabled={!!a.order?.readyAt} onClick={() => toggleKlar(a.orderId, !!a.order?.readyAt)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.order?.readyAt ? "bg-brand-green/15 text-brand-greendark" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{a.order?.readyAt ? "Færdig ✓" : "Færdiggjort"}</button>
+                              </>
+                            )}
+                            {detailHref(a) && <a href={detailHref(a)!} className="font-semibold text-brand-blue hover:underline">Se detaljer</a>}
+                            {isCoordinator && <button onClick={() => { setEditingId(a.id); setShowCreate(false); }} className="font-semibold text-brand-blue hover:underline">Rediger</button>}
+                            {isCoordinator && <button onClick={() => slet(a.id)} className="font-semibold text-red-500 hover:text-red-700">Slet</button>}
+                          </div>
+                        </div>
+                      );
+                    })}
                   </div>
-                ) : (
-                  <div key={a.id} className="flex flex-wrap items-center justify-between gap-2 rounded-lg border border-brand-line bg-white px-3 py-2.5 text-sm">
-                    <div>
-                      <span className="font-semibold text-brand-ink">{a.time ? `${a.time} · ` : ""}{a.customer}</span>
-                      {a.type && <span className="ml-2 rounded bg-brand-mist px-2 py-0.5 text-xs font-semibold text-brand-ink2">{APPT_TYPE_LABEL[a.type] || a.type}</span>}
-                      {a.status && <span className={`ml-2 rounded px-2 py-0.5 text-xs font-semibold ${a.status === "CONFIRMED" ? "bg-brand-green/15 text-brand-greendark" : "bg-amber-50 text-amber-700"}`}>{a.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}</span>}
-                      {/* RUNDE 5: den konkrete navngivne person aftalen ligger hos - kun relevant for Coordinator at se (Bygger/Installatør ser jo allerede kun sine egne). */}
-                      {isCoordinator && a.assignedUser && <span className="ml-2 font-semibold text-brand-ink2/70">· {a.assignedUser.name}</span>}
-                      {a.lead && <span className="ml-2 text-brand-ink2/55">{a.lead.leadNumber}</span>}
-                      {a.order && <span className="ml-2 text-brand-ink2/55">{a.order.orderNumber}</span>}
-                      {/* §"antal materialer der skal leveres" for opmåling/installering */}
-                      {(a.type === "MAALING" || a.type === "INSTALLATION") && (a.lead?._count?.measurements ?? a.order?._count?.items) != null && (
-                        <span className="ml-2 text-brand-ink2/55">· {a.lead?._count?.measurements ?? a.order?._count?.items} materiale(r)</span>
-                      )}
-                      {a.address && <span className="ml-2 text-brand-ink2/55">· {a.address}</span>}
-                      {a.phone && <span className="ml-2 text-brand-ink2/55">· {a.phone}</span>}
-                    </div>
-                    <div className="flex items-center gap-3">
-                      {/* Bygger: Start/Færdig direkte i kalenderen, kun paa sine egne produktionsopgaver. */}
-                      {role === "BUILDER" && a.type === "PRODUKTION" && a.orderId && (
-                        <>
-                          <button disabled={!!a.order?.productionStartedAt} onClick={() => toggleStart(a.orderId, !!a.order?.productionStartedAt)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.order?.productionStartedAt ? "bg-amber-100 text-amber-700" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{a.order?.productionStartedAt ? "I gang ✓" : "Start"}</button>
-                          <button disabled={!!a.order?.readyAt} onClick={() => toggleKlar(a.orderId, !!a.order?.readyAt)} className={`rounded-full px-2.5 py-1 text-xs font-semibold ${a.order?.readyAt ? "bg-brand-green/15 text-brand-greendark" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}>{a.order?.readyAt ? "Færdig ✓" : "Færdiggjort"}</button>
-                        </>
-                      )}
-                      {detailHref(a) && <a href={detailHref(a)!} className="font-semibold text-brand-blue hover:underline">Se detaljer</a>}
-                      {isCoordinator && <button onClick={() => { setEditingId(a.id); setShowCreate(false); }} className="font-semibold text-brand-blue hover:underline">Rediger</button>}
-                      {isCoordinator && <button onClick={() => slet(a.id)} className="font-semibold text-red-500 hover:text-red-700">Slet</button>}
-                    </div>
-                  </div>
-                )
-              )}
+                </div>
+              ))}
             </div>
           </div>
         ))}

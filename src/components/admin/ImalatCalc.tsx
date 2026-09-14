@@ -421,13 +421,27 @@ export default function ImalatCalc() {
       if (!res.ok) { if (!silent) { setMsg(d.error || "Fejl ved gem."); setTimeout(() => setMsg(null), 3000); } return; }
       // Opdater KUN measurementId pr. raekke (via clientKey=uid) - rows i
       // oevrigt roeres ikke, saa en igangvaerende indtastning ikke afbrydes.
+      // RUNDE 7 (bugfix "autosave-loop"): returnér den SAMME array-
+      // reference, hvis intet reelt aendrede sig - ellers saetter
+      // setRows() altid en ny reference (selv naar hver raekke indeni er
+      // uaendret, fordi .map() altid laver et nyt array), hvilket
+      // fik autosave-effekten (afhaenger af `rows`) til at koere igen, og
+      // igen, i det uendelige. Serveren er ogsaa rettet til kun at
+      // rapportere reelt NYE raekker (se production/route.ts), saa dette
+      // er et ekstra sikkerhedsnet, ikke den eneste rettelse.
       const savedRows: { clientKey: any; measurementId: string }[] = d.savedRows || [];
       if (savedRows.length > 0) {
-        setRows((rs) => rs.map((r) => {
-          if (r.measurementId) return r;
-          const m = savedRows.find((s) => s.clientKey === r.uid);
-          return m ? { ...r, measurementId: m.measurementId } : r;
-        }));
+        setRows((rs) => {
+          let aendret = false;
+          const next = rs.map((r) => {
+            if (r.measurementId) return r;
+            const m = savedRows.find((s) => s.clientKey === r.uid);
+            if (!m) return r;
+            aendret = true;
+            return { ...r, measurementId: m.measurementId };
+          });
+          return aendret ? next : rs;
+        });
       }
       if (d.order?.orderNumber && d.order.orderNumber !== orderNumber) setOrderNumber(d.order.orderNumber);
       if (silent) { setAutoMsg("Ændringer gemt automatisk ✓"); setTimeout(() => setAutoMsg(null), 1800); }

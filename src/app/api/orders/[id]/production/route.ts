@@ -119,7 +119,15 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     }
     if (ops.length > 0) {
       const results = await prisma.$transaction(ops);
+      // RUNDE 7 (bugfix "autosave-loop"): rapportér KUN raekker der reelt
+      // fik en NY measurementId (dvs. de havde ingen paa forhaand). Foer
+      // denne rettelse blev ALLE raekker (ogsaa dem der blot blev
+      // opdateret) lagt i savedRows, hvilket fik klienten til at kalde
+      // setRows() med en frisk array-reference paa hvert eneste gem - som
+      // trigger'ede autosave-effekten igen, som gemte igen, i det
+      // uendelige ("Ændringer gemt automatisk" der aldrig stoppede).
       rows.forEach((r, i) => {
+        if (r.measurementId) return; // havde allerede en id - intet at rapportere
         const m: any = results[offset + i];
         if (m?.id) savedRows.push({ clientKey: r.clientKey, measurementId: m.id });
       });

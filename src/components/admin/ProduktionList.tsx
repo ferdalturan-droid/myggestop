@@ -69,6 +69,13 @@ export default function ProduktionList({ role, readOnly = false }: { role?: stri
               <span className="ml-2 text-brand-ink2/55">{o.items?.length || 0} produkt(er) · {o.city}</span>
               {o.productionStartedAt && !o.readyAt && <span className="ml-2 rounded-full bg-amber-100 px-2 py-0.5 text-xs font-semibold text-amber-700">I gang</span>}
               {o.readyAt && <span className="ml-2 rounded-full bg-brand-greendark/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">Klar til installation ✓</span>}
+              {/* RUNDE 7 (§4 i procesdokumentet): fremdrift pr. ordre, saa
+                  Byggeren kan se hvor langt han er UDEN at aabne hver ordre. */}
+              {!o.readyAt && o.antalLinjerIalt > 0 && (
+                <span className={`ml-2 rounded-full px-2 py-0.5 text-xs font-semibold ${o.alleLinjerFaerdig ? "bg-brand-greendark/15 text-brand-greendark" : "bg-brand-mist text-brand-ink2/70"}`}>
+                  {o.antalLinjerFaerdig} af {o.antalLinjerIalt} linjer færdig
+                </span>
+              )}
             </div>
             <div className="flex items-center gap-2">
               <a href={`/admin/ordrer/${o.id}`} className="font-semibold text-brand-blue hover:underline">Se ordre & byggedetaljer</a>
@@ -77,7 +84,14 @@ export default function ProduktionList({ role, readOnly = false }: { role?: stri
                 <button onClick={() => markerIGang(o.id)} className="rounded-full border border-brand-line px-3 py-1 text-xs font-semibold text-brand-ink2 hover:bg-brand-mist">Start</button>
               )}
               {!readOnly && !o.readyAt && (
-                <button onClick={() => markerKlar(o.id)} className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50">Klar til installation</button>
+                <button
+                  onClick={() => markerKlar(o.id)}
+                  disabled={!o.alleLinjerFaerdig}
+                  title={!o.alleLinjerFaerdig ? "Marker alle linjer Færdig i beregneren først" : undefined}
+                  className="rounded-full border border-brand-greendark px-3 py-1 text-xs font-semibold text-brand-greendark hover:bg-green-50 disabled:cursor-not-allowed disabled:border-brand-line disabled:text-brand-ink2/40 disabled:hover:bg-transparent"
+                >
+                  Klar til installation
+                </button>
               )}
               {!readOnly && o.readyAt && erKoordinator && (
                 <span className="text-xs text-brand-ink2/40">Fortryd på ordresiden ved fejl</span>

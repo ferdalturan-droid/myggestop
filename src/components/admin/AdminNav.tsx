@@ -52,6 +52,19 @@ export default function AdminNav({ email, role }: { email: string; role: Role })
     links = uden;
   }
 
+  // RUNDE 7 (§"synes det er svært at finde rundt i det" / §5 i
+  // procesdokumentet): Koordinators menu havde 14 punkter - flere af dem
+  // er nu FOLDET IND i "Ordrer" (Kræver din handling-sektionen dækker
+  // allerede opmålte leads + klar-til-installation) eller er rester fra
+  // det gamle beregner-flow (Færdig/Afsluttede, jf. §11.1/Q7). Siderne
+  // findes stadig og er fortsat 100% tilgængelige (Coordinator har adgang
+  // til ALLE ruter, jf. isPathAllowedForRole) - de er blot ikke længere et
+  // fast punkt i sidemenuen, saa den afspejler procesdokumentets
+  // side-for-side-kort i stedet for hver historisk tilføjet side.
+  if (role === "COORDINATOR") {
+    links = links.filter((l) => l.href !== "/admin/opmaaling" && l.href !== "/admin/installation" && l.href !== "/admin/faerdig" && l.href !== "/admin/afsluttede");
+  }
+
   async function logout() {
     await fetch("/api/auth/logout", { method: "POST" });
     router.push("/admin/login");

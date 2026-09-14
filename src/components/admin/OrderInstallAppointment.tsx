@@ -39,7 +39,10 @@ export default function OrderInstallAppointment({ orderId, existing, canBook = t
 
   return (
     <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
-      <h2 className="mb-3 font-bold text-brand-ink">Installationsaftale</h2>
+      <h2 className="mb-1 font-bold text-brand-ink">Installationsaftale</h2>
+      {canBook && existing.length === 0 && (
+        <p className="mb-3 text-xs text-brand-ink2/50">Vælg installatør, dato og tid herunder — det opretter automatisk aftalen i kalenderen, du behøver ikke gøre det manuelt bagefter.</p>
+      )}
       {existing.map((a, i) => (
         <p key={i} className="mb-1 text-sm text-brand-ink2/80">{a.day} kl. {a.time} — {a.status === "CONFIRMED" ? "Bekræftet" : "Foreløbig"}{a.assignedUserName ? ` · ${a.assignedUserName}` : ""}</p>
       ))}

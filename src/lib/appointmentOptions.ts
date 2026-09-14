@@ -32,3 +32,15 @@ export const RESOURCE_LABEL: Record<string, string> = {
   BUILDER: "Bygger",
   INSTALLER: "Installatør"
 };
+
+// RUNDE 7 (§"in the calendar it is hard to know hat hoes where for wht"):
+// hver opgavetype faar en fast farve, brugt konsekvent som venstre-kant og
+// prik i kalenderens legend, saa man med et blik kan se HVAD en aftale
+// drejer sig om uden at laese teksten foerst.
+export const APPT_TYPE_COLOR: Record<string, { border: string; dot: string }> = {
+  MAALING: { border: "border-l-sky-500", dot: "bg-sky-500" },
+  INSTALLATION: { border: "border-l-violet-500", dot: "bg-violet-500" },
+  PRODUKTION: { border: "border-l-amber-500", dot: "bg-amber-500" },
+  ORDRE: { border: "border-l-brand-line", dot: "bg-brand-ink2/40" }
+};
+export const FRI_AFTALE_COLOR = { border: "border-l-slate-300", dot: "bg-slate-300" };
