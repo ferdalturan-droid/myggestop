@@ -151,7 +151,13 @@ export async function POST(req: NextRequest) {
   const pricing = await getSetting("pricing");
   const installationTotal = calcInstallation(itemsCreate.length, wantsInstallation, pricing);
 
-  const orderFields = {
+  // "any" her, af samme aarsag som "const data: any = {}" i
+  // /api/orders/[id]/route.ts: deliveryMethod er reelt et enum-literal,
+  // men et almindeligt objekt-literal med en ternary-afledt værdi bliver
+  // af TypeScript widened til plain "string", hvilket Prisms genererede
+  // OrderUpdateInput/OrderCreateInput saa afviser ved spredning (...orderFields)
+  // - selve VÆRDIEN er stadig altid enten "AFHENTER_SELV" eller "FRAGTES".
+  const orderFields: any = {
     firstName,
     lastName,
     phone: String(b.tel || ""),
