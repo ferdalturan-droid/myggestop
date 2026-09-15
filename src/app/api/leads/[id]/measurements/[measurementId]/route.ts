@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
+import { recalcLeadCalculatedPrice } from "@/lib/measurementPricing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -11,6 +12,7 @@ export const dynamic = "force-dynamic";
 export async function PATCH(req: NextRequest, { params }: { params: { measurementId: string } }) {
   const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
+  const before = await prisma.measurement.findUnique({ where: { id: params.measurementId }, select: { leadId: true } });
   const b = await req.json().catch(() => ({}));
   const data: any = {};
   // RUNDE 10 (§C - nye felter: undertype + to ekstra farvevalg).
@@ -34,6 +36,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { measuremen
     data.calculatedLineTotal = await calcMeasurementLineTotal(merged);
   }
   const measurement = await prisma.measurement.update({ where: { id: params.measurementId }, data });
+  // RUNDE 10 (§H-tillæg): en rettelse til en linje EFTER "Markér opmåling
+  // færdig" skal opdatere lead.calculatedPriceDkk med det samme - se
+  // recalcLeadCalculatedPrice's kommentar i measurementPricing.ts.
+  if (before?.leadId) await recalcLeadCalculatedPrice(prisma, before.leadId);
   return NextResponse.json({ measurement });
 }
 
@@ -45,6 +51,10 @@ export async function PATCH(req: NextRequest, { params }: { params: { measuremen
 export async function DELETE(_req: NextRequest, { params }: { params: { measurementId: string } }) {
   const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
+  const before = await prisma.measurement.findUnique({ where: { id: params.measurementId }, select: { leadId: true } });
   await prisma.measurement.delete({ where: { id: params.measurementId } });
+  // RUNDE 10 (§H-tillæg): fjernes en linje efter "Markér opmåling færdig",
+  // skal den nu-lavere pris afspejles med det samme.
+  if (before?.leadId) await recalcLeadCalculatedPrice(prisma, before.leadId);
   return NextResponse.json({ ok: true });
 }

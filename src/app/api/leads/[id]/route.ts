@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
 import { promoteLeadToOrder } from "@/lib/promoteLead";
+import { recalcLeadCalculatedPrice } from "@/lib/measurementPricing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -62,19 +63,16 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
 
   // RUNDE 10 (§H - "når installatør har bekræftet opmåling, skal pris
   // sættes på LEAD... beregningsmekanismen er allerede i systemet du skal
-  // bruge det"): naar opmaalingen markeres faerdig foerste gang, summeres
-  // ALLE linjers allerede-beregnede calculatedLineTotal (samme kilde som
-  // linjerne selv viser, se measurementPricing.ts) til lead.calculatedPriceDkk.
-  // Linjer uden gyldige maal (calculatedLineTotal == null) bidrager 0 kr -
-  // de er per definition endnu ikke prissatte, ikke en fejl.
+  // bruge det"): naar opmaalingen markeres faerdig foerste gang, genberegnes
+  // (og om noedvendigt selvhelbredes/reparerer) prisen via den delte
+  // recalcLeadCalculatedPrice - se dens udfoerlige kommentar i
+  // measurementPricing.ts for de to huller den lukker (gammel data uden
+  // gemt calculatedLineTotal, og efterfoelgende rettelser af maal-linjer).
   const lead = await prisma.$transaction(async (tx: any) => {
-    if (saetterMaaltFaerdigNu) {
-      const linjer = await tx.measurement.findMany({ where: { leadId: params.id }, select: { calculatedLineTotal: true } });
-      data.calculatedPriceDkk = linjer.reduce((s: number, m: any) => s + (m.calculatedLineTotal || 0), 0);
-    }
     const updated = await tx.lead.update({ where: { id: params.id }, data });
+    if (saetterMaaltFaerdigNu) await recalcLeadCalculatedPrice(tx, params.id);
     if (blivBekraeftetNu) await promoteLeadToOrder(tx as any, params.id);
-    return updated;
+    return saetterMaaltFaerdigNu ? await tx.lead.findUnique({ where: { id: params.id } }) : updated;
   });
   return NextResponse.json({ lead });
 }

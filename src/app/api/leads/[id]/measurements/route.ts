@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
-import { calcMeasurementLineTotal } from "@/lib/measurementPricing";
+import { calcMeasurementLineTotal, recalcLeadCalculatedPrice } from "@/lib/measurementPricing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -59,5 +59,11 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
       calculatedLineTotal
     }
   });
+  // RUNDE 10 (§H-tillæg): hvis opmålingen allerede er markeret færdig og
+  // Installatøren alligevel tilføjer endnu en linje bagefter (rettelse),
+  // skal den viste/gemte pris opdateres med det samme - ikke først ved
+  // næste "Markér opmåling færdig" (som ikke sker igen, den knap er kun
+  // relevant første gang).
+  await recalcLeadCalculatedPrice(prisma, params.id);
   return NextResponse.json({ measurement });
 }

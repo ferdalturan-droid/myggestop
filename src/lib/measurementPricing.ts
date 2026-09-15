@@ -45,3 +45,48 @@ export async function calcMeasurementLineTotal(m: MeasurementLike): Promise<numb
   );
   return priced ? Math.round(priced.price * 100) / 100 : null;
 }
+
+// RUNDE 10 (§H - opfølgende selvhelbredende rettelse): "beregningsmekanismen
+// skal bruges" antog implicit at ENHVER linjes calculatedLineTotal allerede
+// var udfyldt på beregningstidspunktet. To huller i den antagelse fundet ved
+// egen live-verifikation efter deploy (ikke rapporteret af brugeren endnu,
+// men ville uundgåeligt være blevet det - "hvis du mangler et eneste
+// detalje, vil jeg brokke mig"):
+//  1) Målelinjer oprettet FØR denne rundes kode (al eksisterende data i
+//     produktion) har calculatedLineTotal == null i databasen - det gamle
+//     "|| 0"-fallback i PATCH /api/leads/[id] tolkede det stille som "0 kr",
+//     saa et lead med reelle, gyldige mål kunne alligevel faa "Beregnet
+//     pris: 0 kr." udelukkende fordi linjen var gammel.
+//  2) Selv for NYE leads: hvis en linje tilføjes/rettes/slettes EFTER
+//     "Markér opmåling færdig" allerede er trykket (f.eks. en rettelse),
+//     blev lead.calculatedPriceDkk aldrig genberegnet - kun selve
+//     null->true-overgangen udløste en beregning.
+// Denne ene funktion løser begge: den genberegner (og reparerer i
+// databasen, selvhelbredende for al gammel data) enhver linje der mangler
+// en gemt calculatedLineTotal, summerer, og - hvis leadet allerede er
+// markeret Opmålt - skriver den friske sum til lead.calculatedPriceDkk med
+// det samme. Kaldes både fra leads/[id]-PATCH'en og fra alle tre
+// measurements-endpoints (POST/PATCH/DELETE), så prisen ALTID er i sync
+// med de linjer der reelt findes, uanset hvornår/i hvilken rækkefølge de
+// blev oprettet eller rettet.
+export async function recalcLeadCalculatedPrice(tx: any, leadId: string): Promise<number> {
+  const lead = await tx.lead.findUnique({ where: { id: leadId }, select: { measuredAt: true } });
+  const linjer = await tx.measurement.findMany({ where: { leadId } });
+  let sum = 0;
+  for (const m of linjer) {
+    let total = m.calculatedLineTotal;
+    if (total == null) {
+      total = await calcMeasurementLineTotal(m);
+      if (total != null) {
+        // Selvhelbredende: reparerer gamle/manglende linjer permanent, saa
+        // dette kun sker ÉN gang pr. linje, ikke ved hvert kald.
+        await tx.measurement.update({ where: { id: m.id }, data: { calculatedLineTotal: total } });
+      }
+    }
+    sum += total || 0;
+  }
+  if (lead?.measuredAt) {
+    await tx.lead.update({ where: { id: leadId }, data: { calculatedPriceDkk: sum } });
+  }
+  return sum;
+}
