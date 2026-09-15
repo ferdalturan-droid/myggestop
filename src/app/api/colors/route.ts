@@ -5,7 +5,34 @@ import { requireRole } from "@/lib/requireAdmin";
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
+// RUNDE 10 (§E - "alle farver (gardin farve, gardin stang farve, myggenet
+// farve) skal kunne oprettes under 'farve'-sektionen"): saa snart der
+// findes MYGGENET-farver men slet ingen GARDIN_STOF/GARDIN_STANG-farver
+// endnu (dvs. denne runde aldrig har kørt før for denne database), sås
+// standardsættet brugeren selv angav ind - additivt, rører aldrig
+// eksisterende farver. Samme "selvhelende default"-mønster som
+// DEFAULT_IMALAT_RATES allerede bruger andre steder i kodebasen.
+async function ensureDefaultColorCategories() {
+  const [stofCount, stangCount] = await Promise.all([
+    prisma.color.count({ where: { category: "GARDIN_STOF" } }),
+    prisma.color.count({ where: { category: "GARDIN_STANG" } })
+  ]);
+  const toCreate: any[] = [];
+  if (stofCount === 0) {
+    ["Hvid", "Grå", "Orange", "Gul", "Sort"].forEach((name, i) =>
+      toCreate.push({ name, hex: "#ffffff", surchargePerSqm: name === "Hvid" ? 0 : 20, isStandard: name === "Hvid", category: "GARDIN_STOF", sortOrder: i })
+    );
+  }
+  if (stangCount === 0) {
+    ["Hvid", "Grå", "Sort"].forEach((name, i) =>
+      toCreate.push({ name, hex: "#ffffff", surchargePerSqm: name === "Hvid" ? 0 : 20, isStandard: name === "Hvid", category: "GARDIN_STANG", sortOrder: i })
+    );
+  }
+  if (toCreate.length > 0) await prisma.color.createMany({ data: toCreate });
+}
+
 export async function GET() {
+  await ensureDefaultColorCategories();
   const colors = await prisma.color.findMany({ where: { isActive: true }, orderBy: { sortOrder: "asc" } });
   return NextResponse.json({ colors });
 }
@@ -25,7 +52,8 @@ export async function POST(req: NextRequest) {
           surchargePerSqm: Number(c.surchargePerSqm) || 0,
           isStandard: !!c.isStandard,
           isActive: c.isActive !== false,
-          sortOrder: Number(c.sortOrder) || i
+          sortOrder: Number(c.sortOrder) || i,
+          category: ["MYGGENET", "GARDIN_STOF", "GARDIN_STANG"].includes(c.category) ? c.category : "MYGGENET"
         }))
       })
     ]);
@@ -38,7 +66,8 @@ export async function POST(req: NextRequest) {
       hex: b.hex || "#ffffff",
       surchargePerSqm: Number(b.surchargePerSqm) || 0,
       isStandard: !!b.isStandard,
-      sortOrder: Number(b.sortOrder) || 0
+      sortOrder: Number(b.sortOrder) || 0,
+      category: ["MYGGENET", "GARDIN_STOF", "GARDIN_STANG"].includes(b.category) ? b.category : "MYGGENET"
     }
   });
   return NextResponse.json({ color });

@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
 import { requireRole } from "@/lib/requireAdmin";
+import { calcMeasurementLineTotal } from "@/lib/measurementPricing";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -17,23 +18,45 @@ export async function POST(req: NextRequest, { params }: { params: { id: string 
   const lead = await prisma.lead.findUnique({ where: { id: params.id } });
   if (!lead) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
   const b = await req.json().catch(() => ({}));
-  const count = await prisma.measurement.count({ where: { leadId: params.id } });
+  // RUNDE 10 (§D - dublet-fejl mellem Lead og Opmålingsliste): itemNumber
+  // udregnes nu ud fra det HØJESTE eksisterende nummer + 1 (ikke blot
+  // "antal rækker + 1") - to rækker kan derfor aldrig få samme itemNumber,
+  // heller ikke selv om en tidligere linje skulle være slettet undervejs.
+  // Et itemNumber-sammenstød var den mest sandsynlige årsag til, at linjer
+  // kunne se ud til at "bytte plads" eller optræde som dubletter (Postgres
+  // garanterer ikke en stabil rækkefølge ved ens sorteringsværdi).
+  const existing = await prisma.measurement.findMany({ where: { leadId: params.id }, select: { itemNumber: true } });
+  const nextItemNumber = existing.reduce((max, m) => Math.max(max, m.itemNumber), 0) + 1;
+  const tur = String(b.tur || "SINEKLIK");
+  const sys = String(b.sys || "1,9");
+  const tip = String(b.tip || "TEK");
+  const widthMm = b.widthMm != null && b.widthMm !== "" ? Number(b.widthMm) : null;
+  const heightMm = b.heightMm != null && b.heightMm !== "" ? Number(b.heightMm) : null;
+  const adet = Math.max(1, Math.round(Number(b.adet) || 1));
+  const colorName = String(b.colorName || "").trim();
+  const fabricColorName = String(b.fabricColorName || "").trim();
+  const rodColorName = String(b.rodColorName || "").trim();
+  const calculatedLineTotal = await calcMeasurementLineTotal({ tur, sys, tip, widthMm, heightMm, adet, colorName, fabricColorName, rodColorName });
   const measurement = await prisma.measurement.create({
     data: {
       leadId: params.id,
-      itemNumber: count + 1,
+      itemNumber: nextItemNumber,
       roomName: String(b.roomName || "").trim(),
       productType: String(b.productType || b.tur || "").trim(),
-      colorName: String(b.colorName || "").trim(),
+      colorName,
+      fabricColorName,
+      rodColorName,
+      subType: b.subType === "LAVPROFIL" ? "LAVPROFIL" : "NORMAL",
       comment: String(b.comment || "").trim(),
-      widthMm: b.widthMm != null && b.widthMm !== "" ? Number(b.widthMm) : null,
-      heightMm: b.heightMm != null && b.heightMm !== "" ? Number(b.heightMm) : null,
-      tur: String(b.tur || "SINEKLIK"),
-      sys: String(b.sys || "1,9"),
-      tip: String(b.tip || "TEK"),
+      widthMm,
+      heightMm,
+      tur,
+      sys,
+      tip,
       layout: String(b.model || b.layout || "YANA"),
       kanat: String(b.kanat || "HAREKETLI"),
-      adet: Math.max(1, Math.round(Number(b.adet) || 1))
+      adet,
+      calculatedLineTotal
     }
   });
   return NextResponse.json({ measurement });

@@ -15,7 +15,14 @@ export const dynamic = "force-dynamic";
 export async function GET(_req: NextRequest, { params }: { params: { id: string } }) {
   const auth = await requireRole(["COORDINATOR", "INSTALLER", "BUILDER"]);
   if (!auth.ok) return auth.response;
-  const order = await prisma.order.findUnique({ where: { id: params.id }, include: { items: true } });
+  // RUNDE 10 (§K - "eksportere ikke alle detaljer... skal eksportere alle
+  // byggedetaljer og samlet skæreliste"): henter nu ogsaa Lead->Measurement-
+  // raekkerne (samme kilde som OrderBuildDetails.tsx paa selve siden), saa
+  // PDF'en kan indeholde de fulde byggedetaljer, ikke kun højtniveau-info.
+  const order = await prisma.order.findUnique({
+    where: { id: params.id },
+    include: { items: true, lead: { include: { measurements: { orderBy: [{ itemNumber: "asc" }, { createdAt: "asc" }] } } } }
+  });
   if (!order) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
   const s = await getAllSettings();
   const branding: PdfBranding = {
@@ -27,7 +34,12 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     city: s.contact.city,
     shippingText: s.shipping.text
   };
-  const bytes = await generateOrderPdf(order as unknown as PdfOrder, branding);
+  // RUNDE 10 (§I): Bygger må aldrig se priser, heller ikke i eksporten.
+  const hidePrices = auth.session?.role === "BUILDER";
+  const bytes = await generateOrderPdf(order as unknown as PdfOrder, branding, {
+    hidePrices,
+    measurements: order.lead?.measurements || []
+  });
   return new NextResponse(Buffer.from(bytes), {
     headers: {
       "Content-Type": "application/pdf",

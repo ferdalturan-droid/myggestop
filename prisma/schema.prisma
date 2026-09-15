@@ -82,6 +82,17 @@ model Lead {
   lostAt         DateTime?
 
   quotePriceDkk  Float?
+  // RUNDE 10 (§H - "systemet kan allerede beregne pris... find pris
+  // calculation derfra og brug det i det nye. Man skal derefter kunne
+  // tilføje et tilbud (rabat) som fratrækkes"): calculatedPriceDkk er
+  // AUTOMATISK udregnet (summen af measurements.calculatedLineTotal +
+  // evt. monteringstillæg), sat naar installatøren bekræfter opmålingen.
+  // discountDkk er Koordinators manuelt indtastede rabat. quotePriceDkk
+  // (ovenfor, bevaret bagudkompatibelt) er derefter DEN VISTE/gemte
+  // slutpris = calculatedPriceDkk - discountDkk, ALDRIG en fritstående
+  // ligelig fordelt sum over produkterne (den gamle, forkerte adfærd).
+  calculatedPriceDkk Float?
+  discountDkk        Float    @default(0)
   confirmedAt    DateTime?
 
   // RUNDE 2 (§3.2/§6.2/§11.2): to-trins opmålingsbooking + eksplicit
@@ -140,6 +151,24 @@ model Measurement {
   layout      String   @default("YANA")     // YANA | AŞAĞI (Row.model i ImalatCalc)
   kanat       String   @default("HAREKETLI") // HAREKETLI | SABIT
   adet        Int      @default(1)
+  // RUNDE 10 ("undertype: Lavprofil/Normal" - gælder for alle fire
+  // produktkategorier, jf. brugerens dropdown-oversigt): rent beskrivende
+  // felt indtil videre - påvirker IKKE prisen (ingen prisforskel er angivet
+  // af brugeren), kun byggedetaljer/skæreliste-visningen.
+  subType     String   @default("NORMAL")   // LAVPROFIL | NORMAL
+  // RUNDE 10: "Myggenet & Plisser" og "Gardin" har brug for OP TIL TRE
+  // farvevalg samtidig (myggenet-farve, gardin-(stof)farve, gardin-
+  // stangfarve) - det oprindelige "colorName" bruges fortsat som
+  // myggenet-farven (bagudkompatibelt, uændret betydning for rene
+  // myggenet-linjer), de to nye felter er additive og bruges kun når
+  // produkttypen kræver dem (se felterRelevanteForTur/farve-logik).
+  fabricColorName String @default("") // "Gardin Farve" (stof)
+  rodColorName    String @default("") // "Gardin Stang Farve"
+  // RUNDE 10 (§H - "pris skal sættes på LEAD når opmåling er bekræftet"):
+  // cachet, autoritativt beregnet linjepris for netop DENNE måling, sat af
+  // samme delte prisformel som Produktionsberegneren/manuel ordre bruger
+  // (src/lib/imalatPricing.ts). NULL indtil linjen har gyldige mål.
+  calculatedLineTotal Float?
   // RUNDE 8 (delta §7 - "ingen bruger indtaster nogensinde en dato"):
   // erstatter den tidligere rene boolean "done" - et tidsstempel sat af
   // en toggle-handling (Byggeren tjekker linjen af i Produktion-fanen),
@@ -185,6 +214,11 @@ model Product {
 }
 
 // Farver der kan vaelges + evt. tillaeg
+// RUNDE 10 (§E - "alle farver (gardin farve, gardin stang farve, myggenet
+// farve) skal kunne oprettes under 'farve'-sektionen"): category
+// adskiller de tre farve-typer, saa hver dropdown i systemet kun tilbyder
+// de relevante valg. Default "MYGGENET" bevarer alle eksisterende raekker
+// uaendret (de var alle myggenet-farver foer denne runde).
 model Color {
   id          String  @id @default(cuid())
   name        String
@@ -193,6 +227,25 @@ model Color {
   isStandard  Boolean @default(false) // standardfarve = intet tillaeg
   isActive    Boolean @default(true)
   sortOrder   Int     @default(0)
+  category    String  @default("MYGGENET") // MYGGENET | GARDIN_STOF | GARDIN_STANG
+}
+
+// RUNDE 10 (§E - "profilstørrelse skal også kunne oprettes i et bibliotek"):
+// et lille, vedligeholdbart bibliotek for profilstørrelser, samme moenster
+// som Color. BEMÆRK (dokumenteret her og i rapporten til brugeren):
+// selve PRISBEREGNINGEN (src/lib/imalatPricing.ts's mygRateOf) kender kun
+// to faste satser (1,9/2,8-tierne i Priser & gebyrer) - de to standard-
+// størrelser er derfor de eneste der reelt paavirker prisen i denne runde.
+// En tredje, ny størrelse kan oprettes/vedligeholdes her (label kan
+// tilpasses), men vil prismæssigt falde ind under "2,8"-satsen indtil
+// prisformlen udvides med en rigtig opslagstabel - en naturlig, men
+// separat opgave.
+model ProfileSize {
+  id        String  @id @default(cuid())
+  value     String  @unique // "1,9" | "2,8" (eller en ny vaerdi)
+  label     String
+  isActive  Boolean @default(true)
+  sortOrder Int     @default(0)
 }
 
 enum OrderStatus {
@@ -310,6 +363,13 @@ model OrderItem {
   heightMm    Int
   colorName   String  @default("")
   comment     String  @default("")
+  // RUNDE 10: samme additive udvidelse som Measurement ovenfor - snapshot
+  // af undertype/ekstra farver paa selve ordrelinjen, saa PDF/CSV-
+  // eksporten og "Byggedetaljer" altid kan vise dem, ogsaa for en MANUEL
+  // ordre (som ikke har noget Lead/Measurement at slaa dem op fra).
+  subType         String @default("NORMAL")
+  fabricColorName String @default("")
+  rodColorName    String @default("")
 
   isDoubleDoor Boolean @default(false)
   areaSqm      Float   @default(0) // afrundet m2 (op til naermeste 0,5)

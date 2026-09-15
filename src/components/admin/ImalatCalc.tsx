@@ -373,9 +373,20 @@ export default function ImalatCalc() {
       const widthMm = Math.round((parseFloat(r.en.replace(",", ".")) || 0) * 10);
       const heightMm = Math.round((parseFloat(r.boy.replace(",", ".")) || 0) * 10);
       const perUnit = pr.price / adet;
-      let productName = "Standard Myggenet"; let comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"}`;
-      if (r.tur === "PERDE") { productName = "Plissegardin"; comment = `Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`; }
-      else if (r.tur === "KOMBI") { productName = "Myggenet & Plisser"; comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"} + Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`; }
+      // RUNDE 10 (§J - "jeg ser 'myggenet & plisser' to gange, og jeg ser
+      // ikke 'gardin'"): produktnavnet kom tidligere fra en LOKAL,
+      // hardkodet liste her ("Standard Myggenet", "Plissegardin") som ikke
+      // stemte overens med den delte TUR_LABEL ("Myggenet", "Gardin") brugt
+      // alle andre steder (ordre-siden, PDF, promoteLead.ts) - en ordre med
+      // både SINEKLIK- og KOMBI-linjer kunne derfor ende med at vise
+      // "Myggenet & Plisser" for begge (fordi visningen et andet sted slog
+      // navnet op via TUR_LABEL og fandt samme værdi), mens en ren
+      // PERDE-linje aldrig matchede den forventede "Gardin"-streng. Bruger
+      // nu den ÉNE delte kilde ligesom resten af koden.
+      const productName = TUR_LABEL[r.tur] || r.tur;
+      let comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"}`;
+      if (r.tur === "PERDE") comment = `Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`;
+      else if (r.tur === "KOMBI") comment = `${r.sys} · ${r.tip === "DUBLE" ? "Dobbelt" : "Enkelt"} · ${r.model === "AŞAĞI" ? "Ned" : "Side"} + Fløj: ${r.kanat === "HAREKETLI" ? "Bevægelig" : "Fast"}`;
       for (let n = 0; n < adet; n++) out.push({ productName, widthMm, heightMm, colorName: r.farve || "", comment, lineTotal: perUnit });
     }
     if (monteringFee > 0) out.push({ productName: "Montering", widthMm: 0, heightMm: 0, colorName: "", comment: `${MONTERING_BASE} kr opstart + ${MONTERING_PR_STK} kr × ${unitCount} stk.`, lineTotal: monteringFee });

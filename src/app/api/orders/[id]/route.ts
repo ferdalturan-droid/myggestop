@@ -48,7 +48,32 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   if (body.stage && ["BETALT", "ANMELDT"].includes(body.stage) && auth.session.role !== "COORDINATOR") {
     return NextResponse.json({ error: "Kun Koordinator kan markere betalt/anmeldt." }, { status: 403 });
   }
+  // RUNDE 10 (§L - "hvis der ikke er bestilt montering skal betalingen ske
+  // før ordren er flyttet til produktion"): haandhaeves her, server-side,
+  // ikke kun som en UI-spærring - "Send til produktion" (KOE -> I_PRODUKTION)
+  // afvises for ikke-monterede ordrer, indtil Koordinator har markeret
+  // betaling modtaget (se paymentStatus-blokken nedenfor). Montering har sin
+  // EGEN betalingsvej (automatisk ved "Installeret", se installeret/route.ts)
+  // og er derfor bevidst undtaget fra denne spærring.
+  if (body.stage === "I_PRODUKTION" && existing.stage === "KOE" && !existing.wantsInstallation && existing.paymentStatus !== "BETALT") {
+    return NextResponse.json({ error: "Betaling skal modtages fra kunden, før ordren kan sendes til produktion (der er ikke bestilt montering)." }, { status: 400 });
+  }
   if (body.stage && ["KOE", "I_PRODUKTION", "BETALT", "ANMELDT"].includes(body.stage)) data.stage = body.stage;
+  // RUNDE 10 (§L): Koordinators manuelle "betaling modtaget"-markering for
+  // ordrer UDEN montering (fragt/afhentning) - kun Koordinator, ligesom
+  // Betalt/Anmeldt-stadierne ovenfor. Montering saetter dette felt HELT
+  // automatisk (se installeret/route.ts) og skal ikke kunne rettes manuelt
+  // her, for at undgaa at de to veje kommer i konflikt med hinanden.
+  if (typeof body.paymentStatus === "string" && ["BETALT", "IKKE_SENDT"].includes(body.paymentStatus)) {
+    if (auth.session.role !== "COORDINATOR") {
+      return NextResponse.json({ error: "Kun Koordinator kan markere betaling modtaget." }, { status: 403 });
+    }
+    if (existing.wantsInstallation) {
+      return NextResponse.json({ error: "Denne ordre monteres - betaling markeres automatisk af Installatøren, ikke manuelt her." }, { status: 400 });
+    }
+    data.paymentStatus = body.paymentStatus;
+    data.paidAt = body.paymentStatus === "BETALT" ? new Date() : null;
+  }
   for (const f of ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "note"] as const) {
     if (typeof body[f] === "string") data[f] = body[f];
   }

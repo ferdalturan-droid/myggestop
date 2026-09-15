@@ -21,7 +21,7 @@ export async function GET() {
       id: true, leadNumber: true, firstName: true, lastName: true, phone: true,
       address: true, postalCode: true, city: true, note: true,
       measuredAt: true, expectedMeasuringDate: true, expectedMeasuringWeekLabel: true,
-      measurements: { orderBy: { itemNumber: "asc" } }
+      measurements: { orderBy: [{ itemNumber: "asc" }, { createdAt: "asc" }] }
     },
     orderBy: { createdAt: "asc" }
   });

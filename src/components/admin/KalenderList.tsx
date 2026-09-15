@@ -454,7 +454,24 @@ export default function KalenderList({ role }: { role: string }) {
                             {(a.type === "MAALING" || a.type === "INSTALLATION") && (a.lead?._count?.measurements ?? a.order?._count?.items) != null && (
                               <span className="ml-2 text-brand-ink2/55">· {a.lead?._count?.measurements ?? a.order?._count?.items} materiale(r)</span>
                             )}
-                            {a.address && <span className="ml-2 text-brand-ink2/55">· {a.address}</span>}
+                            {/* RUNDE 10 (§B - "GPS-ikon... på selve kalenderen, før og efter man
+                                trykker 'åbn'"): et lille klikbart Maps-ikon direkte i selve
+                                kalender-linjen, ikke kun efter navigation til detaljesiden. */}
+                            {a.address && (
+                              <span className="ml-2 text-brand-ink2/55">
+                                · {a.address}{" "}
+                                <a
+                                  href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(a.address)}`}
+                                  target="_blank"
+                                  rel="noopener noreferrer"
+                                  title="Åbn i Google Maps"
+                                  onClick={(e) => e.stopPropagation()}
+                                  className="text-brand-greendark hover:text-brand-green"
+                                >
+                                  📍
+                                </a>
+                              </span>
+                            )}
                             {a.phone && <span className="ml-2 text-brand-ink2/55">· {a.phone}</span>}
                           </div>
                           <div className="flex items-center gap-3">

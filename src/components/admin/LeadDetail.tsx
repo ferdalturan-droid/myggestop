@@ -1,19 +1,24 @@
 "use client";
 import { useEffect, useState } from "react";
 import { LEAD_STAGE_LABELS, LEAD_STAGE_ORDER, deriveLeadStatusLabel } from "@/lib/leadStatus";
-import { TUR_OPTIONS, TUR_LABEL, SYS_OPTIONS, TIP_OPTIONS, LAYOUT_OPTIONS, KANAT_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
+import { TUR_LABEL } from "@/lib/calcOptions";
 import { LEAD_SOURCE_LABEL } from "@/lib/leadSource";
+import { MeasurementRowFields, BLANK_ROW, RowValue } from "./MeasurementRowFields";
+import { formatDKK } from "@/lib/pricing";
 
-const BLANK_M = { roomName: "", tur: "SINEKLIK", sys: "1,9", tip: "TEK", model: "YANA", kanat: "HAREKETLI", adet: "1", colorName: "", comment: "" };
+let draftKeySeq = 1;
 
 export default function LeadDetail({ id }: { id: string }) {
   const [lead, setLead] = useState<any>(null);
   const [loading, setLoading] = useState(true);
   const [msg, setMsg] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
-  const [quote, setQuote] = useState("");
-  const [newM, setNewM] = useState<any>(BLANK_M);
+  const [discount, setDiscount] = useState("");
+  const [newM, setNewM] = useState<RowValue>(BLANK_ROW);
+  const [draftKey, setDraftKey] = useState(0);
   const [uge, setUge] = useState("");
+  const [colors, setColors] = useState<any[]>([]);
+  const [profileSizes, setProfileSizes] = useState<any[]>([]);
 
   async function load() {
     setLoading(true);
@@ -22,13 +27,19 @@ export default function LeadDetail({ id }: { id: string }) {
       const d = await res.json();
       if (res.ok) {
         setLead(d.lead);
-        setQuote(d.lead.quotePriceDkk != null ? String(d.lead.quotePriceDkk) : "");
+        // RUNDE 10 (§H): prisen er nu serverberegnet (calculatedPriceDkk) -
+        // det ENESTE Koordinator selv indtaster er en eventuel rabat.
+        setDiscount(d.lead.discountDkk != null ? String(d.lead.discountDkk) : "0");
         setUge(d.lead.expectedMeasuringWeekLabel || "");
       }
     } catch {}
     setLoading(false);
   }
-  useEffect(() => { load(); }, [id]);
+  useEffect(() => {
+    load();
+    fetch("/api/colors", { cache: "no-store" }).then((r) => r.json()).then((d) => setColors(d.colors || [])).catch(() => {});
+    fetch("/api/profile-sizes", { cache: "no-store" }).then((r) => r.json()).then((d) => setProfileSizes(d.sizes || [])).catch(() => {});
+  }, [id]);
 
   async function patch(data: any) {
     setError(null);
@@ -43,12 +54,18 @@ export default function LeadDetail({ id }: { id: string }) {
   }
 
   async function saetStage(stage: string) { await patch({ stage }); }
-  async function gemTilbud() { await patch({ quotePriceDkk: Number(quote) || 0 }); }
+  // RUNDE 10 (§H - "beregningsmekanismen er allerede i systemet du skal
+  // bruge det"): Koordinator indtaster IKKE længere selve prisen - den
+  // beregnes automatisk fra målelinjerne (calculatedPriceDkk, sat af
+  // serveren når Installatør markerer opmåling færdig). Koordinator kan
+  // kun indtaste en rabat, som trækkes fra ved fremvisning og ved
+  // forfremmelse til ordre.
+  async function gemRabat() { await patch({ discountDkk: Number(discount) || 0 }); }
   async function markerOpmaalingFaerdig() { await patch({ measuredAt: true }); }
   async function gemUgeEstimat() { await patch({ expectedMeasuringWeekLabel: uge }); }
 
-  async function tilfoejMaal(e: React.FormEvent) {
-    e.preventDefault();
+  async function tilfoejMaal() {
+    setError(null);
     const res = await fetch(`/api/leads/${id}/measurements`, {
       method: "POST", headers: { "Content-Type": "application/json" },
       // RUNDE 4 (§G3): productType er et VISNINGSNAVN ("Myggenet"), ikke den
@@ -57,7 +74,14 @@ export default function LeadDetail({ id }: { id: string }) {
       // (promoteLead.ts læser netop dette felt).
       body: JSON.stringify({ ...newM, productType: TUR_LABEL[newM.tur] || newM.tur, adet: Number(newM.adet) || 1 })
     });
-    if (res.ok) { setNewM(BLANK_M); load(); }
+    if (res.ok) {
+      setNewM(BLANK_ROW);
+      setDraftKey(draftKeySeq++);
+      load();
+    } else {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error || "Kunne ikke tilføje linjen.");
+    }
   }
 
   async function opdaterMaal(measurementId: string, data: any) {
@@ -65,7 +89,13 @@ export default function LeadDetail({ id }: { id: string }) {
     load();
   }
   async function sletMaal(measurementId: string) {
-    await fetch(`/api/leads/${id}/measurements/${measurementId}`, { method: "DELETE" });
+    setError(null);
+    const res = await fetch(`/api/leads/${id}/measurements/${measurementId}`, { method: "DELETE" });
+    if (!res.ok) {
+      const d = await res.json().catch(() => ({}));
+      setError(d.error || "Kunne ikke slette linjen.");
+      return;
+    }
     load();
   }
 
@@ -74,6 +104,15 @@ export default function LeadDetail({ id }: { id: string }) {
 
   const stageIdx = LEAD_STAGE_ORDER.indexOf(lead.stage);
   const maalingAppt = (lead.appointments || []).find((a: any) => a.type === "MAALING");
+  const beregnetPris = typeof lead.calculatedPriceDkk === "number" ? lead.calculatedPriceDkk : null;
+  const rabat = Number(discount) || 0;
+  const endeligPris = beregnetPris != null ? Math.max(0, beregnetPris - rabat) : null;
+
+  // RUNDE 10 (§B - "GPS-ikon på adressen"): samme Google Maps-søgelink som
+  // bruges på Kalender-siden, genbrugt her på Lead-detaljen.
+  const mapsHref = lead.address
+    ? `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${lead.address}, ${lead.postalCode || ""} ${lead.city || ""}`)}`
+    : null;
 
   return (
     <div>
@@ -110,19 +149,44 @@ export default function LeadDetail({ id }: { id: string }) {
           <h2 className="font-bold text-brand-ink">Kundeoplysninger</h2>
           <div className="mt-3 space-y-1 text-sm text-brand-ink2/80">
             <p>{lead.phone}{lead.email ? ` · ${lead.email}` : ""}</p>
-            <p>{lead.address}{lead.address ? ", " : ""}{lead.postalCode} {lead.city}</p>
+            <p className="flex flex-wrap items-center gap-1.5">
+              <span>{lead.address}{lead.address ? ", " : ""}{lead.postalCode} {lead.city}</span>
+              {mapsHref && (
+                <a href={mapsHref} target="_blank" rel="noopener noreferrer" title="Åbn i Google Maps" className="inline-flex items-center text-brand-greendark hover:text-brand-green" onClick={(e) => e.stopPropagation()}>
+                  📍
+                </a>
+              )}
+            </p>
             {lead.productSummary && <p className="mt-2"><span className="font-semibold text-brand-ink">Ønsker:</span> {lead.productSummary}</p>}
             {lead.note && <p className="mt-2 whitespace-pre-wrap"><span className="font-semibold text-brand-ink">Note:</span> {lead.note}</p>}
           </div>
         </div>
 
-        {/* Tilbud - forfremmelse sker nu automatisk (§11.6) */}
+        {/* Tilbud - RUNDE 10 (§H): pris beregnes automatisk fra målelinjerne
+            når opmåling markeres færdig. Koordinator indtaster kun en
+            eventuel rabat - forfremmelse til ordre bruger den ægte
+            per-linje-pris (ikke ligedeling), se promoteLead.ts. */}
         <div className="rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
           <h2 className="font-bold text-brand-ink">Tilbud</h2>
-          <div className="mt-3 flex items-center gap-2">
-            <input className="input" type="number" placeholder="Pris i kr." value={quote} onChange={(e) => setQuote(e.target.value)} disabled={!!lead.order} />
-            <button onClick={gemTilbud} disabled={!!lead.order} className="btn-secondary py-2 text-sm disabled:opacity-40">Gem pris</button>
-          </div>
+          {beregnetPris == null ? (
+            <p className="mt-3 text-sm text-brand-ink2/55">Prisen beregnes automatisk, når Installatør markerer opmålingen som færdig (kræver udfyldte mål på linjerne nedenfor).</p>
+          ) : (
+            <div className="mt-3 space-y-2 text-sm">
+              <div className="flex items-center justify-between">
+                <span className="text-brand-ink2/70">Beregnet pris</span>
+                <span className="font-semibold text-brand-ink">{formatDKK(beregnetPris)}</span>
+              </div>
+              <label className="flex items-center justify-between gap-3">
+                <span className="text-brand-ink2/70">Rabat (kr.)</span>
+                <input className="input w-32 py-1.5 text-right" type="number" value={discount} onChange={(e) => setDiscount(e.target.value)} disabled={!!lead.order} />
+              </label>
+              <div className="flex items-center justify-between border-t border-brand-line pt-2">
+                <span className="font-semibold text-brand-ink">Endelig pris til kunde</span>
+                <span className="text-lg font-extrabold text-brand-greendark">{formatDKK(endeligPris ?? beregnetPris)}</span>
+              </div>
+              <button onClick={gemRabat} disabled={!!lead.order} className="btn-secondary mt-1 w-full py-2 text-sm disabled:opacity-40">Gem rabat</button>
+            </div>
+          )}
           <div className="mt-5 border-t border-brand-line pt-4">
             {lead.order ? (
               <p className="text-sm text-brand-ink2/70">Forfremmet automatisk til ordre <strong>{lead.order.orderNumber}</strong> da leadet blev bekræftet.</p>
@@ -134,7 +198,7 @@ export default function LeadDetail({ id }: { id: string }) {
       </div>
 
       {/* Opmålingsaftale - to-trins flow, §6.2 */}
-      <div className="mb-6 rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
+      <div className="mb-6 mt-6 rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
         <div className="flex flex-wrap items-center justify-between gap-2">
           <h2 className="font-bold text-brand-ink">Opmåling</h2>
           {lead.stage === "OPMAALING_BOOKET" && !lead.measuredAt && (
@@ -165,48 +229,49 @@ export default function LeadDetail({ id }: { id: string }) {
         </div>
       </div>
 
-      {/* Måletagning - fulde beregner-felter, §11.3 */}
+      {/* Måletagning - RUNDE 10 (§A - "grim... store felter... knapperne er
+          for store"): genskrevet til samme elegante kort-per-linje-layout
+          som Installatørens Opmålingsliste, via den delte
+          MeasurementRowFields-komponent - garanti for at de to sider aldrig
+          kan komme ud af trit med hinanden igen. */}
       <div className="mt-6 rounded-xl2 border border-brand-line bg-white p-5 shadow-card">
         <h2 className="font-bold text-brand-ink">Mål (forventede / reelle)</h2>
-        <p className="mt-1 text-xs text-brand-ink2/55">Opret forventede linjer uden mål når opmåling bookes — udfyld bredde/højde når det reelle mål findes. Kun en eksplicit "Markér opmåling færdig" ovenfor gør leadet Opmålt.</p>
+        <p className="mt-1 text-xs text-brand-ink2/55">Opret forventede linjer uden mål når opmåling bookes — Installatør udfylder bredde/højde når det reelle mål findes. Kun en eksplicit "Markér opmåling færdig" ovenfor gør leadet Opmålt og beregner prisen.</p>
 
-        <div className="mt-4 space-y-2">
-          {(lead.measurements || []).map((m: any) => {
-            const rel = felterRelevanteForTur(m.tur || "SINEKLIK");
-            return (
-              <div key={m.id} className="grid grid-cols-2 gap-2 rounded-lg bg-brand-mist/50 p-3 text-sm sm:grid-cols-9 sm:items-center">
-                <span className="font-semibold text-brand-ink">#{m.itemNumber} {m.roomName}</span>
-                <select className="input py-1" defaultValue={m.tur || "SINEKLIK"} onChange={(e) => opdaterMaal(m.id, { tur: e.target.value })}>
-                  {TUR_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                </select>
-                {rel.sys && <select className="input py-1" defaultValue={m.sys || "1,9"} onChange={(e) => opdaterMaal(m.id, { sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select>}
-                {rel.tip && <select className="input py-1" defaultValue={m.tip || "TEK"} onChange={(e) => opdaterMaal(m.id, { tip: e.target.value })}>{TIP_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
-                {rel.layout && <select className="input py-1" defaultValue={m.layout || "YANA"} onChange={(e) => opdaterMaal(m.id, { layout: e.target.value })}>{LAYOUT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
-                {rel.kanat && <select className="input py-1" defaultValue={m.kanat || "HAREKETLI"} onChange={(e) => opdaterMaal(m.id, { kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
-                <input className="input py-1" placeholder="Antal" defaultValue={m.adet ?? 1} onBlur={(e) => opdaterMaal(m.id, { adet: Number(e.target.value) || 1 })} />
-                <input className="input py-1" placeholder="Bredde mm" defaultValue={m.widthMm ?? ""} onBlur={(e) => opdaterMaal(m.id, { widthMm: e.target.value })} />
-                <input className="input py-1" placeholder="Højde mm" defaultValue={m.heightMm ?? ""} onBlur={(e) => opdaterMaal(m.id, { heightMm: e.target.value })} />
-                <button onClick={() => sletMaal(m.id)} className="text-right text-red-400 hover:text-red-600">Slet</button>
+        <div className="mt-4 space-y-3">
+          {(lead.measurements || []).length === 0 && (
+            <p className="rounded-lg bg-brand-mist/30 px-4 py-3 text-sm text-brand-ink2/50">Ingen linjer endnu — tilføj den første nedenfor.</p>
+          )}
+          {(lead.measurements || []).map((m: any, i: number) => (
+            <div key={m.id} className="rounded-xl border border-brand-line p-3.5">
+              <div className="mb-2 flex items-center justify-between">
+                <span className="flex items-center gap-2 text-sm font-bold text-brand-greendark">
+                  <span className="grid h-5 w-5 place-items-center rounded-full bg-brand-greendark text-[11px] text-white">{i + 1}</span>
+                  {m.roomName || "Linje"}
+                  {typeof m.calculatedLineTotal === "number" && <span className="ml-2 rounded-full bg-brand-mist px-2 py-0.5 text-[11px] font-semibold text-brand-ink2/70">{formatDKK(m.calculatedLineTotal)}</span>}
+                </span>
+                <button onClick={() => sletMaal(m.id)} title="Slet linje" className="grid h-7 w-7 place-items-center rounded-full text-lg leading-none text-red-400 hover:bg-red-50 hover:text-red-600">×</button>
               </div>
-            );
-          })}
-          {(!lead.measurements || lead.measurements.length === 0) && <p className="text-sm text-brand-ink2/55">Ingen linjer endnu.</p>}
-        </div>
+              <MeasurementRowFields
+                value={{ roomName: m.roomName || "", tur: m.tur || "SINEKLIK", tip: m.tip || "TEK", sys: m.sys || "1,9", layout: m.layout || "YANA", kanat: m.kanat || "HAREKETLI", subType: m.subType || "NORMAL", adet: m.adet ?? 1, widthMm: m.widthMm, heightMm: m.heightMm, colorName: m.colorName || "", fabricColorName: m.fabricColorName || "", rodColorName: m.rodColorName || "", comment: m.comment || "" }}
+                onField={(patch) => opdaterMaal(m.id, patch)}
+                colors={colors}
+                profileSizes={profileSizes}
+              />
+            </div>
+          ))}
 
-        <form onSubmit={tilfoejMaal} className="mt-4 grid grid-cols-2 gap-2 sm:grid-cols-9">
-          <input className="input" placeholder="Rum" value={newM.roomName} onChange={(e) => setNewM({ ...newM, roomName: e.target.value })} />
-          <select className="input" value={newM.tur} onChange={(e) => setNewM({ ...newM, tur: e.target.value })}>
-            {TUR_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-          </select>
-          {felterRelevanteForTur(newM.tur).sys && <select className="input" value={newM.sys} onChange={(e) => setNewM({ ...newM, sys: e.target.value })}>{SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}</select>}
-          {felterRelevanteForTur(newM.tur).tip && <select className="input" value={newM.tip} onChange={(e) => setNewM({ ...newM, tip: e.target.value })}>{TIP_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
-          {felterRelevanteForTur(newM.tur).layout && <select className="input" value={newM.model} onChange={(e) => setNewM({ ...newM, model: e.target.value })}>{LAYOUT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
-          {felterRelevanteForTur(newM.tur).kanat && <select className="input" value={newM.kanat} onChange={(e) => setNewM({ ...newM, kanat: e.target.value })}>{KANAT_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}</select>}
-          <input className="input" placeholder="Antal" value={newM.adet} onChange={(e) => setNewM({ ...newM, adet: e.target.value.replace(/[^0-9]/g, "") })} />
-          <input className="input" placeholder="Farve" value={newM.colorName} onChange={(e) => setNewM({ ...newM, colorName: e.target.value })} />
-          <input className="input" placeholder="Kommentar" value={newM.comment} onChange={(e) => setNewM({ ...newM, comment: e.target.value })} />
-          <button className="btn-secondary text-sm">+ Tilføj linje</button>
-        </form>
+          <div key={`draft-${draftKey}`} className="rounded-xl border border-dashed border-brand-line p-3.5">
+            <p className="mb-2 text-sm font-bold text-brand-greendark">+ Ny linje</p>
+            <MeasurementRowFields
+              value={newM}
+              onField={(patch) => setNewM((prev) => ({ ...prev, ...patch }))}
+              colors={colors}
+              profileSizes={profileSizes}
+            />
+            <button type="button" onClick={tilfoejMaal} className="btn-secondary mt-3 w-full py-2 text-sm">+ Tilføj linje</button>
+          </div>
+        </div>
       </div>
     </div>
   );

@@ -45,6 +45,31 @@ export interface RowPriceResult {
   colorSurcharge: number; // heraf farvetillæg
 }
 
+// RUNDE 10 (§C/§E - op til tre farvevalg pr. linje: myggenet-farve,
+// gardin-(stof)farve, gardin-stangfarve): prisformlen i priceOfRow kender
+// fortsat kun ÉT samlet "colorSurchargePerSqm"-tal (uændret formel, lavere
+// risiko) - denne hjælpefunktion er det ene sted der summerer de(t)
+// relevante farvetillæg for en given "tur", så kaldere (manuel ordre,
+// Lead-prisberegning, beregneren) ikke hver skal genopfinde reglen.
+export interface ColorLike { name: string; surchargePerSqm: number; isStandard: boolean; category?: string }
+export function sumColorSurcharge(
+  colors: ColorLike[],
+  sel: { colorName?: string; fabricColorName?: string; rodColorName?: string },
+  tur: string
+): number {
+  const rel = tur === "PERDE" ? { net: false, stof: true, stang: true } : tur === "KOMBI" ? { net: true, stof: true, stang: false } : { net: true, stof: false, stang: false };
+  let sum = 0;
+  const add = (name: string | undefined, cat: string) => {
+    if (!name) return;
+    const c = colors.find((x) => x.name === name && (!x.category || x.category === cat));
+    if (c && !c.isStandard) sum += c.surchargePerSqm || 0;
+  };
+  if (rel.net) add(sel.colorName, "MYGGENET");
+  if (rel.stof) add(sel.fabricColorName, "GARDIN_STOF");
+  if (rel.stang) add(sel.rodColorName, "GARDIN_STANG");
+  return sum;
+}
+
 /** Slår den korrekte kr/m²-sats op for myggenet ud fra sys+tip. */
 export function mygRateOf(sys: string, tip: string, rates: ImalatRates): number {
   return tip === "TEK" ? (sys === "1,9" ? rates.tek19 : rates.tek28) : (sys === "1,9" ? rates.dub19 : rates.dub28);

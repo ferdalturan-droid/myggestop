@@ -1,5 +1,6 @@
 "use client";
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { partsFor, aggregateCuttingList, fmtLen, type CuttingRowInput } from "@/lib/cuttingList";
 import { TUR_LABEL, TIP_LABEL, LAYOUT_LABEL, KANAT_LABEL, felterRelevanteForTur } from "@/lib/calcOptions";
 
@@ -10,6 +11,12 @@ import { TUR_LABEL, TIP_LABEL, LAYOUT_LABEL, KANAT_LABEL, felterRelevanteForTur 
 // den (nu skjulte) Produktionsberegner blot for at SE hvad der skal
 // bygges - den bruger nøjagtig samme beregning (src/lib/cuttingList.ts)
 // som beregneren selv, så de aldrig kan vise to forskellige svar.
+//
+// RUNDE 10 (§K - "det skal være muligt at markere 'færdig' for hver
+// produkt... men bygger har ikke muligheden for at trykke 'færdig'"): et
+// "Færdig"-tjekmærke er nu tilføjet direkte her, pr. linje, via det nye
+// lette /api/measurements/[id]/faerdig-endpoint (tilgængeligt for alle tre
+// roller) - ikke laengere kun muligt inde i den skjulte beregner.
 type Measurement = {
   id: string;
   roomName?: string | null;
@@ -22,6 +29,7 @@ type Measurement = {
   widthMm?: number | null;
   heightMm?: number | null;
   colorName?: string | null;
+  builtAt?: string | Date | null;
 };
 
 function mmToCm(mm?: number | null) {
@@ -30,8 +38,30 @@ function mmToCm(mm?: number | null) {
 }
 
 export default function OrderBuildDetails({ measurements }: { measurements: Measurement[] }) {
+  const router = useRouter();
   const [openId, setOpenId] = useState<string | null>(null);
   const [showListe, setShowListe] = useState(true);
+  const [busyId, setBusyId] = useState<string | null>(null);
+  // RUNDE 10 (§K): optimistisk lokal builtAt-tilstand, så et klik føles
+  // øjeblikkeligt - den efterfølgende router.refresh() henter den
+  // autoritative sandhed (og opdaterer "0 af 2 linjer færdig"-tælleren i
+  // OrderStageControl, som beregnes server-side på selve siden).
+  const [builtOverride, setBuiltOverride] = useState<Record<string, boolean>>({});
+
+  async function toggleFaerdig(id: string, currentlyDone: boolean) {
+    setBusyId(id);
+    try {
+      const res = await fetch(`/api/measurements/${id}/faerdig`, {
+        method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ done: !currentlyDone })
+      });
+      if (res.ok) {
+        setBuiltOverride((prev) => ({ ...prev, [id]: !currentlyDone }));
+        router.refresh();
+      }
+    } finally {
+      setBusyId(null);
+    }
+  }
 
   const rows: (CuttingRowInput & { id: string })[] = useMemo(
     () =>
@@ -72,17 +102,29 @@ export default function OrderBuildDetails({ measurements }: { measurements: Meas
           const ps = partsFor(r);
           const rel = felterRelevanteForTur(r.tur);
           const open = openId === r.id;
+          const erFaerdig = builtOverride[r.id] ?? m.builtAt != null;
           return (
-            <div key={r.id} className="rounded-xl border border-brand-line">
-              <button type="button" onClick={() => setOpenId(open ? null : r.id)} className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3 text-left">
-                <span className="flex items-center gap-2 text-sm font-bold text-brand-ink">
+            <div key={r.id} className={`rounded-xl border ${erFaerdig ? "border-brand-green/40 bg-brand-green/5" : "border-brand-line"}`}>
+              <div className="flex w-full flex-wrap items-center justify-between gap-2 px-4 py-3">
+                <button type="button" onClick={() => setOpenId(open ? null : r.id)} className="flex flex-1 items-center gap-2 text-left text-sm font-bold text-brand-ink">
                   <span className="grid h-6 w-6 place-items-center rounded-full bg-brand-greendark text-xs text-white">{i + 1}</span>
                   {TUR_LABEL[r.tur] || r.tur}
                   {m.roomName ? ` · ${m.roomName}` : ""}
                   <span className="font-normal text-brand-ink2/60">{mmToCm(r.widthMm)}×{mmToCm(r.heightMm)} cm{r.colorName ? ` · ${r.colorName}` : ""}</span>
-                </span>
-                <span className="text-xs font-semibold text-brand-greendark">{open ? "Skjul ▲" : "Vis detaljer ▼"}</span>
-              </button>
+                </button>
+                <div className="flex items-center gap-2">
+                  {/* RUNDE 10 (§K): "Færdig"-tjekmærke direkte her, pr. linje - virker for alle tre roller. */}
+                  <button
+                    type="button"
+                    onClick={() => toggleFaerdig(r.id, erFaerdig)}
+                    disabled={busyId === r.id}
+                    className={`rounded-full px-3 py-1 text-xs font-semibold transition disabled:opacity-50 ${erFaerdig ? "bg-brand-greendark text-white" : "border border-brand-line text-brand-ink2 hover:bg-brand-mist"}`}
+                  >
+                    {busyId === r.id ? "..." : erFaerdig ? "Færdig ✓" : "Markér færdig"}
+                  </button>
+                  <button type="button" onClick={() => setOpenId(open ? null : r.id)} className="text-xs font-semibold text-brand-greendark">{open ? "Skjul ▲" : "Vis detaljer ▼"}</button>
+                </div>
+              </div>
               {open && (
                 <div className="border-t border-brand-line bg-brand-mist/40 px-4 py-3">
                   <div className="mb-2 flex flex-wrap gap-3 text-xs text-brand-ink2/70">

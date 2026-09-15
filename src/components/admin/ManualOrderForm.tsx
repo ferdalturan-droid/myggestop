@@ -2,8 +2,8 @@
 import { useEffect, useState } from "react";
 import { useRouter } from "next/navigation";
 import { LEAD_SOURCE_MANUAL_OPTIONS } from "@/lib/leadSource";
-import { TUR_OPTIONS, SYS_OPTIONS, TIP_OPTIONS, felterRelevanteForTur } from "@/lib/calcOptions";
-import { priceOfRow, DEFAULT_IMALAT_RATES, DEFAULT_GARDIN_RATE, ImalatRates } from "@/lib/imalatPricing";
+import { priceOfRow, sumColorSurcharge, DEFAULT_IMALAT_RATES, DEFAULT_GARDIN_RATE, ImalatRates } from "@/lib/imalatPricing";
+import { MeasurementRowFields, BLANK_ROW, RowValue } from "./MeasurementRowFields";
 
 // RUNDE 9 (fuld genskrivning):
 // - "Man skal kunne indtaste alle information omkring ordren (per produkt)
@@ -17,47 +17,75 @@ import { priceOfRow, DEFAULT_IMALAT_RATES, DEFAULT_GARDIN_RATE, ImalatRates } fr
 //   opretter en Order direkte UDEN noget Lead (se den routes kommentarer).
 // - Monterings-/leveringsvalget er samme UI-mønster som OrderEditForm, så
 //   det opfører sig ens uanset hvor i systemet man sætter det.
-
-interface RowForm {
-  uid: number;
-  roomName: string;
-  tur: string;
-  sys: string;
-  tip: string;
-  layout: string;
-  kanat: string;
-  adet: string;
-  widthMm: string;
-  heightMm: string;
-  colorName: string;
-  comment: string;
-}
+//
+// RUNDE 10 (§M - "hvis manuel ordre oprettes skal pris og alle detaljer
+// vedrørende ordren kunne editeres og vælges af installatør og
+// koordinator"): samme formular genbruges nu ogsaa til REDIGERING af en
+// allerede oprettet manuel ordre, via det valgfrie initialOrder-prop -
+// /api/orders/manual understøttede allerede en orderId-baseret
+// opdateringssti (brugt af Produktionsberegneren), men UI'en herfra havde
+// ingen vej ind i den for en almindelig manuel ordre - kun "opret ny" var
+// muligt. Fuld fri redigering (mål, farve, pris, kundeoplysninger) er
+// bevidst kun tilgængelig her, netop fordi en manuel ordre ALDRIG har et
+// lead bagved med en allerede aftalt/fastlaast pris.
+//
+// RUNDE 10 (§C/§E - kategoriseret dropdown-skema): produktlinjerne bruger
+// nu den samme delte MeasurementRowFields-komponent som Leads' "Mål"-
+// sektion og Installatørens Opmålingsliste (undertype, profilstørrelse-
+// bibliotek, tre farvetyper) - ellers ville en manuel ordre have et helt
+// andet, ældre sæt produktfelter end resten af systemet.
 
 let uidc = 1;
-const blankRow = (): RowForm => ({
-  uid: uidc++, roomName: "", tur: "SINEKLIK", sys: "1,9", tip: "TEK", layout: "YANA", kanat: "HAREKETLI",
-  adet: "1", widthMm: "", heightMm: "", colorName: "", comment: ""
-});
+const blankRow = (): RowValue & { uid: number } => ({ uid: uidc++, ...BLANK_ROW });
 
-export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHref?: string }) {
+export default function ManualOrderForm({ backHref = "/admin/ordrer", initialOrder }: { backHref?: string; initialOrder?: any }) {
   const router = useRouter();
-  const [firstName, setFirstName] = useState("");
-  const [lastName, setLastName] = useState("");
-  const [phone, setPhone] = useState("");
-  const [address, setAddress] = useState("");
-  const [postalCode, setPostalCode] = useState("");
-  const [city, setCity] = useState("");
-  const [source, setSource] = useState("PERSONLIG_KONTAKT");
-  const [note, setNote] = useState("");
+  const erRedigering = !!initialOrder;
+  const [firstName, setFirstName] = useState(initialOrder?.firstName || "");
+  const [lastName, setLastName] = useState(initialOrder?.lastName || "");
+  const [phone, setPhone] = useState(initialOrder?.phone || "");
+  const [address, setAddress] = useState(initialOrder?.address || "");
+  const [postalCode, setPostalCode] = useState(initialOrder?.postalCode || "");
+  const [city, setCity] = useState(initialOrder?.city || "");
+  const [source, setSource] = useState(initialOrder?.source || "PERSONLIG_KONTAKT");
+  const [note, setNote] = useState(initialOrder?.note || "");
 
-  const [wantsInstallation, setWantsInstallation] = useState(false);
-  const [deliveryMethod, setDeliveryMethod] = useState("AFHENTER_SELV");
-  const [shippingCost, setShippingCost] = useState("");
+  const [wantsInstallation, setWantsInstallation] = useState(!!initialOrder?.wantsInstallation);
+  const [deliveryMethod, setDeliveryMethod] = useState(initialOrder?.deliveryMethod || "AFHENTER_SELV");
+  const [shippingCost, setShippingCost] = useState(initialOrder?.shippingCost != null ? String(initialOrder.shippingCost) : "");
 
-  const [rows, setRows] = useState<RowForm[]>([blankRow()]);
+  // RUNDE 10 (§M): en manuel ordres egne Measurement-rækker (koblet via
+  // orderId, ikke leadId) er den eneste kilde der har de fulde felter
+  // (tur/sys/tip/layout/kanat/subType/fabricColorName/rodColorName) -
+  // OrderItem alene har ikke nok til at genopbygge en redigerbar linje.
+  // Findes ingen (bagudkompatibel manuel ordre fra før dette fandtes),
+  // startes med én tom linje som ved oprettelse.
+  const [rows, setRows] = useState<(RowValue & { uid: number })[]>(() => {
+    if (initialOrder?.measurements?.length > 0) {
+      return initialOrder.measurements.map((m: any) => ({
+        uid: uidc++,
+        roomName: m.roomName || "",
+        tur: m.tur || "SINEKLIK",
+        sys: m.sys || "1,9",
+        tip: m.tip || "TEK",
+        layout: m.layout || "YANA",
+        kanat: m.kanat || "HAREKETLI",
+        subType: m.subType || "NORMAL",
+        adet: m.adet ?? 1,
+        widthMm: m.widthMm ?? "",
+        heightMm: m.heightMm ?? "",
+        colorName: m.colorName || "",
+        fabricColorName: m.fabricColorName || "",
+        rodColorName: m.rodColorName || "",
+        comment: m.comment || ""
+      }));
+    }
+    return [blankRow()];
+  });
   const [rates, setRates] = useState<ImalatRates>(DEFAULT_IMALAT_RATES);
   const [gardinRate, setGardinRate] = useState(DEFAULT_GARDIN_RATE);
-  const [colors, setColors] = useState<{ name: string; surchargePerSqm: number; isStandard: boolean }[]>([]);
+  const [colors, setColors] = useState<{ name: string; surchargePerSqm: number; isStandard: boolean; category?: string }[]>([]);
+  const [profileSizes, setProfileSizes] = useState<any[]>([]);
 
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -68,24 +96,24 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHr
       if (typeof d.perde === "number") setGardinRate(d.perde);
     }).catch(() => {});
     fetch("/api/colors", { cache: "no-store" }).then((r) => r.json()).then((d) => setColors(d.colors || [])).catch(() => {});
+    fetch("/api/profile-sizes", { cache: "no-store" }).then((r) => r.json()).then((d) => setProfileSizes(d.sizes || [])).catch(() => {});
   }, []);
 
-  function updRow(uid: number, p: Partial<RowForm>) {
+  function updRow(uid: number, p: Partial<RowValue>) {
     setRows((rs) => rs.map((r) => (r.uid === uid ? { ...r, ...p } : r)));
   }
   function addRow() { setRows((rs) => [...rs, blankRow()]); }
   function delRow(uid: number) { setRows((rs) => (rs.length > 1 ? rs.filter((r) => r.uid !== uid) : rs)); }
 
-  function priceFor(r: RowForm) {
-    const col = colors.find((c) => c.name === r.colorName);
-    const colorSurchargePerSqm = col && !col.isStandard ? col.surchargePerSqm : 0;
+  function priceFor(r: RowValue) {
+    const colorSurchargePerSqm = sumColorSurcharge(colors, { colorName: r.colorName, fabricColorName: r.fabricColorName, rodColorName: r.rodColorName }, r.tur);
     return priceOfRow(
-      { tur: r.tur, sys: r.sys, tip: r.tip, widthCm: (parseFloat(r.widthMm) || 0) / 10, heightCm: (parseFloat(r.heightMm) || 0) / 10, adet: parseFloat(r.adet) || 1, colorSurchargePerSqm },
+      { tur: r.tur, sys: r.sys, tip: r.tip, widthCm: (parseFloat(String(r.widthMm)) || 0) / 10, heightCm: (parseFloat(String(r.heightMm)) || 0) / 10, adet: Number(r.adet) || 1, colorSurchargePerSqm },
       rates, gardinRate
     );
   }
 
-  const validRows = rows.filter((r) => (parseFloat(r.widthMm) || 0) > 0 && (parseFloat(r.heightMm) || 0) > 0);
+  const validRows = rows.filter((r) => (parseFloat(String(r.widthMm)) || 0) > 0 && (parseFloat(String(r.heightMm)) || 0) > 0);
   const productsTotal = validRows.reduce((s, r) => s + (priceFor(r)?.price || 0), 0);
 
   async function submit(e: React.FormEvent) {
@@ -99,6 +127,7 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHr
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
+          ...(erRedigering ? { orderId: initialOrder.id } : {}),
           musteri: `${firstName.trim()} ${lastName.trim()}`,
           tel: phone,
           adres: address,
@@ -111,17 +140,19 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHr
           shippingCost: parseFloat(shippingCost.replace(",", ".")) || 0,
           rows: validRows.map((r) => ({
             roomName: r.roomName,
-            tur: r.tur, sys: r.sys, tip: r.tip, layout: r.layout, kanat: r.kanat,
-            adet: parseFloat(r.adet) || 1,
-            widthMm: parseFloat(r.widthMm) || 0,
-            heightMm: parseFloat(r.heightMm) || 0,
+            tur: r.tur, sys: r.sys, tip: r.tip, layout: r.layout, kanat: r.kanat, subType: r.subType,
+            adet: Number(r.adet) || 1,
+            widthMm: parseFloat(String(r.widthMm)) || 0,
+            heightMm: parseFloat(String(r.heightMm)) || 0,
             colorName: r.colorName,
+            fabricColorName: r.fabricColorName,
+            rodColorName: r.rodColorName,
             comment: r.comment
           }))
         })
       });
       const d = await res.json();
-      if (!res.ok) throw new Error(d.error || "Kunne ikke oprette ordren.");
+      if (!res.ok) throw new Error(d.error || (erRedigering ? "Kunne ikke gemme ændringerne." : "Kunne ikke oprette ordren."));
       router.push(`/admin/ordrer/${d.orderId}`);
       router.refresh();
     } catch (err: any) {
@@ -133,7 +164,9 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHr
   return (
     <form onSubmit={submit} className="space-y-6">
       <p className="rounded-xl border border-dashed border-brand-line bg-brand-mist/30 p-4 text-sm text-brand-ink2/70">
-        Til en kunde der ikke skal igennem den normale lead-proces (fx en ven der ringer direkte). Opretter ordren med det samme, uden noget lead — den følger derefter den almindelige produktions-/leveringsproces.
+        {erRedigering
+          ? "Denne ordre blev oprettet manuelt (uden lead) - alle detaljer, mål og priser kan frit redigeres her, af både Installatør og Koordinator."
+          : "Til en kunde der ikke skal igennem den normale lead-proces (fx en ven der ringer direkte). Opretter ordren med det samme, uden noget lead — den følger derefter den almindelige produktions-/leveringsproces."}
       </p>
 
       <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
@@ -157,10 +190,9 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHr
 
       <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
         <h2 className="mb-1 font-bold text-brand-ink">Produkter</h2>
-        <p className="mb-4 text-sm text-brand-ink2/60">Samme felter som Produktionsberegneren — prisen udregnes automatisk ud fra mål, type og farve.</p>
+        <p className="mb-4 text-sm text-brand-ink2/60">Samme felter og dropdowns som resten af systemet — prisen udregnes automatisk ud fra mål, type og farve.</p>
         <div className="space-y-3">
           {rows.map((r, i) => {
-            const rel = felterRelevanteForTur(r.tur);
             const priced = priceFor(r);
             return (
               <div key={r.uid} className="rounded-xl border border-brand-line p-4">
@@ -171,32 +203,12 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHr
                     <button type="button" onClick={() => delRow(r.uid)} className="text-xl leading-none text-red-400 hover:text-red-600">×</button>
                   </div>
                 </div>
-                <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-4">
-                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Rum</span><input className="input py-2 text-sm" value={r.roomName} onChange={(e) => updRow(r.uid, { roomName: e.target.value })} placeholder="F.eks. Stue" /></label>
-                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Type</span>
-                    <select className="input py-2 text-sm" value={r.tur} onChange={(e) => updRow(r.uid, { tur: e.target.value })}>
-                      {TUR_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </label>
-                  {rel.sys && <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">System</span>
-                    <select className="input py-2 text-sm" value={r.sys} onChange={(e) => updRow(r.uid, { sys: e.target.value })}>
-                      {SYS_OPTIONS.map((v) => <option key={v} value={v}>{v}</option>)}
-                    </select>
-                  </label>}
-                  {rel.tip && <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Udførelse</span>
-                    <select className="input py-2 text-sm" value={r.tip} onChange={(e) => updRow(r.uid, { tip: e.target.value })}>
-                      {TIP_OPTIONS.map(([v, l]) => <option key={v} value={v}>{l}</option>)}
-                    </select>
-                  </label>}
-                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Antal</span><input className="input py-2 text-sm" inputMode="numeric" value={r.adet} onChange={(e) => updRow(r.uid, { adet: e.target.value.replace(/[^0-9]/g, "") })} /></label>
-                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Bredde (mm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.widthMm} onChange={(e) => updRow(r.uid, { widthMm: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
-                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Højde (mm)</span><input className="input py-2 text-sm" inputMode="decimal" value={r.heightMm} onChange={(e) => updRow(r.uid, { heightMm: e.target.value.replace(/[^0-9.,]/g, "") })} /></label>
-                  <label className="block"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Farve</span>
-                    <input className="input py-2 text-sm" list={`farver-${r.uid}`} value={r.colorName} onChange={(e) => updRow(r.uid, { colorName: e.target.value })} placeholder="Standard" />
-                    <datalist id={`farver-${r.uid}`}>{colors.map((c) => <option key={c.name} value={c.name} />)}</datalist>
-                  </label>
-                  <label className="block sm:col-span-2"><span className="mb-0.5 block text-[11px] font-medium text-brand-ink2/60">Kommentar</span><input className="input py-2 text-sm" value={r.comment} onChange={(e) => updRow(r.uid, { comment: e.target.value })} /></label>
-                </div>
+                <MeasurementRowFields
+                  value={r}
+                  onField={(patch) => updRow(r.uid, patch)}
+                  colors={colors}
+                  profileSizes={profileSizes}
+                />
               </div>
             );
           })}
@@ -245,7 +257,7 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer" }: { backHr
 
       {error && <p className="rounded-lg bg-red-50 px-3 py-2 text-sm text-red-600">{error}</p>}
       <div className="flex gap-2">
-        <button disabled={saving} className="btn-primary py-2.5 text-sm disabled:opacity-60">{saving ? "Opretter..." : "Opret ordre"}</button>
+        <button disabled={saving} className="btn-primary py-2.5 text-sm disabled:opacity-60">{saving ? "Gemmer..." : erRedigering ? "Gem ændringer" : "Opret ordre"}</button>
         <button type="button" onClick={() => router.push(backHref)} className="btn-secondary py-2.5 text-sm">Annuller</button>
       </div>
     </form>

@@ -13,7 +13,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
   if (!auth.ok) return auth.response;
   const lead = await prisma.lead.findUnique({
     where: { id: params.id },
-    include: { measurements: { orderBy: { itemNumber: "asc" } }, appointments: { include: { assignedUser: { select: { id: true, name: true } } } }, order: { select: { id: true, orderNumber: true, stage: true } } }
+    include: { measurements: { orderBy: [{ itemNumber: "asc" }, { createdAt: "asc" }] }, appointments: { include: { assignedUser: { select: { id: true, name: true } } } }, order: { select: { id: true, orderNumber: true, stage: true } } }
   });
   if (!lead) return NextResponse.json({ error: "Ikke fundet" }, { status: 404 });
   return NextResponse.json({ lead });
@@ -41,7 +41,11 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
     for (const f of ["firstName", "lastName", "phone", "email", "address", "postalCode", "city", "source", "productSummary", "note"] as const) {
       if (typeof b[f] === "string") data[f] = b[f];
     }
-    if (typeof b.quotePriceDkk === "number") data.quotePriceDkk = b.quotePriceDkk;
+    // RUNDE 10 (§H - "beregningsmekanismen er allerede i systemet du skal
+    // bruge det"): quotePriceDkk er nu KUN et historisk felt - Koordinator
+    // indtaster ikke laengere en fri pris, kun en rabat der traekkes fra
+    // den automatisk beregnede pris (calculatedPriceDkk, sat nedenfor).
+    if (typeof b.discountDkk === "number") data.discountDkk = Math.max(0, b.discountDkk);
     if (typeof b.expectedMeasuringWeekLabel === "string") data.expectedMeasuringWeekLabel = b.expectedMeasuringWeekLabel;
     blivBekraeftetNu = b.stage === "BEKRAEFTET" && existing.stage !== "BEKRAEFTET";
     if (b.stage && LEAD_STAGES.includes(b.stage)) {
@@ -53,14 +57,21 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   }
   // §6.2a/§11.2: eksplicit signering, aldrig automatisk - tilladt for
   // BEGGE roller (Installer saetter den selv, Coordinator kan rette den).
+  const saetterMaaltFaerdigNu = b.measuredAt === true && !existing.measuredAt;
   if (b.measuredAt === true) data.measuredAt = new Date();
 
-  // RUNDE 2 (§11.6): forfremmelsen sker nu i SAMME transaktion som selve
-  // stage-skiftet til BEKRAEFTET - intet lead kan staa "bekraeftet uden
-  // ordre" i mere end et oejeblik. Den gamle, bruger-trykbare "Forfrem"-
-  // knap er fjernet fra UI'en (route'n /promote bevares som internt
-  // sikkerhedsnet, kaldes ikke laengere herfra).
+  // RUNDE 10 (§H - "når installatør har bekræftet opmåling, skal pris
+  // sættes på LEAD... beregningsmekanismen er allerede i systemet du skal
+  // bruge det"): naar opmaalingen markeres faerdig foerste gang, summeres
+  // ALLE linjers allerede-beregnede calculatedLineTotal (samme kilde som
+  // linjerne selv viser, se measurementPricing.ts) til lead.calculatedPriceDkk.
+  // Linjer uden gyldige maal (calculatedLineTotal == null) bidrager 0 kr -
+  // de er per definition endnu ikke prissatte, ikke en fejl.
   const lead = await prisma.$transaction(async (tx: any) => {
+    if (saetterMaaltFaerdigNu) {
+      const linjer = await tx.measurement.findMany({ where: { leadId: params.id }, select: { calculatedLineTotal: true } });
+      data.calculatedPriceDkk = linjer.reduce((s: number, m: any) => s + (m.calculatedLineTotal || 0), 0);
+    }
     const updated = await tx.lead.update({ where: { id: params.id }, data });
     if (blivBekraeftetNu) await promoteLeadToOrder(tx as any, params.id);
     return updated;

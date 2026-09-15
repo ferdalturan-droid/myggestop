@@ -36,7 +36,7 @@ export async function GET(_req: NextRequest, { params }: { params: { id: string 
     where: { id: params.id },
     include: {
       items: true,
-      lead: { include: { measurements: { orderBy: { itemNumber: "asc" } } } }
+      lead: { include: { measurements: { orderBy: [{ itemNumber: "asc" }, { createdAt: "asc" }] } } }
     }
   });
   if (!order) return NextResponse.json({ error: "Ordre ikke fundet" }, { status: 404 });
@@ -161,7 +161,7 @@ export async function PATCH(req: NextRequest, { params }: { params: { id: string
   const updated = await prisma.order.update({
     where: { id: order.id },
     data: orderData,
-    include: { items: true, lead: { include: { measurements: { orderBy: { itemNumber: "asc" } } } } }
+    include: { items: true, lead: { include: { measurements: { orderBy: [{ itemNumber: "asc" }, { createdAt: "asc" }] } } } }
   });
 
   return NextResponse.json({

@@ -22,7 +22,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
       // RUNDE 6: byggedetaljer (skæreliste) beregnes af de rigtige
       // Lead->Measurement-rækker, samme kilde som Produktionsberegneren
       // altid har brugt for ordre-koblede sessioner (§8.6/§9).
-      lead: { include: { measurements: { orderBy: { itemNumber: "asc" } } } }
+      lead: { include: { measurements: { orderBy: [{ itemNumber: "asc" }, { createdAt: "asc" }] } } }
     }
   });
   if (!order) notFound();
@@ -42,6 +42,11 @@ export default async function OrderDetail({ params }: { params: { id: string } }
   // et UX-lag oveni en reel serverside-spaerring, ikke eneste forsvar.
   const session = await getSession();
   const canEdit = session?.role === "COORDINATOR" || session?.role === "INSTALLER";
+  // RUNDE 10 (§I - "Pris på ordre skal ikke dukke op for bygger, dette er
+  // confidential"): ét sted der styrer prisens synlighed på HELE denne
+  // side - itemlinjer, delsummer og total. Bygger må stadig se alt andet
+  // (mål, farver, byggedetaljer, skæreliste) - kun kroner-beløb skjules.
+  const erBygger = session?.role === "BUILDER";
   // Sletning er fortsat snaevrere end almindelig redigering (COORDINATOR-
   // only paa API-niveau, jf. /api/orders/[id] DELETE) - vis derfor kun
   // knappen naar den reelt vil virke.
@@ -91,7 +96,12 @@ export default async function OrderDetail({ params }: { params: { id: string } }
             />
           )}
           <a href={`/api/orders/${order.id}/pdf`} className="btn-primary py-2.5 text-sm" target="_blank" rel="noreferrer">Download PDF</a>
-          <OrderCsvExport orderNumber={order.orderNumber} items={visteItems.map((it: any) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm, lineTotal: it.lineTotal }))} />
+          <OrderCsvExport
+            orderNumber={order.orderNumber}
+            items={visteItems.map((it: any) => ({ productName: it.productName, widthMm: it.widthMm, heightMm: it.heightMm, lineTotal: it.lineTotal }))}
+            measurements={order.lead?.measurements || []}
+            hidePrices={erBygger}
+          />
           {canEdit && <Link href={`/admin/ordrer/${order.id}/rediger`} className="btn-secondary py-2.5 text-sm">Rediger</Link>}
           {canDelete && <OrderDeleteButton orderId={order.id} orderNumber={order.orderNumber} />}
         </div>
@@ -112,7 +122,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 <div key={it.id} className="rounded-xl border border-brand-line p-4">
                   <div className="flex items-center justify-between">
                     <span className="font-semibold text-brand-ink">{it.roomName || "—"} · {it.productName}{it.isDoubleDoor ? " (Dobbeltdør)" : ""}</span>
-                    <span className="font-bold text-brand-bluedark">{formatDKK(it.lineTotal)}</span>
+                    {!erBygger && <span className="font-bold text-brand-bluedark">{formatDKK(it.lineTotal)}</span>}
                   </div>
                   <div className="mt-1 text-sm text-brand-ink2/70">
                     {it.widthMm} × {it.heightMm} mm · {it.areaSqm.toString().replace(".", ",")} m² · Farve: {it.colorName || "—"}
@@ -121,14 +131,17 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 </div>
               ))}
             </div>
-            <div className="mt-5 space-y-1.5 border-t border-brand-line pt-4 text-sm">
-              <div className="flex justify-between"><span className="text-brand-ink2/60">Produkter i alt</span><span>{formatDKK(order.productsTotal)}</span></div>
-              {order.wantsInstallation && <div className="flex justify-between"><span className="text-brand-ink2/60">Montering</span><span>{formatDKK(order.installationTotal)}</span></div>}
-              {!order.wantsInstallation && order.deliveryMethod === "FRAGTES" && (
-                <div className="flex justify-between"><span className="text-brand-ink2/60">Fragt</span><span>{order.shippingCost != null ? formatDKK(order.shippingCost) : "Ikke angivet endnu"}</span></div>
-              )}
-              <div className="flex justify-between border-t border-brand-line pt-2 text-base font-bold"><span>Estimeret total</span><span className="text-brand-bluedark">{formatDKK(order.estimatedTotal)}</span></div>
-            </div>
+            {/* RUNDE 10 (§I): hele prisopsummeringen skjules for Bygger. */}
+            {!erBygger && (
+              <div className="mt-5 space-y-1.5 border-t border-brand-line pt-4 text-sm">
+                <div className="flex justify-between"><span className="text-brand-ink2/60">Produkter i alt</span><span>{formatDKK(order.productsTotal)}</span></div>
+                {order.wantsInstallation && <div className="flex justify-between"><span className="text-brand-ink2/60">Montering</span><span>{formatDKK(order.installationTotal)}</span></div>}
+                {!order.wantsInstallation && order.deliveryMethod === "FRAGTES" && (
+                  <div className="flex justify-between"><span className="text-brand-ink2/60">Fragt</span><span>{order.shippingCost != null ? formatDKK(order.shippingCost) : "Ikke angivet endnu"}</span></div>
+                )}
+                <div className="flex justify-between border-t border-brand-line pt-2 text-base font-bold"><span>Estimeret total</span><span className="text-brand-bluedark">{formatDKK(order.estimatedTotal)}</span></div>
+              </div>
+            )}
           </div>
           {order.note && (
             <div className="rounded-xl2 border border-brand-line bg-white p-6 shadow-card">
@@ -154,7 +167,22 @@ export default async function OrderDetail({ params }: { params: { id: string } }
               <div><dt className="text-brand-ink2/50">Navn</dt><dd className="font-medium text-brand-ink">{order.firstName} {order.lastName}</dd></div>
               <div><dt className="text-brand-ink2/50">Telefon</dt><dd><a className="text-brand-blue hover:underline" href={`tel:${order.phone}`}>{order.phone}</a></dd></div>
               <div><dt className="text-brand-ink2/50">E-mail</dt><dd><a className="text-brand-blue hover:underline" href={`mailto:${order.email}`}>{order.email}</a></dd></div>
-              <div><dt className="text-brand-ink2/50">Adresse</dt><dd className="text-brand-ink">{order.address}, {order.postalCode} {order.city}</dd></div>
+              <div>
+                <dt className="text-brand-ink2/50">Adresse</dt>
+                <dd className="text-brand-ink">
+                  {order.address}, {order.postalCode} {order.city}{" "}
+                  {/* RUNDE 10 (§B - GPS-ikon, også på destinationssiden man når via "åbn"). */}
+                  <a
+                    href={`https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(`${order.address}, ${order.postalCode} ${order.city}`)}`}
+                    target="_blank"
+                    rel="noopener noreferrer"
+                    title="Åbn i Google Maps"
+                    className="text-brand-greendark hover:text-brand-green"
+                  >
+                    📍
+                  </a>
+                </dd>
+              </div>
               <div><dt className="text-brand-ink2/50">Montering</dt><dd className="text-brand-ink">{order.wantsInstallation ? "Ja — montering inkluderet" : "Nej — kunden modtager selv"}</dd></div>
               {!order.wantsInstallation && (
                 <div>
@@ -183,6 +211,7 @@ export default async function OrderDetail({ params }: { params: { id: string } }
                 wantsInstallation={order.wantsInstallation}
                 deliveryMethod={order.deliveryMethod}
                 handedOverAt={order.handedOverAt ? order.handedOverAt.toISOString() : null}
+                paymentStatus={order.paymentStatus}
               />
             </div>
           ) : (

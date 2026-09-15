@@ -16,8 +16,13 @@ export const dynamic = "force-dynamic";
 export async function GET() {
   const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
+  // RUNDE 10 (§L - "hele 'installering'-processen skal kun være en del af
+  // processen hvis montering er bestilt"): en ordre uden montering følger
+  // Koordinators "afhentet/fragtet"-spor (§9), ikke Installatørens liste -
+  // uden dette filter kunne en ikke-monteret, men "klar"-markeret ordre
+  // fejlagtigt dukke op her, som om Installatøren skulle tage sig af den.
   const orders = await prisma.order.findMany({
-    where: { readyAt: { not: null }, installedAt: null },
+    where: { readyAt: { not: null }, installedAt: null, wantsInstallation: true },
     include: {
       items: true,
       appointments: { where: { type: "INSTALLATION" }, orderBy: { day: "asc" }, take: 1, include: { assignedUser: { select: { name: true } } } }

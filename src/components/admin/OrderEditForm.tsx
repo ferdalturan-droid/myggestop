@@ -1,6 +1,7 @@
 "use client";
 import { useState } from "react";
 import { useRouter } from "next/navigation";
+import OrderItemsPriceEditor from "./OrderItemsPriceEditor";
 
 // RUNDE 9 ("når man trykker 'rediger ordre' kan man tilføje nogle mål og
 // forskelligt, ser ikke hvad formålet er her, da det ikke driver noget? så
@@ -140,10 +141,15 @@ export default function OrderEditForm({ order }: { order: any }) {
       </div>
 
       {order.leadId && (
-        <div className="rounded-xl border border-dashed border-brand-line bg-brand-mist/30 p-4 text-sm text-brand-ink2/70">
-          Mål, produkter og priser pr. linje redigeres i Produktionsberegneren, ikke her.{" "}
-          <a href={`/admin/imalat?orderId=${order.id}`} className="font-semibold text-brand-greendark hover:underline">Åbn beregner →</a>
-        </div>
+        <>
+          <div className="rounded-xl border border-dashed border-brand-line bg-brand-mist/30 p-4 text-sm text-brand-ink2/70">
+            Reelle mål/farver rettes i Produktionsberegneren, ikke her.{" "}
+            <a href={`/admin/imalat?orderId=${order.id}`} className="font-semibold text-brand-greendark hover:underline">Åbn beregner →</a>
+          </div>
+          {/* RUNDE 10 (§M): let kompromis-editor - fjern linje/justér pris,
+              uden at røre den egentlige mål-sandhed i beregneren ovenfor. */}
+          <OrderItemsPriceEditor orderId={order.id} items={order.items} />
+        </>
       )}
 
       {err && <p className="text-sm font-medium text-red-600">{err}</p>}

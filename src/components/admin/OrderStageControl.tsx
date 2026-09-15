@@ -21,7 +21,7 @@ import { deriveOrderStageLabel } from "@/lib/orderStage";
 // trykke på igen) - kun Koordinator kan fortryde en fejlagtig markering.
 export default function OrderStageControl({
   orderId, stage, readyAt, installedAt, role, alleLinjerFaerdig = true, antalLinjerIalt = 0, antalLinjerFaerdig = 0,
-  wantsInstallation = true, deliveryMethod = "AFHENTER_SELV", handedOverAt = null
+  wantsInstallation = true, deliveryMethod = "AFHENTER_SELV", handedOverAt = null, paymentStatus = "IKKE_SENDT"
 }: {
   orderId: string; stage: string; readyAt: string | null; installedAt: string | null; role?: string;
   // RUNDE 7 (§4 i procesdokumentet): "Færdig"-markeringen pr. linje i
@@ -35,16 +35,32 @@ export default function OrderStageControl({
   // Klar->Installeret-flowet vises, eller om Koordinator i stedet skal
   // markere afhentet/fragtet manuelt.
   wantsInstallation?: boolean; deliveryMethod?: string; handedOverAt?: string | null;
+  // RUNDE 10 (§L): for ordrer UDEN montering skal betaling ske FØR
+  // produktion - dette felt (Order.paymentStatus) styrer om "Send til
+  // produktion" er låst op endnu.
+  paymentStatus?: string;
 }) {
   const router = useRouter();
   const [s, setS] = useState(stage);
   const [ready, setReady] = useState(readyAt);
   const [installed, setInstalled] = useState(installedAt);
   const [handedOver, setHandedOver] = useState(handedOverAt);
+  const [betalt, setBetalt] = useState(paymentStatus === "BETALT");
   const [saving, setSaving] = useState(false);
   const [msg, setMsg] = useState<string | null>(null);
   const [err, setErr] = useState<string | null>(null);
   const erKoordinator = role === "COORDINATOR";
+
+  // RUNDE 10 (§L): Koordinators manuelle "betaling modtaget"-markering,
+  // kun relevant/vist for ordrer UDEN montering (montering betales
+  // automatisk ved "Installeret", se markerInstalleret nedenfor).
+  async function markerBetaltFoerProduktion() {
+    if (!confirm("Markér at betaling er modtaget fra kunden?")) return;
+    setErr(null);
+    const res = await fetch(`/api/orders/${orderId}`, { method: "PATCH", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ paymentStatus: "BETALT" }) });
+    const d = await res.json();
+    if (res.ok) { setBetalt(true); router.refresh(); } else setErr(d.error || "Kunne ikke markere betaling.");
+  }
 
   async function saetStage(next: string, extra: any = {}) {
     setSaving(true);
@@ -116,8 +132,29 @@ export default function OrderStageControl({
               en Produktion-aftale hos den navngivne bygger fra Kalender-
               siden (soeg efter ordrenummeret der for at koble den). */}
           <p className="mb-2 text-xs text-brand-ink2/60">Ordren ligger i køen (backlog). Når den er klar til at blive bygget, sender du den til produktion herunder — book selve arbejdet hos en bygger fra Kalender-siden, når det er planlagt.</p>
+
+          {/* RUNDE 10 (§L - "hvis der ikke er bestilt montering skal
+              betalingen ske før ordren er flyttet til produktion"): en
+              ordre uden montering skal betales HER, før "Send til
+              produktion" overhovedet kan trykkes - monterede ordrer har
+              ingen af disse spærringer, de betales automatisk senere ved
+              installation. */}
+          {!wantsInstallation && !betalt && erKoordinator && (
+            <div className="mb-3 rounded-lg border border-amber-300 bg-amber-50 p-2.5">
+              <p className="mb-2 text-xs font-medium text-amber-800">Ordren monteres ikke ({deliveryMethod === "FRAGTES" ? "fragtes" : "afhentes selv"}) — betaling skal modtages fra kunden, før den kan sendes til produktion.</p>
+              <button onClick={markerBetaltFoerProduktion} className="rounded-full border border-amber-600 px-3 py-1.5 text-xs font-semibold text-amber-800 hover:bg-amber-100">Markér betaling modtaget</button>
+            </div>
+          )}
+          {!wantsInstallation && !betalt && !erKoordinator && (
+            <p className="mb-3 text-xs text-amber-700">Afventer at Koordinator markerer betaling modtaget (ordren monteres ikke) — sendes først til produktion herefter.</p>
+          )}
+          {!wantsInstallation && betalt && (
+            <p className="mb-2 text-xs font-semibold text-brand-greendark">Betaling modtaget ✓</p>
+          )}
+
           <button
-            disabled={saving}
+            disabled={saving || (!wantsInstallation && !betalt)}
+            title={!wantsInstallation && !betalt ? "Betaling skal modtages først (se ovenfor)" : undefined}
             onClick={() => { if (confirm("Send ordren til produktion?")) saetStage("I_PRODUKTION"); }}
             className="btn-primary py-2 text-sm disabled:opacity-50"
           >

@@ -1,6 +1,14 @@
 "use client";
 import { useEffect, useState } from "react";
+import { formatDKK } from "@/lib/pricing";
 
+// RUNDE 10 (§L - "installatør skal modtage betaling hos kunden lige efter
+// installering er sket... derfor skal prisen dukke op tydeligt for
+// installatør når han ser på ordren i installationsliste"): denne liste
+// eksisterer udelukkende for MONTEREDE ordrer (jf. wantsInstallation-
+// filteret i /api/installation), saa prisen vist her er altid den, kunden
+// skal betale ved døren - ingen risiko for at vise en ikke-monteret ordres
+// pris et sted den ikke skal ses.
 export default function InstallationList() {
   const [orders, setOrders] = useState<any[]>([]);
   const [loading, setLoading] = useState(true);
@@ -48,6 +56,8 @@ export default function InstallationList() {
                 <span className="mr-2 inline-grid h-6 w-6 place-items-center rounded-full bg-brand-mist text-xs font-bold text-brand-ink2">{i + 1}</span>
                 <span className="font-semibold text-brand-ink">{o.orderNumber} · {o.firstName} {o.lastName}</span>
                 <span className="ml-2 text-brand-ink2/55">{o.phone} · {o.address}, {o.postalCode} {o.city}</span>
+                {/* RUNDE 10 (§L): prisen der skal opkræves ved døren, vist tydeligt. */}
+                <span className="ml-2 rounded-full bg-brand-bluedark/10 px-2 py-0.5 text-xs font-bold text-brand-bluedark">Opkræv {formatDKK(o.estimatedTotal)}</span>
                 {appt ? (
                   <span className="ml-2 rounded-full bg-brand-green/15 px-2 py-0.5 text-xs font-semibold text-brand-greendark">
                     Booket {new Date(appt.day).toLocaleDateString("da-DK")}{appt.time ? ` kl. ${appt.time}` : ""}{appt.assignedUser ? ` · ${appt.assignedUser.name}` : ""}

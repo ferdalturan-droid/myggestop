@@ -1,10 +1,11 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/prisma";
-import { requireAdmin } from "@/lib/requireAdmin";
+import { requireRole } from "@/lib/requireAdmin";
 import { nextOrderNumber } from "@/lib/orderNumber";
 import { getSetting } from "@/lib/settings";
 import { calcInstallation } from "@/lib/pricing";
-import { priceOfRow, DEFAULT_IMALAT_RATES, DEFAULT_GARDIN_RATE, ImalatRates } from "@/lib/imalatPricing";
+import { priceOfRow, sumColorSurcharge, DEFAULT_IMALAT_RATES, DEFAULT_GARDIN_RATE, ImalatRates } from "@/lib/imalatPricing";
+import { TUR_LABEL } from "@/lib/calcOptions";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
@@ -30,10 +31,15 @@ interface ManualRow {
   tip: string; // TEK | DUBLE
   layout?: string; // YANA | AŞAĞI
   kanat?: string; // HAREKETLI | SABIT
+  // RUNDE 10 (§C): undertype + de to ekstra farvevalg (gardin-stof/-stang),
+  // samme felter som alle andre steder i systemet nu bruger.
+  subType?: string; // NORMAL | LAVPROFIL
   adet: number;
   widthMm: number;
   heightMm: number;
   colorName?: string;
+  fabricColorName?: string;
+  rodColorName?: string;
   comment?: string;
 }
 
@@ -57,7 +63,11 @@ async function loadImalatRates(): Promise<{ rates: ImalatRates; gardinRate: numb
 // en manuel ordre er at man bypasser lead processen") - produktlinjer
 // hænger i stedet direkte paa Order via Measurement.orderId og OrderItem.
 export async function POST(req: NextRequest) {
-  const auth = await requireAdmin();
+  // RUNDE 10 (§M - "kan editeres og vælges af installatør og koordinator"):
+  // strammet fra det tidligere requireAdmin() (enhver logget ind rolle,
+  // inkl. Bygger) til eksplicit kun de to roller der reelt skal kunne
+  // oprette/redigere manuelle ordrer.
+  const auth = await requireRole(["COORDINATOR", "INSTALLER"]);
   if (!auth.ok) return auth.response;
   const b = await req.json().catch(() => ({}));
 
@@ -85,9 +95,15 @@ export async function POST(req: NextRequest) {
       const tip = r.tip === "DUBLE" ? "DUBLE" : "TEK";
       const layout = r.layout === "AŞAĞI" ? "AŞAĞI" : "YANA";
       const kanat = r.kanat === "SABIT" ? "SABIT" : "HAREKETLI";
+      const subType = r.subType === "LAVPROFIL" ? "LAVPROFIL" : "NORMAL";
       const colorName = r.colorName || "";
-      const col = colors.find((c) => c.name === colorName);
-      const colorSurchargePerSqm = col && !col.isStandard ? col.surchargePerSqm : 0;
+      const fabricColorName = r.fabricColorName || "";
+      const rodColorName = r.rodColorName || "";
+      // RUNDE 10 (§C): bruger nu den delte farve-tillægs-logik (op til tre
+      // farvevalg afhængigt af produkttype), samme formel som lead-baserede
+      // ordrer (measurementPricing.ts) - før blev kun ét enkelt colorName
+      // slaaet op, uanset produkttype.
+      const colorSurchargePerSqm = sumColorSurcharge(colors as any, { colorName, fabricColorName, rodColorName }, tur);
 
       const priced = priceOfRow(
         { tur, sys, tip, widthCm: widthMm / 10, heightCm: heightMm / 10, adet, colorSurchargePerSqm },
@@ -97,13 +113,19 @@ export async function POST(req: NextRequest) {
       const lineTotal = priced ? Math.round(priced.price * 100) / 100 : 0;
       productsTotal += lineTotal;
 
-      const productName = tur === "PERDE" ? "Gardin" : tur === "KOMBI" ? "Myggenet & Plisser" : "Myggenet";
+      // RUNDE 10 (§J): samme kanoniske TUR_LABEL som alt andet i systemet -
+      // undgaar at en manuel ordre kan faa et andet produktnavn end en
+      // lead-baseret ordre af samme type.
+      const productName = TUR_LABEL[tur] || tur;
       itemsCreate.push({
         roomName: r.roomName || "",
         productName,
         widthMm,
         heightMm,
         colorName,
+        fabricColorName,
+        rodColorName,
+        subType,
         comment: r.comment || "",
         isDoubleDoor: false,
         areaSqm: priced ? priced.m2 : 0,
@@ -116,8 +138,16 @@ export async function POST(req: NextRequest) {
         widthMm,
         heightMm,
         colorName,
+        fabricColorName,
+        rodColorName,
+        subType,
         comment: r.comment || "",
-        tur, sys, tip, layout, kanat, adet
+        tur, sys, tip, layout, kanat, adet,
+        // RUNDE 10 (§H): en manuel ordre har intet lead - dens linjepris
+        // gemmes alligevel her, ligesom lead-baserede linjer, saa den nye
+        // kompromis-editor (OrderItemsPriceEditor) og enhver fremtidig
+        // visning der laeser calculatedLineTotal altid finder et tal.
+        calculatedLineTotal: lineTotal
       });
     }
     if (itemsCreate.length === 0) return NextResponse.json({ error: "Ingen produkter at gemme." }, { status: 400 });
