@@ -84,7 +84,7 @@ export default function ManualOrderForm({ backHref = "/admin/ordrer", initialOrd
   });
   const [rates, setRates] = useState<ImalatRates>(DEFAULT_IMALAT_RATES);
   const [gardinRate, setGardinRate] = useState(DEFAULT_GARDIN_RATE);
-  const [colors, setColors] = useState<{ name: string; surchargePerSqm: number; isStandard: boolean; category?: string }[]>([]);
+  const [colors, setColors] = useState<{ name: string; surchargePerSqm: number; isStandard: boolean; category: string }[]>([]);
   const [profileSizes, setProfileSizes] = useState<any[]>([]);
 
   const [saving, setSaving] = useState(false);
